@@ -14,16 +14,18 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/latest/download/ZerkPlay-Public-Windows-setup.exe"><b>Download for Windows</b></a>
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Windows-setup.exe"><b>Download for Windows</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/latest/download/ZerkPlay-Public-Android.apk"><b>Download for Android TV</b></a>
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Android.apk"><b>Download for Android TV</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/florinp93/Zerk-Play-2.0/releases">All releases</a>
 </p>
 
 ![Home](screenshots/01-home-hero.png)
 
-Zerk Play 2.0 is a full rewrite. When you open it, it should help you find something to watch, not leave you scrolling a library grid. If what you want isn't on the server yet, you can request it from the same screen.
+Zerk Play 2 is a full rewrite, and this is its first public release. It's still in beta, so expect rough edges and please report anything that breaks.
+
+When you open it, it should help you find something to watch, not leave you scrolling a library grid. If what you want isn't on the server yet, you can request it from the same screen.
 
 ## Discovery first
 
@@ -96,7 +98,7 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 
 ## Getting started
 
-1. Download the [Windows installer](https://github.com/florinp93/Zerk-Play-2.0/releases/latest/download/ZerkPlay-Public-Windows-setup.exe) or the [Android TV APK](https://github.com/florinp93/Zerk-Play-2.0/releases/latest/download/ZerkPlay-Public-Android.apk).
+1. Download the [Windows installer](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Windows-setup.exe) or the [Android TV APK](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Android.apk).
 2. On first start, choose **Emby or Jellyfin** and sign in.
 3. *(Optional)* Add a free **TMDB API key** for metadata in your language, tags and collections.
 4. *(Optional)* Add your **Jellyseerr / Overseerr** address and API key for requests.
