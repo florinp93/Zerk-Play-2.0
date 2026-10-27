@@ -33,6 +33,7 @@ class MainActivity : FlutterActivity() {
         val flutterView = (0 until content.childCount).map(content::getChildAt).filterIsInstance<FlutterView>().firstOrNull()
         val engine = flutterEngine
         if (flutterView != null && engine != null) ImeProxy.install(flutterView, engine.dartExecutor.binaryMessenger)
+        if (engine != null) Updater.install(this, engine.dartExecutor.binaryMessenger)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

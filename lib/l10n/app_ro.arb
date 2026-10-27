@@ -494,5 +494,16 @@
   "appVersionLabel": "Zerk Play {version}",
   "profile": "Profil",
   "tags": "Etichete",
-  "becauseYouLikeTag": "Pentru că îți plac {tag}"
+  "becauseYouLikeTag": "Pentru că îți plac {tag}",
+  "checkForUpdates": "Caută actualizări",
+  "upToDate": "Ai cea mai nouă versiune.",
+  "updateCheckFailed": "Nu s-a putut verifica dacă există actualizări.",
+  "updateAvailable": "{name} este disponibil",
+  "updateBody": "Zerk Play se închide cât se instalează actualizarea.",
+  "updateNow": "Actualizează acum",
+  "updateLater": "Mai târziu",
+  "updateDownloading": "Se descarcă… {percent}%",
+  "updateInstalling": "Se instalează…",
+  "updateFailed": "Actualizarea a eșuat: {error}",
+  "updateAllowInstalls": "Permite aplicației Zerk Play să instaleze aplicații, apoi alege din nou Actualizează acum."
 }

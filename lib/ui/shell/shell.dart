@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
 import '../../core/log/app_log.dart';
 import '../../l10n/l10n.dart';
+import '../../services/updater/updater.dart';
 import '../core/input_mode.dart';
 import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
@@ -19,6 +21,7 @@ import '../pages/search_page.dart';
 import '../pages/settings_page.dart';
 import '../theme/tokens.dart';
 import '../widgets/exit_app.dart';
+import '../widgets/update_dialog.dart';
 import '../widgets/zerk_logo.dart';
 
 enum ShellTab {
@@ -67,6 +70,14 @@ class _ShellState extends State<Shell> {
 
   bool _railHovered = false;
   final _railNodes = {for (final t in ShellTab.values) t: FocusNode(debugLabel: 'rail:${t.name}')};
+
+  @override
+  void initState() {
+    super.initState();
+    if (kReleaseMode && Updater.supported) {
+      Future.delayed(const Duration(seconds: 5), () => mounted ? checkForUpdate(context) : null);
+    }
+  }
 
   @override
   void dispose() {

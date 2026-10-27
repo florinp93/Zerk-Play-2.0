@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
 import '../../app/app_settings.dart';
+import '../../app/release.dart';
 import '../../core/host.dart';
 import '../../core/log/app_log.dart';
 import '../../core/windows/native_window.dart';
@@ -22,6 +23,7 @@ import '../widgets/exit_app.dart';
 import '../widgets/media_row.dart';
 import '../widgets/remote_setup_panel.dart';
 import '../widgets/setting_rows.dart';
+import '../widgets/update_dialog.dart';
 
 enum _Section {
   playback(Icons.play_circle_outline_rounded),
@@ -522,8 +524,15 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _savePlayer(p.copyWith(detailedLog: v)),
             ),
           SettingActionRow(title: l10n.openLogsFolder, icon: Icons.folder_open_rounded, onSelect: AppLog.openFolder),
+          SettingActionRow(
+            title: l10n.checkForUpdates,
+            icon: Icons.system_update_rounded,
+            onSelect: () => checkForUpdate(context, quiet: false),
+          ),
           const SizedBox(height: 20),
-          Text(l10n.appVersionLabel(AppLog.appVersion), style: Zt.title),
+          Text(l10n.appVersionLabel(Release.name), style: Zt.title),
+          const SizedBox(height: 8),
+          Text(AppLog.appVersion, style: Zt.caption),
           if (AppLog.file != null) ...[
             const SizedBox(height: 8),
             Text(AppLog.file!, style: Zt.caption),

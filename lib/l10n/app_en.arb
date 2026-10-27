@@ -1082,5 +1082,37 @@
         "type": "String"
       }
     }
-  }
+  },
+  "checkForUpdates": "Check for updates",
+  "upToDate": "You have the latest version.",
+  "updateCheckFailed": "Could not check for updates.",
+  "updateAvailable": "{name} is available",
+  "@updateAvailable": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "updateBody": "Zerk Play closes while the update installs.",
+  "updateNow": "Update now",
+  "updateLater": "Later",
+  "updateDownloading": "Downloading… {percent}%",
+  "@updateDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "updateInstalling": "Installing…",
+  "updateFailed": "The update failed: {error}",
+  "@updateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAllowInstalls": "Allow Zerk Play to install apps, then choose Update now again."
 }

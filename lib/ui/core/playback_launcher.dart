@@ -19,6 +19,8 @@ final class PlaybackOutcome {
 
 bool _playing = false;
 
+bool get playbackActive => _playing;
+
 void _setPlaying(bool v) => _playing = v;
 
 Future<PlaybackOutcome?> playItem(
