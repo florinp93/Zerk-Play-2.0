@@ -14,9 +14,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Windows-setup.exe"><b>Download for Windows</b></a>
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Windows-setup.exe"><b>Download for Windows</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Android.apk"><b>Download for Android TV</b></a>
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Android.apk"><b>Download for Android TV</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/florinp93/Zerk-Play-2.0/releases">All releases</a>
 </p>
@@ -98,7 +98,7 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 
 ## Getting started
 
-1. Download the [Windows installer](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Windows-setup.exe) or the [Android TV APK](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2.0.0/ZerkPlay-Public-Android.apk).
+1. Download the [Windows installer](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Windows-setup.exe) or the [Android TV APK](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Android.apk).
 2. On first start, choose **Emby or Jellyfin** and sign in.
 3. *(Optional)* Add a free **TMDB API key** for metadata in your language, tags and collections.
 4. *(Optional)* Add your **Jellyseerr / Overseerr** address and API key for requests.
