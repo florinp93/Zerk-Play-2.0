@@ -1,0 +1,1086 @@
+{
+  "@@locale": "en",
+  "notSet": "Not set",
+  "save": "Save",
+  "cancel": "Cancel",
+  "back": "Back",
+  "continueAction": "Continue",
+  "skip": "Skip",
+  "finish": "Finish",
+  "checking": "Checking…",
+  "stepOf": "Step {current} of {total}",
+  "@stepOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "languageFromFile": "Default (as the file says)",
+  "langEnglish": "English",
+  "langRomanian": "Romanian",
+  "signInWelcome": "Welcome to Zerk Play",
+  "signInSubtitle": "Sign in to your Emby or Jellyfin server.",
+  "mediaServer": "Media server",
+  "serverAddress": "Server address",
+  "serverAddressHint": "e.g. 192.168.1.10:8096",
+  "username": "Username",
+  "password": "Password",
+  "signIn": "Sign in",
+  "signingIn": "Signing in…",
+  "errorWrongCredentials": "Wrong username or password.",
+  "errorUnreachable": "Could not reach the server. Check the address.",
+  "phoneSetupTitle": "Set up from your phone",
+  "phoneSetupBody": "Scan the code with a phone on the same network, or open the address in any browser.",
+  "phoneSetupNoNetwork": "No network connection, so phone setup isn't available.",
+  "phoneSetupReceived": "Settings received from your phone.",
+  "phoneWaiting": "Waiting for a phone…",
+  "phoneConnected": "Phone connected",
+  "phoneApplying": "Applying settings…",
+  "phoneApplied": "Settings saved",
+  "phoneFailed": "Saved, with problems. See your phone.",
+  "obLanguageTitle": "Language & subtitles",
+  "obLanguageBody": "Choose the app's language and the subtitles you want. You can change both later in Settings.",
+  "appLanguage": "App language",
+  "preferredSubtitles": "Preferred subtitles",
+  "preferredSubtitlesHint": "Chosen whenever a video has them, even over forced subtitles. English when it doesn't.",
+  "obMetadataTitle": "Metadata & artwork",
+  "obMetadataBody": "Titles, descriptions, posters and logos can come from TMDB in {language}, or stay as your server has them.",
+  "@obMetadataBody": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "metadataSource": "Source",
+  "metadataSourceTmdb": "TMDB, in {language}",
+  "@metadataSourceTmdb": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "metadataSourceEmby": "Media server",
+  "metadataSourceTmdbHint": "Missing translations fall back to English.",
+  "metadataSourceEmbyHint": "Shown as your server has it.",
+  "tmdbApiKey": "TMDB API key",
+  "tmdbApiKeyHint": "API key or read access token from themoviedb.org → Settings → API",
+  "tmdbKeyMissing": "Enter a TMDB API key, or choose the media server.",
+  "obRequestsTitle": "Requests",
+  "obRequestsBody": "Connect Jellyseerr or Overseerr to discover and request titles that aren't in your library yet. This is optional.",
+  "seerrAddress": "Server address",
+  "seerrAddressHint": "https://requests.example.com",
+  "seerrApiKey": "API key",
+  "seerrApiKeyHint": "Settings → General → API Key in *seerr",
+  "seerrIncomplete": "Enter both the address and the API key, or skip this step.",
+  "settings": "Settings",
+  "exitApp": "Exit Zerk Play",
+  "exitAppQuestion": "Exit Zerk Play?",
+  "exitAppBody": "The app closes. Open it again from your home screen.",
+  "exitConfirm": "Exit",
+  "sectionContent": "Content & trailers",
+  "sectionServices": "Connected services",
+  "servicesIntro": "Optional services on top of your library: TMDB for titles and artwork in your language, Jellyseerr or Overseerr to request what isn't there yet.",
+  "settingsGroupDisplay": "Display",
+  "settingsGroupDecoding": "Picture and decoding",
+  "advancedVideo": "Advanced video settings",
+  "advancedVideoHint": "Tone mapping, debanding, smooth motion, renderer and mpv.conf",
+  "sectionPlayback": "Playback",
+  "audio": "Audio",
+  "sectionLanguages": "Languages & subtitles",
+  "sectionMetadata": "Metadata",
+  "sectionRequests": "Requests",
+  "sectionInterface": "Interface",
+  "sectionAccount": "Account",
+  "streamingQuality": "Streaming quality",
+  "streamingQualityHint": "Higher than your connection allows causes buffering. \"Original\" plays the file untouched.",
+  "qualityOriginal": "Original (no limit)",
+  "hdrPassthrough": "HDR passthrough",
+  "hdrPassthroughHint": "Send HDR10/HLG to the display when Windows HDR is on; tone-map otherwise.",
+  "autoHdr": "Turn on HDR automatically",
+  "autoHdrChecking": "Checking your display…",
+  "autoHdrUnsupported": "This display doesn't support HDR, so HDR videos are tone-mapped to SDR.",
+  "autoHdrAlreadyOn": "Your display supports HDR and it is already on, so nothing needs switching right now.",
+  "autoHdrSupported": "Your display supports HDR. Windows HDR is switched on for HDR videos and back off when playback ends.",
+  "matchRefreshRate": "Match display refresh rate",
+  "matchRefreshRateHint": "Switch to 23.976 / 24 / 25 / 50 / 59.94 Hz to match the video. Removes judder.",
+  "smoothMotion": "Smooth motion",
+  "smoothMotionHint": "Resample to the display clock with frame interpolation. Needs a capable GPU.",
+  "autoPlayNext": "Play next episode automatically",
+  "autoSkipIntro": "Skip intros automatically",
+  "seekStep": "Seek step",
+  "secondsCount": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@secondsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "audioPassthroughIntro": "Passthrough sends the untouched bitstream to your AV receiver or TV. Only enable formats it can decode; everything else is decoded here (TrueHD and DTS-HD MA included).",
+  "audioOutputIntroAndroid": "Formats the final decoder takes: your TV, or the soundbar or receiver behind it (optical included). Leave all off to follow what the TV reports over HDMI. When some are on, other multichannel audio is converted by the server to Dolby Digital (Plus) 5.1 so surround survives.",
+  "exclusiveAudio": "Exclusive audio mode",
+  "exclusiveAudioHint": "WASAPI exclusive: bit-perfect output, other apps are muted during playback. Some receivers need it for HD audio.",
+  "systemLanguage": "System language",
+  "preferredAudioLanguage": "Preferred audio language",
+  "subtitles": "Subtitles",
+  "subtitleModeHint": "Smart: your preferred language (English if the file doesn't have it); otherwise forced subtitles for the spoken language.",
+  "subtitleSmart": "Smart",
+  "subtitleAlways": "Always on",
+  "subtitleOff": "Off",
+  "preferredSubtitleLanguage": "Preferred subtitle language",
+  "subtitleSize": "Subtitle size",
+  "sizeSmall": "Small",
+  "sizeNormal": "Normal",
+  "sizeLarge": "Large",
+  "sizeExtraLarge": "Extra large",
+  "subtitleBackground": "Subtitle background",
+  "subtitleBackgroundHint": "A dark box behind each line instead of the outline and shadow. Easier to read on bright scenes.",
+  "backgroundOpacity": "Background opacity",
+  "backgroundOpacityHint": "Turn on \"Subtitle background\" to use this.",
+  "opacityLight": "Light ({percent}%)",
+  "@opacityLight": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "opacityMedium": "Medium ({percent}%)",
+  "@opacityMedium": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "opacityDark": "Dark ({percent}%)",
+  "@opacityDark": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "restyleAss": "Restyle styled (ASS) subtitles",
+  "restyleAssHint": "Apply the size and font above to anime-style subtitles too.",
+  "metadataIntro": "Show titles, descriptions, genres and artwork (posters, backdrops, logos, episode stills) from TMDB in your language, instead of the metadata stored on the server. Libraries are unchanged.",
+  "metadataLanguage": "Metadata language",
+  "metadataFromServer": "From the server",
+  "metadataLanguageNeedsKey": "Needs a TMDB API key; the server's metadata is shown until one is set.",
+  "metadataLanguageHint": "Missing translations fall back to English, then to the server. Also used for Discover and Requests.",
+  "testTmdbKey": "Test TMDB key",
+  "tmdbKeyFirst": "Enter a TMDB key first.",
+  "tmdbKeyWorks": "TMDB key works.",
+  "refreshMetadata": "Refresh metadata",
+  "metadataCleared": "Cached TMDB metadata cleared.",
+  "requestsIntro": "Connect Jellyseerr or Overseerr to discover and request titles that aren't in your library yet.",
+  "testConnection": "Test connection",
+  "connected": "Connected.",
+  "trailer": "Trailer",
+  "trailers": "Trailers",
+  "trailersHint": "Details pages play the title's trailer in place of the backdrop.",
+  "trailersAutoplay": "Play automatically",
+  "trailersOnRequest": "Only when I press Trailer",
+  "trailersOff": "Off",
+  "trailerSound": "Trailer sound",
+  "trailerSoundHint": "Off: trailers play muted. The sound button next to a playing trailer changes this too.",
+  "trailerLanguage": "Trailer language",
+  "trailerLanguageHint": "Trailers subtitled or dubbed in this language are searched for on YouTube first; otherwise the official trailer plays.",
+  "trailerLanguageOriginal": "Original (official trailer)",
+  "trailerMute": "Mute trailer",
+  "trailerUnmute": "Trailer sound",
+  "trailerFullScreen": "Watch trailer",
+  "trailerBadge": "TRAILER",
+  "trailerHints": "OK  pause    ←  →  10 s    ↑  sound    Back  return to the page",
+  "navigationSounds": "Navigation sounds",
+  "allowSelfSigned": "Allow self-signed certificates",
+  "allowSelfSignedHint": "Only for servers using a certificate your system doesn't trust. Takes effect after a restart.",
+  "signedInOnDevice": "Signed in on this device",
+  "signOut": "Sign out",
+  "tmdbInvalidKey": "TMDB says this key is invalid. Use the \"API Key\" or the \"API Read Access Token\" from themoviedb.org → Settings → API.",
+  "tmdbError": "TMDB answered {status}: {message}",
+  "@tmdbError": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "tmdbUnreachable": "Could not reach TMDB.",
+  "tmdbKeyRejected": "TMDB rejected the API key, so the server's metadata is shown. Check the key under Settings → Metadata.",
+  "seerrNotConfigured": "Enter the *seerr address and API key first.",
+  "seerrNotSeerr": "{url} answered {status}. Is that the *seerr address?",
+  "@seerrNotSeerr": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      },
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "seerrUnreachable": "Could not reach *seerr at {url}.",
+  "@seerrUnreachable": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "seerrKeyRejected": "*seerr rejected the API key (Settings → General → API Key).",
+  "seerrKeyCheckFailed": "*seerr answered {status} when checking the API key.",
+  "@seerrKeyCheckFailed": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "search": "Search",
+  "home": "Home",
+  "movies": "Movies",
+  "shows": "Shows",
+  "collections": "Collections",
+  "navLibrary": "Library",
+  "navExplore": "Explore",
+  "discover": "Discover",
+  "continueWatching": "Continue watching",
+  "latestMovies": "Latest movies",
+  "latestShows": "Latest shows",
+  "topRatedMovies": "Top rated movies",
+  "recentlyReleased": "Recently released",
+  "topRatedShows": "Top rated shows",
+  "somethingUnseen": "Something you haven't seen",
+  "popularToRequest": "Popular to request",
+  "trending": "Trending",
+  "popularMovies": "Popular movies",
+  "popularShows": "Popular shows",
+  "comingSoon": "Coming soon",
+  "series": "Series",
+  "movie": "Movie",
+  "seasonCount": "{count, plural, =1{1 season} other{{count} seasons}}",
+  "@seasonCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "episodeCount": "{count, plural, =1{1 episode} other{{count} episodes}}",
+  "@episodeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filmCount": "{count, plural, =1{1 film} other{{count} films}}",
+  "@filmCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filmsInLibrary": "{count, plural, =1{1 film in your library} other{{count} films in your library}}",
+  "@filmsInLibrary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filmsOwnedOfTotal": "{owned} of {total} films in your library",
+  "@filmsOwnedOfTotal": {
+    "placeholders": {
+      "owned": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "versionCount": "{count, plural, =1{1 version} other{{count} versions}}",
+  "@versionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeLeft": "{time} left",
+  "@timeLeft": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "runtimeHoursMinutes": "{hours}h {minutes}m",
+  "@runtimeHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "runtimeHours": "{hours}h",
+  "@runtimeHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "runtimeMinutes": "{minutes}m",
+  "@runtimeMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "endsAt": "Ends at {time}",
+  "@endsAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "monthsShort": "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec",
+  "yearsToPresent": "{start} – present",
+  "@yearsToPresent": {
+    "placeholders": {
+      "start": {
+        "type": "int"
+      }
+    }
+  },
+  "bannerNotInLibrary": "Not in your library  ·  Press OK to request",
+  "bannerPending": "Requested  ·  waiting for approval",
+  "bannerProcessing": "Requested  ·  approved, waiting for a download",
+  "bannerDownloading": "Downloading  ·  on its way to your library",
+  "bannerPartial": "Partly in your library  ·  more can be requested",
+  "bannerBlocked": "Not available to request",
+  "inYourLibrary": "In your library",
+  "notInLibrary": "Not in your library",
+  "notInLibraryBadge": "NOT IN YOUR LIBRARY",
+  "statusRequest": "REQUEST",
+  "statusRequested": "REQUESTED",
+  "statusDownloading": "DOWNLOADING",
+  "statusPartial": "PARTIAL · REQUEST MORE",
+  "statusAvailable": "AVAILABLE",
+  "statusUnavailable": "UNAVAILABLE",
+  "upcoming": "Upcoming",
+  "missing": "Missing",
+  "version": "Version",
+  "play": "Play",
+  "pause": "Pause",
+  "resumeTimeLeft": "Resume  ·  {time} left",
+  "@resumeTimeLeft": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fromBeginning": "From the beginning",
+  "subtitlesOff": "Subtitles off",
+  "forcedTrack": "{name} (forced)",
+  "@forcedTrack": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "watched": "Watched",
+  "markWatched": "Mark watched",
+  "favorite": "Favorite",
+  "goToSeries": "Go to series",
+  "episodes": "Episodes",
+  "nowShowing": "Now showing",
+  "moreLikeThis": "More like this",
+  "couldNotLoadTitle": "Could not load this title",
+  "tryAgain": "Try again",
+  "castAndCrew": "Cast & crew",
+  "director": "Director",
+  "partOfCollection": "PART OF THE COLLECTION",
+  "viewCollection": "View collection",
+  "nowViewing": "NOW VIEWING",
+  "trackNumber": "Track {number}",
+  "@trackNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "trackForced": "Forced",
+  "trackDefault": "Default",
+  "trackExternal": "External",
+  "trackText": "Text",
+  "couldNotLoadShow": "Could not load this show.",
+  "resumeEpisode": "Resume {episode}",
+  "@resumeEpisode": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "playEpisode": "Play {episode}",
+  "@playEpisode": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "upNextEpisode": "Up next: {episode}",
+  "@upNextEpisode": {
+    "placeholders": {
+      "episode": {
+        "type": "String"
+      }
+    }
+  },
+  "airsOn": "Airs {date}",
+  "@airsOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "specials": "Specials",
+  "seasons": "Seasons",
+  "seasonNumber": "Season {number}",
+  "@seasonNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "collectionLabel": "COLLECTION",
+  "watchInOrder": "Watch in order",
+  "tba": "TBA",
+  "sortAToZ": "A – Z",
+  "sortRecentlyAdded": "Recently added",
+  "sortReleaseDate": "Release date",
+  "sortRating": "Rating",
+  "sortRecentlyWatched": "Recently watched",
+  "sortRandom": "Random",
+  "sortBy": "Sort by",
+  "allGenres": "All genres",
+  "genre": "Genre",
+  "filterAll": "All",
+  "filterShow": "Show",
+  "filterEverything": "Everything",
+  "unwatched": "Unwatched",
+  "favorites": "Favorites",
+  "nothingWithFilters": "Nothing here with these filters.",
+  "searchHint": "Movies, shows, episodes…",
+  "noResultsFor": "No results for \"{query}\".",
+  "@noResultsFor": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "requestWithSeerr": "Request with *seerr",
+  "couldNotLoadDetails": "Could not load details: {error}",
+  "@couldNotLoadDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pickSeason": "Pick at least one season.",
+  "requestedMessage": "Requested. It will show up in your library once it's ready.",
+  "requestNotAllowed": "Your *seerr account isn't allowed to request this.",
+  "openInLibrary": "Open in library",
+  "requesting": "Requesting…",
+  "releaseInCinemas": "IN CINEMAS",
+  "releaseComing": "IN CINEMAS {date}",
+  "@releaseComing": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "MMMd"
+      }
+    }
+  },
+  "releaseNotYet": "NOT RELEASED YET",
+  "statusAwaitingRelease": "AWAITING RELEASE",
+  "bannerAwaitingRelease": "Requested  ·  downloads once it's out digitally",
+  "noteInCinemasDigital": "In cinemas now, out digitally around {date}. It can only be downloaded after that.",
+  "@noteInCinemasDigital": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "yMMMd"
+      }
+    }
+  },
+  "noteInCinemas": "In cinemas now and not out digitally yet. It can only be downloaded once it is.",
+  "noteUpcoming": "Not released yet (in cinemas {date}). It can only be downloaded once it's out digitally.",
+  "@noteUpcoming": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "yMMMd"
+      }
+    }
+  },
+  "noteUpcomingNoDate": "Not released yet. It can only be downloaded once it's out digitally.",
+  "requestedWaitsDigital": "Your request went through. It isn't out digitally yet, so it will download automatically around {date}.",
+  "@requestedWaitsDigital": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "yMMMd"
+      }
+    }
+  },
+  "requestedWaits": "Your request went through. It isn't out digitally yet, so it will download automatically once it is.",
+  "requestedNotOut": "{count, plural, =1{One isn't out digitally yet and will download once it is.} other{{count} aren't out digitally yet and will download once they are.}}",
+  "@requestedNotOut": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestAllMissing": "{count, plural, =1{Request the missing film} other{Request {count} missing films}}",
+  "@requestAllMissing": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestedAllMessage": "{count, plural, =1{Requested 1 film.} other{Requested {count} films.}}",
+  "@requestedAllMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "requestedSomeMessage": "Requested {done} of {total} films. {error}",
+  "@requestedSomeMessage": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "request": "Request",
+  "requestSeasons": "{count, plural, =1{Request 1 season} other{Request {count} seasons}}",
+  "@requestSeasons": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nothingElseWith": "Nothing else with {name} in your library yet.",
+  "@nothingElseWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "keySpace": "Space",
+  "keyClear": "Clear",
+  "playbackFailed": "Playback failed.",
+  "skipIntro": "Skip intro",
+  "seekBack": "Back {seconds}s",
+  "@seekBack": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "seekForward": "Forward {seconds}s",
+  "@seekForward": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "nextEpisode": "Next episode",
+  "upNext": "Up next",
+  "upNextIn": "Up next in {seconds}",
+  "@upNextIn": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "playNow": "Play now",
+  "keepWatching": "Keep watching",
+  "chapters": "Chapters",
+  "chapterNumber": "Chapter {number}",
+  "@chapterNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "fullScreen": "Full screen",
+  "aspectOriginal": "Original",
+  "aspectOriginalDetail": "As the video says",
+  "aspectFlat": "Flat",
+  "aspectScope": "Scope",
+  "aspectZoom": "Zoom to fill",
+  "aspectZoomDetail": "Crops the picture to fill the screen",
+  "aspectStretch": "Stretch to fill",
+  "aspectStretchDetail": "Distorts the picture",
+  "aspectRatio": "Aspect ratio",
+  "aspectToast": "Aspect ratio: {ratio}",
+  "@aspectToast": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "playbackSpeed": "Playback speed",
+  "subtitleDelay": "Subtitle delay",
+  "audioDelay": "Audio delay",
+  "playbackInfo": "Playback info",
+  "playbackInfoDetail": "Codecs, bitrate, dropped frames",
+  "badgeHdrOn": "HDR ON",
+  "badgeToneMapped": "TONE-MAPPED",
+  "muted": "Muted",
+  "pressBackToReturn": "Press Back to return",
+  "startsIn": "Starts in {seconds} s",
+  "@startsIn": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "introSkipped": "Intro skipped",
+  "audioToast": "Audio: {track}",
+  "@audioToast": {
+    "placeholders": {
+      "track": {
+        "type": "String"
+      }
+    }
+  },
+  "versionToast": "Version: {version}",
+  "@versionToast": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotPlayVideo": "Could not play this video ({error}).",
+  "@couldNotPlayVideo": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownError": "unknown error",
+  "hdrOn": "HDR on",
+  "toneMappedHdrOff": "Tone-mapped (Windows HDR is off)",
+  "toneMappedSdr": "Tone-mapped to SDR",
+  "displayHz": "Display {hz} Hz",
+  "@displayHz": {
+    "placeholders": {
+      "hz": {
+        "type": "String"
+      }
+    }
+  },
+  "playbackNotAllowed": "Your account is not allowed to play this.",
+  "playbackNoStream": "The server could not provide a playable stream.",
+  "playbackRateLimited": "Too many streams are playing on this account.",
+  "playbackRefused": "The server refused playback ({code}).",
+  "@playbackRefused": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "serverUnreachable": "Could not reach the server.",
+  "playbackFailedWith": "Playback failed: {error}",
+  "@playbackFailedWith": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "setupAddress": "Address",
+  "setupCode": "Code",
+  "done": "Done",
+  "volume": "Volume",
+  "volumeLevel": "Volume {percent}%",
+  "mute": "Mute",
+  "unmute": "Unmute",
+  "@volumeLevel": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "trendingThisWeek": "Top 10 trending",
+  "recommendedForYou": "Picked for you",
+  "yourFavorites": "Your favorites",
+  "becauseYouWatched": "Because you watched {title}",
+  "@becauseYouWatched": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "starring": "Starring {name}",
+  "@starring": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "directedBy": "Directed by {name}",
+  "@directedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "moreGenre": "More {genre}",
+  "@moreGenre": {
+    "placeholders": {
+      "genre": {
+        "type": "String"
+      }
+    }
+  },
+  "buildingCollections": "Building collections from TMDB… {percent}%",
+  "@buildingCollections": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "noCollectionsTmdb": "Collections are built from TMDB. Add a TMDB key in Settings → Metadata to see them.",
+  "noCollectionsFound": "None of your movies belongs to a collection on TMDB yet.",
+  "hideAnimation": "Hide animation in recommendations",
+  "hideAnimationHint": "Animated films and shows stay in search, your library and Continue watching.",
+  "close": "Close",
+  "moodShelfTitle": "What are you in the mood for?",
+  "moodTrueStory": "Based on a true story",
+  "moodTrueStoryHint": "Real people, real events, told like the movies.",
+  "moodHeist": "Heists & cons",
+  "moodHeistHint": "Meticulous plans, impossible vaults and one last job.",
+  "moodWhodunit": "Whodunits",
+  "moodWhodunitHint": "A body, a room full of suspects, and you against the detective.",
+  "moodMindBending": "Mind-bending sci-fi",
+  "moodMindBendingHint": "The best-loved science fiction: big ideas, bigger worlds.",
+  "moodSpace": "Lost in space",
+  "moodSpaceHint": "Starships, distant planets and the silence in between.",
+  "moodSurvival": "Against all odds",
+  "moodSurvivalHint": "Stranded, hunted or outnumbered: staying alive is the plot.",
+  "moodRevenge": "Payback",
+  "moodRevengeHint": "Someone crossed the wrong person.",
+  "moodConspiracy": "Conspiracies",
+  "moodConspiracyHint": "Nobody is who they say, and the truth goes all the way up.",
+  "moodRoadTrip": "Road trips",
+  "moodRoadTripHint": "Hit the road: the journey is the story.",
+  "moodComingOfAge": "Coming of age",
+  "moodComingOfAgeHint": "First loves, last summers and growing up.",
+  "moodFeelGood": "Feel-good",
+  "moodFeelGoodHint": "Well-loved comedies that leave you smiling.",
+  "moodSerialKiller": "Serial killers",
+  "moodSerialKillerHint": "Dark minds, darker trails, and the people who hunt them.",
+  "moodLateNightHorror": "Late-night scares",
+  "moodLateNightHorrorHint": "It's dark outside. Perfect.",
+  "moodClassics": "80s & 90s classics",
+  "moodClassicsHint": "The ones everybody quotes, from the VHS years.",
+  "moodHiddenGems": "Hidden gems",
+  "moodHiddenGemsHint": "Loved by the people who found them, missed by everyone else.",
+  "moodQuickWatch": "Under 95 minutes",
+  "moodQuickWatchHint": "Great films that still leave you an early night.",
+  "moodBingeWorthy": "Binge-worthy",
+  "moodBingeWorthyHint": "Acclaimed shows that are finished: no cliffhanger left hanging.",
+  "moodInLibrary": "{count} in your library",
+  "@moodInLibrary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadingLine1": "Dimming the lights…",
+  "loadingLine2": "Threading the projector…",
+  "loadingLine3": "Popping the popcorn…",
+  "loadingLine4": "Rewinding the tapes…",
+  "loadingLine5": "Finding your seat…",
+  "loadingLine6": "Rolling the trailers…",
+  "calendar": "Calendar",
+  "calendarToday": "Today",
+  "calendarTomorrow": "Tomorrow",
+  "calendarYesterday": "Yesterday",
+  "calendarInDays": "{count, plural, =1{In 1 day} other{In {count} days}}",
+  "@calendarInDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "calendarDaysAgo": "{count, plural, =1{1 day ago} other{{count} days ago}}",
+  "@calendarDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "calendarDay": "{date}",
+  "@calendarDay": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "MMMMEEEEd"
+      }
+    }
+  },
+  "calendarMonth": "{date}",
+  "@calendarMonth": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "yMMMM"
+      }
+    }
+  },
+  "calendarNoDate": "Release date not announced",
+  "calendarEmpty": "Nothing on your calendar yet. New episodes of the shows you watch and the movies and shows you request show up here.",
+  "calendarEpisodes": "{count, plural, =1{1 episode} other{{count} episodes}}",
+  "@calendarEpisodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "calendarDigital": "Digital release",
+  "calendarDisc": "Blu-ray & DVD release",
+  "calendarTv": "TV premiere",
+  "calendarSeriesPremiere": "SERIES PREMIERE",
+  "calendarSeasonPremiere": "SEASON PREMIERE",
+  "calendarFinale": "FINALE",
+  "calendarMovie": "MOVIE",
+  "liveNow": "LIVE",
+  "liveLoadingGuide": "Reading the TV guide…",
+  "liveLoadFailed": "Couldn't load the guide ({error}).",
+  "liveLinkFailed": "{channel} isn't working, trying the next channel",
+  "sectionLiveTv": "Live TV",
+  "liveTvIntro": "Connect an Xtream Codes IPTV account to watch LaLiga, Premier League and UEFA matches from its guide.",
+  "xtreamServer": "Server address",
+  "liveTv": "Live TV",
+  "xtreamAccountUser": "Account {n} – username",
+  "@xtreamAccountUser": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "xtreamAccountPassword": "Account {n} – password",
+  "@xtreamAccountPassword": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "xtreamAccountFree": "Account {n}: free ({active}/{max} streams)",
+  "@xtreamAccountFree": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "xtreamAccountBusy": "Account {n}: in use ({active}/{max} streams)",
+  "@xtreamAccountBusy": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "xtreamAccountProblem": "Account {n}: {problem}",
+  "@xtreamAccountProblem": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "liveAccount": "Account {n}",
+  "@liveAccount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "liveAllAccountsBusy": "All IPTV accounts are in use right now.",
+  "liveSwitchingAccount": "That account is in use elsewhere, switching to account {n}",
+  "@liveSwitchingAccount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "liveNoGuide": "No guide information",
+  "liveNoChannelNumber": "No channel {number}",
+  "@liveNoChannelNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "liveAllChannels": "All channels",
+  "liveCountryUS": "United States",
+  "liveCountryRO": "Romania",
+  "liveCountryUK": "United Kingdom",
+  "liveCountryIE": "Ireland",
+  "liveLoadingChannels": "Loading channels and guide…",
+  "liveNoChannels": "No channels found.",
+  "liveChannels": "Channels",
+  "calendarPrevMonth": "Previous month",
+  "calendarNextMonth": "Next month",
+  "calendarNothingThisDay": "Nothing on this day.",
+  "calendarMore": "+{count}",
+  "@calendarMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "liveTuningIn": "Tuning in…",
+  "viewCovers": "Covers",
+  "viewWide": "Wide cards",
+  "sectionVideo": "Video",
+  "sectionDiagnostics": "Diagnostics",
+  "videoIntro": "Player picture settings. Changes apply from the next playback.",
+  "startFullScreen": "Start in full screen",
+  "posterSize": "Cover size",
+  "posterSizeHint": "Posters in Movies, Shows and Collections",
+  "collectionsViewSetting": "Collections view",
+  "keepRefreshRate": "Keep the refresh rate after playback",
+  "keepRefreshRateHint": "The TV doesn't switch back and forth between episodes and the menus. The desktop rate returns when Zerk Play closes.",
+  "keepHdr": "Keep HDR on after playback",
+  "keepHdrHint": "Windows HDR stays on after an HDR video instead of switching off. It goes off when Zerk Play closes.",
+  "hardwareDecoding": "Hardware decoding",
+  "hardwareDecodingHint": "Try another option if videos stutter, show a green or black picture, or fail to start",
+  "hwdecAuto": "Automatic (recommended)",
+  "hwdecD3d11": "D3D11 (any GPU)",
+  "hwdecNvdec": "NVIDIA (NVDEC)",
+  "hwdecCopy": "D3D11 copy-back (compatibility)",
+  "hwdecOff": "Off (CPU only)",
+  "videoQuality": "Scaling quality",
+  "videoQualityHint": "Sharper upscaling needs a stronger GPU; lower it if playback drops frames",
+  "videoQualityFast": "Fast",
+  "videoQualityBalanced": "Balanced",
+  "videoQualityHigh": "High (dedicated GPU)",
+  "toneMapping": "HDR tone mapping",
+  "toneMappingHint": "How HDR and Dolby Vision are shown when the display isn't in HDR",
+  "toneMappingAuto": "Automatic",
+  "deband": "Debanding",
+  "debandHint": "Smooths colour banding in gradients (costs some GPU)",
+  "videoRenderer": "Video renderer",
+  "videoRendererNext": "gpu-next (HDR, Dolby Vision)",
+  "videoRendererOld": "gpu (older, for troubleshooting)",
+  "editMpvConf": "Edit mpv.conf (advanced)",
+  "openSettingsFolder": "Open the settings folder",
+  "mpvConfOpened": "mpv.conf opened in Notepad. It is applied from the next playback.",
+  "logsIntro": "Zerk Play keeps a log of what it does: errors, server requests, playback and slow screens. If something goes wrong, send the newest files from the logs folder.",
+  "detailedLog": "Detailed player log",
+  "detailedLogHint": "mpv writes a full log of every playback next to the app log",
+  "openLogsFolder": "Open the logs folder",
+  "appVersionLabel": "Zerk Play {version}",
+  "@appVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "profile": "Profile",
+  "tags": "Tags",
+  "becauseYouLikeTag": "Because you like: {tag}",
+  "@becauseYouLikeTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  }
+}

@@ -1,0 +1,643 @@
+import 'package:flutter/material.dart';
+
+import '../../app/app_services.dart';
+import '../../app/app_settings.dart';
+import '../../core/host.dart';
+import '../../core/log/app_log.dart';
+import '../../core/windows/native_window.dart';
+import '../../data/xtream/xtream.dart';
+import '../../data/metadata_localizer.dart';
+import '../../l10n/l10n.dart';
+import '../../playback/language.dart';
+import '../../playback/mpv_conf.dart';
+import '../../playback/player_settings.dart';
+import '../../playback/trailer/trailer_player.dart';
+import '../core/navigation.dart';
+import '../core/ui_sounds.dart';
+import '../focus/focus_zone.dart';
+import '../focus/tv_focusable.dart';
+import '../theme/tokens.dart';
+import '../widgets/common.dart';
+import '../widgets/exit_app.dart';
+import '../widgets/media_row.dart';
+import '../widgets/remote_setup_panel.dart';
+import '../widgets/setting_rows.dart';
+
+enum _Section {
+  playback(Icons.play_circle_outline_rounded),
+  video(Icons.hd_outlined),
+  audio(Icons.graphic_eq_rounded),
+  subtitles(Icons.subtitles_outlined),
+  interface(Icons.tune_rounded),
+  content(Icons.movie_filter_outlined),
+  services(Icons.hub_outlined),
+  liveTv(Icons.sports_soccer_rounded),
+  account(Icons.person_outline_rounded),
+  diagnostics(Icons.bug_report_outlined);
+
+  const _Section(this.icon);
+
+  final IconData icon;
+
+  bool get shown => switch (this) {
+        video => Host.isWindows,
+        _ => true,
+      };
+
+  String label(L10n l10n) => switch (this) {
+        playback => l10n.sectionPlayback,
+        video => l10n.sectionVideo,
+        audio => l10n.audio,
+        subtitles => l10n.sectionLanguages,
+        interface => l10n.sectionInterface,
+        content => l10n.sectionContent,
+        services => l10n.sectionServices,
+        liveTv => l10n.sectionLiveTv,
+        account => l10n.sectionAccount,
+        diagnostics => l10n.sectionDiagnostics,
+      };
+}
+
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  _Section _section = _Section.playback;
+  PlayerSettings? _player;
+  DisplayHdrStatus? _display;
+
+  @override
+  void initState() {
+    super.initState();
+    PlayerSettings.load().then((p) => mounted ? setState(() => _player = p) : null);
+    if (Host.isWindows) NativeWindow.hdrStatus().then((d) => mounted ? setState(() => _display = d) : null);
+  }
+
+  Future<void> _savePlayer(PlayerSettings next) async {
+    setState(() => _player = next);
+    await next.save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: contentLeft, top: 90, right: 120),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 420,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(context.l10n.settings, style: Zt.headline),
+            const SizedBox(height: 30),
+            Expanded(
+              child: FocusZone(
+                debugLabel: 'settings-sections',
+                child: ListView(padding: const EdgeInsets.only(bottom: 40), children: [
+                  for (final s in _Section.values.where((s) => s.shown))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: TvFocusable(
+                        selectSound: null,
+                        onFocusChange: (f) => f ? setState(() => _section = s) : null,
+                        onSelect: () => ZoneNavigator.move(TraversalDirection.right),
+                        builder: (context, focused) => AnimatedContainer(
+                          duration: Zm.fast,
+                          height: 62,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: focused ? Colors.white : (s == _section ? Colors.white.withValues(alpha: 0.10) : Colors.transparent),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(children: [
+                            Icon(s.icon, color: focused ? Zc.background : Zc.textMuted, size: 28),
+                            const SizedBox(width: 18),
+                            Flexible(
+                              child: Text(s.label(context.l10n),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Zt.label.copyWith(fontSize: 22, color: focused ? Zc.background : Zc.text)),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(width: 70),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: Zm.normal,
+            child: KeyedSubtree(
+              key: ValueKey(_section),
+              child: FocusZone(
+                debugLabel: 'settings-${_section.name}',
+                child: ListView(
+                  padding: const EdgeInsets.only(top: 100, bottom: 120),
+                  children: _player == null ? const [] : _items(_section, _player!),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _intro(String text) => Padding(padding: const EdgeInsets.only(bottom: 20), child: Text(text, style: Zt.body));
+
+  List<Widget> _items(_Section section, PlayerSettings p) {
+    final services = AppServicesScope.of(context);
+    final app = services.settings;
+    final l10n = context.l10n;
+    final languages = {'': l10n.languageFromFile, ...languageNames};
+    switch (section) {
+      case _Section.playback:
+        return [
+          SettingChoiceRow<int>(
+            title: l10n.streamingQuality,
+            subtitle: l10n.streamingQualityHint,
+            value: p.maxStreamingBitrate,
+            options: {0: l10n.qualityOriginal, 120000000: '120 Mbps', 60000000: '60 Mbps (4K)', 20000000: '20 Mbps (1080p)', 8000000: '8 Mbps (720p)', 3000000: '3 Mbps'},
+            onChanged: (v) => _savePlayer(p.copyWith(maxStreamingBitrate: v)),
+          ),
+          SettingToggleRow(title: l10n.autoPlayNext, value: p.autoPlayNextEpisode,
+              onChanged: (v) => _savePlayer(p.copyWith(autoPlayNextEpisode: v))),
+          SettingToggleRow(title: l10n.autoSkipIntro, value: p.skipIntroAutomatically,
+              onChanged: (v) => _savePlayer(p.copyWith(skipIntroAutomatically: v))),
+          SettingChoiceRow<int>(
+            title: l10n.seekStep,
+            value: p.seekStepSeconds,
+            options: {for (final s in const [5, 10, 15, 30]) s: l10n.secondsCount(s)},
+            onChanged: (v) => _savePlayer(p.copyWith(seekStepSeconds: v)),
+          ),
+        ];
+      case _Section.video:
+        return [
+          _intro(l10n.videoIntro),
+          SettingHeader(l10n.settingsGroupDisplay, first: true),
+          SettingToggleRow(title: l10n.hdrPassthrough, subtitle: l10n.hdrPassthroughHint,
+              value: p.hdrPassthrough, onChanged: (v) => _savePlayer(p.copyWith(hdrPassthrough: v))),
+          SettingToggleRow(
+            title: l10n.autoHdr,
+            subtitle: switch (_display) {
+              null => l10n.autoHdrChecking,
+              DisplayHdrStatus(supported: false) => l10n.autoHdrUnsupported,
+              DisplayHdrStatus(enabled: true) => l10n.autoHdrAlreadyOn,
+              _ => l10n.autoHdrSupported,
+            },
+            value: p.autoHdr && (_display?.supported ?? false),
+            enabled: (_display?.supported ?? false) && p.hdrPassthrough,
+            onChanged: (v) => _savePlayer(p.copyWith(autoHdr: v)),
+          ),
+          SettingToggleRow(
+            title: l10n.keepHdr,
+            subtitle: l10n.keepHdrHint,
+            value: p.keepHdr,
+            enabled: p.autoHdr && (_display?.supported ?? false),
+            onChanged: (v) => _savePlayer(p.copyWith(keepHdr: v)),
+          ),
+          SettingToggleRow(title: l10n.matchRefreshRate, subtitle: l10n.matchRefreshRateHint,
+              value: p.matchRefreshRate, onChanged: (v) => _savePlayer(p.copyWith(matchRefreshRate: v))),
+          SettingToggleRow(
+            title: l10n.keepRefreshRate,
+            subtitle: l10n.keepRefreshRateHint,
+            value: p.keepRefreshRate,
+            enabled: p.matchRefreshRate,
+            onChanged: (v) => _savePlayer(p.copyWith(keepRefreshRate: v)),
+          ),
+          SettingHeader(l10n.settingsGroupDecoding),
+          SettingChoiceRow<VideoQuality>(
+            title: l10n.videoQuality,
+            subtitle: l10n.videoQualityHint,
+            value: p.videoQuality,
+            options: {
+              VideoQuality.fast: l10n.videoQualityFast,
+              VideoQuality.balanced: l10n.videoQualityBalanced,
+              VideoQuality.high: l10n.videoQualityHigh,
+            },
+            onChanged: (v) => _savePlayer(p.copyWith(videoQuality: v)),
+          ),
+          SettingChoiceRow<String>(
+            title: l10n.hardwareDecoding,
+            subtitle: l10n.hardwareDecodingHint,
+            value: p.hwdec,
+            options: {
+              'auto-safe': l10n.hwdecAuto,
+              'd3d11va': l10n.hwdecD3d11,
+              'nvdec': l10n.hwdecNvdec,
+              'd3d11va-copy': l10n.hwdecCopy,
+              'no': l10n.hwdecOff,
+            },
+            onChanged: (v) => _savePlayer(p.copyWith(hwdec: v)),
+          ),
+          const SizedBox(height: 16),
+          SettingActionRow(
+            title: l10n.advancedVideo,
+            subtitle: l10n.advancedVideoHint,
+            icon: Icons.chevron_right_rounded,
+            onSelect: () async {
+              await Navigator.of(context).push(tvRoute<void>(_AdvancedVideoPage(initial: p), name: 'settings/advanced-video'));
+              final fresh = await PlayerSettings.load();
+              if (mounted) setState(() => _player = fresh);
+            },
+          ),
+        ];
+      case _Section.audio:
+        return [
+          _intro(Host.isAndroid ? l10n.audioOutputIntroAndroid : l10n.audioPassthroughIntro),
+          for (final c in PassthroughCodec.values)
+            SettingToggleRow(
+              title: switch (c) {
+                PassthroughCodec.ac3 => 'Dolby Digital (AC-3)',
+                PassthroughCodec.eac3 => 'Dolby Digital Plus (E-AC-3, Atmos)',
+                PassthroughCodec.dts => 'DTS',
+                PassthroughCodec.dtshd => 'DTS-HD MA / DTS:X',
+                PassthroughCodec.truehd => 'Dolby TrueHD (Atmos)',
+              },
+              value: p.passthrough.contains(c),
+              onChanged: (v) => _savePlayer(p.copyWith(passthrough: v ? {...p.passthrough, c} : ({...p.passthrough}..remove(c)))),
+            ),
+          if (Host.isWindows)
+            SettingToggleRow(title: l10n.exclusiveAudio, subtitle: l10n.exclusiveAudioHint,
+                value: p.audioExclusive, onChanged: (v) => _savePlayer(p.copyWith(audioExclusive: v))),
+        ];
+      case _Section.subtitles:
+        return [
+          SettingChoiceRow<String>(
+            title: l10n.preferredAudioLanguage,
+            value: p.preferredAudioLanguage,
+            options: languages,
+            onChanged: (v) => _savePlayer(p.copyWith(preferredAudioLanguage: v)),
+          ),
+          SettingChoiceRow<SubtitleMode>(
+            title: l10n.subtitles,
+            subtitle: l10n.subtitleModeHint,
+            value: p.subtitleMode,
+            options: {SubtitleMode.smart: l10n.subtitleSmart, SubtitleMode.always: l10n.subtitleAlways, SubtitleMode.off: l10n.subtitleOff},
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleMode: v)),
+          ),
+          SettingChoiceRow<String>(
+            title: l10n.preferredSubtitleLanguage,
+            value: p.preferredSubtitleLanguage,
+            options: languages,
+            onChanged: (v) => _savePlayer(p.copyWith(preferredSubtitleLanguage: v)),
+          ),
+          SettingChoiceRow<double>(
+            title: l10n.subtitleSize,
+            value: p.subtitleScale,
+            options: {0.8: l10n.sizeSmall, 1.0: l10n.sizeNormal, 1.2: l10n.sizeLarge, 1.45: l10n.sizeExtraLarge},
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleScale: v)),
+          ),
+          SettingToggleRow(
+            title: l10n.subtitleBackground,
+            subtitle: l10n.subtitleBackgroundHint,
+            value: p.subtitleBackground,
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleBackground: v)),
+          ),
+          SettingChoiceRow<double>(
+            title: l10n.backgroundOpacity,
+            subtitle: p.subtitleBackground ? null : l10n.backgroundOpacityHint,
+            value: p.subtitleBackgroundOpacity,
+            options: {0.25: l10n.opacityLight(25), 0.4: '40%', 0.6: l10n.opacityMedium(60), 0.75: '75%', 0.9: l10n.opacityDark(90)},
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleBackgroundOpacity: v)),
+          ),
+          SettingToggleRow(title: l10n.restyleAss, subtitle: l10n.restyleAssHint,
+              value: p.overrideAssStyles, onChanged: (v) => _savePlayer(p.copyWith(overrideAssStyles: v))),
+        ];
+      case _Section.interface:
+        return [
+          SettingChoiceRow<String>(
+            title: l10n.appLanguage,
+            value: app.uiLanguage,
+            options: {'': l10n.systemLanguage, ...uiLanguages},
+            onChanged: (v) => services.updateSettings(app.copyWith(uiLanguage: v)),
+          ),
+          if (Host.isWindows)
+            SettingToggleRow(
+              title: l10n.startFullScreen,
+              value: app.startFullScreen,
+              onChanged: (v) => services.updateSettings(app.copyWith(startFullScreen: v)),
+            ),
+          SettingToggleRow(title: l10n.navigationSounds, value: app.sounds, onChanged: (v) => services.updateSettings(app.copyWith(sounds: v))),
+          SettingChoiceRow<PosterSize>(
+            title: l10n.posterSize,
+            subtitle: l10n.posterSizeHint,
+            value: app.posterSize,
+            options: {PosterSize.small: l10n.sizeSmall, PosterSize.medium: l10n.sizeNormal, PosterSize.large: l10n.sizeLarge},
+            onChanged: (v) => services.updateSettings(app.copyWith(posterSize: v)),
+          ),
+          SettingChoiceRow<CollectionsView>(
+            title: l10n.collectionsViewSetting,
+            value: app.collectionsView,
+            options: {CollectionsView.covers: l10n.viewCovers, CollectionsView.wide: l10n.viewWide},
+            onChanged: (v) => services.updateSettings(app.copyWith(collectionsView: v)),
+          ),
+        ];
+      case _Section.content:
+        return [
+          ValueListenableBuilder<bool>(
+            valueListenable: MetadataLocalizer.keyRejected,
+            builder: (context, rejected, _) => !rejected
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline_rounded, color: Zc.danger, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(l10n.tmdbKeyRejected, style: Zt.body.copyWith(color: Zc.danger))),
+                    ]),
+                  ),
+          ),
+          SettingHeader(l10n.sectionMetadata, first: true),
+          SettingChoiceRow<String>(
+            title: l10n.metadataLanguage,
+            subtitle: services.tmdb == null && app.metadataLanguage.isNotEmpty
+                ? l10n.metadataLanguageNeedsKey
+                : l10n.metadataLanguageHint,
+            value: app.metadataLanguage,
+            options: {...metadataLanguages, '': l10n.metadataFromServer},
+            onChanged: (v) => services.updateSettings(app.copyWith(metadataLanguage: v)),
+          ),
+          SettingToggleRow(
+            title: l10n.hideAnimation,
+            subtitle: l10n.hideAnimationHint,
+            value: app.hideAnimation,
+            onChanged: (v) => services.updateSettings(app.copyWith(hideAnimation: v)),
+          ),
+          SettingActionRow(
+            title: l10n.refreshMetadata,
+            icon: Icons.refresh_rounded,
+            onSelect: () async {
+              await MetadataLocalizer.clearCache();
+              services.markLibraryChanged();
+              if (mounted) _toast(l10n.metadataCleared);
+            },
+          ),
+          if (TrailerPlayer.supported) ...[
+            SettingHeader(l10n.trailers),
+            SettingChoiceRow<TrailerMode>(
+              title: l10n.trailers,
+              subtitle: l10n.trailersHint,
+              value: app.trailers,
+              options: {
+                TrailerMode.autoplay: l10n.trailersAutoplay,
+                TrailerMode.onRequest: l10n.trailersOnRequest,
+                TrailerMode.off: l10n.trailersOff,
+              },
+              onChanged: (v) => services.updateSettings(app.copyWith(trailers: v)),
+            ),
+            SettingToggleRow(
+              title: l10n.trailerSound,
+              subtitle: l10n.trailerSoundHint,
+              value: app.trailerSound,
+              onChanged: (v) => services.updateSettings(app.copyWith(trailerSound: v)),
+            ),
+            SettingChoiceRow<String>(
+              title: l10n.trailerLanguage,
+              subtitle: l10n.trailerLanguageHint,
+              value: app.trailerLanguage,
+              options: {
+                '': l10n.trailerLanguageOriginal,
+                for (final e in metadataLanguages.entries)
+                  if (e.key.isNotEmpty && e.key != 'en-US') e.key: e.value,
+              },
+              onChanged: (v) => services.updateSettings(app.copyWith(trailerLanguage: v)),
+            ),
+          ],
+        ];
+      case _Section.services:
+        return [
+          _intro(l10n.servicesIntro),
+          SettingActionRow(
+            title: l10n.phoneSetupTitle,
+            icon: Icons.qr_code_2_rounded,
+            onSelect: () => showRemoteSetupDialog(context),
+          ),
+          const SettingHeader('TMDB'),
+          _intro(l10n.metadataIntro),
+          SettingTextRow(
+            title: l10n.tmdbApiKey,
+            value: app.tmdbApiKey,
+            obscure: true,
+            hint: l10n.tmdbApiKeyHint,
+            onChanged: (v) => services.updateSettings(app.copyWith(tmdbApiKey: v)),
+          ),
+          SettingActionRow(
+            title: l10n.testTmdbKey,
+            icon: Icons.wifi_tethering_rounded,
+            onSelect: () async {
+              final tmdb = services.tmdb;
+              final problem = tmdb == null ? l10n.tmdbKeyFirst : await tmdb.check().then((p) => p == null ? null : l10n.tmdbProblem(p));
+              if (!mounted) return;
+              UiSounds.play(problem == null ? UiSound.select : UiSound.error);
+              _toast(problem ?? l10n.tmdbKeyWorks);
+            },
+          ),
+          SettingHeader(l10n.sectionRequests),
+          _intro(l10n.requestsIntro),
+          SettingTextRow(
+            title: l10n.seerrAddress,
+            value: app.seerrUrl,
+            hint: l10n.seerrAddressHint,
+            onChanged: (v) => services.updateSettings(app.copyWith(seerrUrl: v)),
+          ),
+          SettingTextRow(
+            title: l10n.seerrApiKey,
+            value: app.seerrApiKey,
+            obscure: true,
+            hint: l10n.seerrApiKeyHint,
+            onChanged: (v) => services.updateSettings(app.copyWith(seerrApiKey: v)),
+          ),
+          SettingActionRow(
+            title: l10n.testConnection,
+            icon: Icons.wifi_tethering_rounded,
+            onSelect: () async {
+              final problem = await services.checkSeerr();
+              if (!mounted) return;
+              UiSounds.play(problem == null ? UiSound.select : UiSound.error);
+              _toast(problem == null ? l10n.connected : l10n.seerrProblem(problem));
+            },
+          ),
+        ];
+      case _Section.liveTv:
+        return [
+          _intro(l10n.liveTvIntro),
+          SettingTextRow(
+            title: l10n.xtreamServer,
+            value: app.xtreamUrl,
+            hint: 'http://provider.example:8080',
+            onChanged: (v) => services.updateSettings(app.copyWith(xtreamUrl: v)),
+          ),
+          for (var i = 0; i <= app.xtreamAccounts.length; i++) ...[
+            SettingTextRow(
+              title: l10n.xtreamAccountUser(i + 1),
+              value: i < app.xtreamAccounts.length ? app.xtreamAccounts[i].$1 : '',
+              onChanged: (v) => _setXtreamAccount(services, i, user: v),
+            ),
+            if (i < app.xtreamAccounts.length)
+              SettingTextRow(
+                title: l10n.xtreamAccountPassword(i + 1),
+                value: app.xtreamAccounts[i].$2,
+                obscure: true,
+                onChanged: (v) => _setXtreamAccount(services, i, password: v),
+              ),
+          ],
+          SettingActionRow(
+            title: l10n.testConnection,
+            icon: Icons.wifi_tethering_rounded,
+            onSelect: () async {
+              final server = XtreamServer(app.xtreamUrl, [for (final (u, p) in app.xtreamAccounts) XtreamAccount(u, p)]);
+              final statuses = await server.statuses();
+              if (!mounted) return;
+              UiSounds.play(statuses.isNotEmpty && statuses.every((s) => s.usable) ? UiSound.select : UiSound.error);
+              showToast(
+                context,
+                [
+                  for (final s in statuses)
+                    s.problem != null
+                        ? l10n.xtreamAccountProblem(s.number, s.problem!)
+                        : s.free
+                            ? l10n.xtreamAccountFree(s.number, s.active, s.max)
+                            : l10n.xtreamAccountBusy(s.number, s.active, s.max),
+                ].join('\n'),
+                duration: const Duration(seconds: 6),
+              );
+            },
+          ),
+        ];
+      case _Section.diagnostics:
+        return [
+          _intro(l10n.logsIntro),
+          if (Host.isWindows)
+            SettingToggleRow(
+              title: l10n.detailedLog,
+              subtitle: l10n.detailedLogHint,
+              value: p.detailedLog,
+              onChanged: (v) => _savePlayer(p.copyWith(detailedLog: v)),
+            ),
+          SettingActionRow(title: l10n.openLogsFolder, icon: Icons.folder_open_rounded, onSelect: AppLog.openFolder),
+          const SizedBox(height: 20),
+          Text(l10n.appVersionLabel(AppLog.appVersion), style: Zt.title),
+          if (AppLog.file != null) ...[
+            const SizedBox(height: 8),
+            Text(AppLog.file!, style: Zt.caption),
+          ],
+        ];
+      case _Section.account:
+        final session = services.janus.session;
+        return [
+          Text(session.serverUrl.toString(), style: Zt.title),
+          const SizedBox(height: 8),
+          Text(l10n.signedInOnDevice, style: Zt.body),
+          const SizedBox(height: 30),
+          SettingToggleRow(
+            title: l10n.allowSelfSigned,
+            subtitle: l10n.allowSelfSignedHint,
+            value: app.acceptInvalidCertificates,
+            onChanged: (v) => services.updateSettings(app.copyWith(acceptInvalidCertificates: v)),
+          ),
+          SettingActionRow(title: l10n.signOut, icon: Icons.logout_rounded, onSelect: () => services.signOut()),
+          SettingActionRow(title: l10n.exitApp, icon: Icons.power_settings_new_rounded, onSelect: () => confirmExit(context)),
+        ];
+    }
+  }
+
+  void _toast(String text) => showToast(context, text);
+
+  void _setXtreamAccount(AppServices services, int i, {String? user, String? password}) {
+    final list = [...services.settings.xtreamAccounts];
+    final current = i < list.length ? list[i] : ('', '');
+    final next = (user ?? current.$1, password ?? current.$2);
+    if (i < list.length) {
+      list[i] = next;
+    } else {
+      list.add(next);
+    }
+    list.removeWhere((a) => a.$1.trim().isEmpty && a.$2.isEmpty);
+    services.updateSettings(services.settings.copyWith(xtreamAccounts: list));
+  }
+}
+
+class _AdvancedVideoPage extends StatefulWidget {
+  const _AdvancedVideoPage({required this.initial});
+
+  final PlayerSettings initial;
+
+  @override
+  State<_AdvancedVideoPage> createState() => _AdvancedVideoPageState();
+}
+
+class _AdvancedVideoPageState extends State<_AdvancedVideoPage> {
+  late PlayerSettings _p = widget.initial;
+
+  Future<void> _save(PlayerSettings next) async {
+    setState(() => _p = next);
+    await next.save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = _p;
+    return Padding(
+      padding: const EdgeInsets.only(left: contentLeft, top: 90, right: 120),
+      child: SizedBox(
+        width: 1100,
+        child: FocusZone(
+          debugLabel: 'settings-advanced-video',
+          autofocus: true,
+          child: ListView(padding: const EdgeInsets.only(bottom: 120), children: [
+            Text(l10n.advancedVideo, style: Zt.headline),
+            const SizedBox(height: 12),
+            Text(l10n.videoIntro, style: Zt.body),
+            const SizedBox(height: 30),
+            SettingChoiceRow<String>(
+              title: l10n.toneMapping,
+              subtitle: l10n.toneMappingHint,
+              value: p.toneMapping,
+              options: {
+                'auto': l10n.toneMappingAuto,
+                'bt.2390': 'BT.2390',
+                'spline': 'Spline',
+                'st2094-40': 'ST 2094-40',
+                'hable': 'Hable',
+                'mobius': 'Mobius',
+                'reinhard': 'Reinhard',
+                'clip': 'Clip',
+              },
+              onChanged: (v) => _save(p.copyWith(toneMapping: v)),
+            ),
+            SettingToggleRow(title: l10n.deband, subtitle: l10n.debandHint,
+                value: p.deband, onChanged: (v) => _save(p.copyWith(deband: v))),
+            SettingToggleRow(title: l10n.smoothMotion, subtitle: l10n.smoothMotionHint,
+                value: p.smoothMotion, onChanged: (v) => _save(p.copyWith(smoothMotion: v))),
+            SettingChoiceRow<String>(
+              title: l10n.videoRenderer,
+              value: p.videoOutput,
+              options: {'gpu-next': l10n.videoRendererNext, 'gpu': l10n.videoRendererOld},
+              onChanged: (v) => _save(p.copyWith(videoOutput: v)),
+            ),
+            if (MpvConf.supported) ...[
+              const SettingHeader('mpv.conf'),
+              SettingActionRow(
+                title: l10n.editMpvConf,
+                icon: Icons.edit_note_rounded,
+                onSelect: () async {
+                  await MpvConf.edit();
+                  if (context.mounted) showToast(context, l10n.mpvConfOpened);
+                },
+              ),
+              SettingActionRow(title: l10n.openSettingsFolder, icon: Icons.folder_open_rounded, onSelect: MpvConf.openFolder),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}

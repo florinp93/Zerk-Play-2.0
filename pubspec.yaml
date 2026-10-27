@@ -1,0 +1,35 @@
+name: zerk_play
+description: Emby / Jellyfin client with *seerr requests.
+publish_to: 'none'
+version: 2.0.0+12
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  ffi: ^2.1.4
+  http: ^1.5.0
+  intl: any
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.3
+  uuid: ^4.5.1
+  win32: ^5.14.0
+  window_manager: ^0.5.1
+  qr: 3.0.2
+  youtube_explode_dart: ^3.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/mpv/
+    - assets/sounds/
