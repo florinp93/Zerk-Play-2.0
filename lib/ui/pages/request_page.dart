@@ -16,6 +16,7 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/net_image.dart';
+import '../widgets/rows_scroll_view.dart';
 import '../widgets/trailer.dart';
 import 'details_parts.dart';
 import 'hero.dart';
@@ -156,7 +157,7 @@ class _RequestPageState extends State<RequestPage> {
 
     return Stack(children: [
       Positioned.fill(child: Backdrop(url: m.backdrop(), drift: true, dim: 0.15, video: TrailerVideo(controller: _trailer))),
-      ListView(
+      PageScrollView(
         padding: EdgeInsets.only(top: size.height * 0.16, bottom: 120),
         children: [
           Padding(
@@ -208,6 +209,7 @@ class _RequestPageState extends State<RequestPage> {
                   const SizedBox(height: 34),
                   FocusZone(
                     debugLabel: 'request-actions',
+                    revealsTop: true,
                     child: Wrap(spacing: 18, children: [
                       if (_libraryItem != null)
                         TvButton(

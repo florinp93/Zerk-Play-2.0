@@ -143,20 +143,33 @@ String? _jellyfinDovi(Map<String, dynamic> j) {
 }
 
 final class ChapterInfo {
-  ChapterInfo({required this.startTicks, this.name, this.markerType});
+  ChapterInfo({required this.startTicks, this.name, this.markerType, this.imageTag, this.index = 0});
 
   final int startTicks;
   final String? name;
 
   final String? markerType;
+  final String? imageTag;
+  final int index;
 
   Duration get start => Duration(microseconds: startTicks ~/ 10);
 
-  factory ChapterInfo.fromJson(Map<String, dynamic> j) => ChapterInfo(
+  bool get isNamed => name != null && !RegExp(r'^\D*\d+$').hasMatch(name!.trim());
+
+  factory ChapterInfo.fromJson(Map<String, dynamic> j, {int position = 0}) => ChapterInfo(
         startTicks: _int(j['StartPositionTicks']) ?? 0,
         name: _str(j['Name']),
         markerType: _str(j['MarkerType']),
+        imageTag: _str(j['ImageTag']),
+        index: _int(j['ChapterIndex']) ?? position,
       );
+
+  static List<ChapterInfo> listFromJson(Object? raw) => raw is! List
+      ? const []
+      : [
+          for (var i = 0; i < raw.length; i++)
+            if (raw[i] case final Map c) ChapterInfo.fromJson(c.cast<String, dynamic>(), position: i),
+        ];
 }
 
 final class MediaSourceInfo {
@@ -234,13 +247,7 @@ final class MediaSourceInfo {
         if (s is Map) streams.add(MediaStream.fromJson(s.cast<String, dynamic>()));
       }
     }
-    final chapters = <ChapterInfo>[];
-    final rawChapters = j['Chapters'];
-    if (rawChapters is List) {
-      for (final c in rawChapters) {
-        if (c is Map) chapters.add(ChapterInfo.fromJson(c.cast<String, dynamic>()));
-      }
-    }
+    final chapters = ChapterInfo.listFromJson(j['Chapters']);
     return MediaSourceInfo(
       id: _str(j['Id']) ?? '',
       name: _str(j['Name']),

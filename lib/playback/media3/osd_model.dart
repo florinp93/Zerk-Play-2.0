@@ -21,6 +21,24 @@ final class OsdChoice {
       ];
 }
 
+final class OsdChapter {
+  const OsdChapter({required this.start, this.title, this.image});
+
+  final Duration start;
+  final String? title;
+  final Uri? image;
+
+  static List<OsdChapter> list(Object? raw) => [
+        for (final e in (raw is List ? raw : const []).whereType<Map<Object?, Object?>>())
+          if (e['time'] case final num time)
+            OsdChapter(
+              start: Duration(milliseconds: (time * 1000).round()),
+              title: e['title'] as String?,
+              image: switch (Uri.tryParse(e['image'] as String? ?? '')) { final u? when u.hasScheme => u, _ => null },
+            ),
+      ];
+}
+
 final class NextUp {
   const NextUp({required this.title, this.subtitle, this.image, this.autoplay = false, this.countdown = 10});
 
@@ -64,6 +82,7 @@ final class OsdModel extends ChangeNotifier {
   Duration? introStart;
   Duration? introEnd;
   Duration? creditsStart;
+  List<OsdChapter> chapters = const [];
   NextUp? next;
   int seekStep = 10;
 
@@ -107,6 +126,8 @@ final class OsdModel extends ChangeNotifier {
         introStart = secs(m['introStart']);
         introEnd = secs(m['introEnd']);
         creditsStart = secs(m['creditsStart']);
+      case 'chapters':
+        chapters = OsdChapter.list(data);
       case 'next':
         next = data is Map
             ? NextUp(

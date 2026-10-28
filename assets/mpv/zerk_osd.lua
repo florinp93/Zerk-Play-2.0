@@ -75,7 +75,7 @@ local S = {
   tracks = { audio = {}, subs = {} },
   versions = {},
   versions_title = nil,
-  seg = {}, intro_skipped = false,
+  seg = {}, intro_skipped = false, chapters = {},
   next_up = nil, next_elapsed = 0, next_last = nil, next_cancelled = false, next_choice = 1, next_img = nil,
   scrub = nil, scrub_commit_at = 0, scrub_repeat = 0, scrub_last = 0,
   mini_until = 0,
@@ -94,6 +94,11 @@ local AUTOHIDE = 5
 
 local function now() return mp.get_time() end
 local function prop(name, def) local v = mp.get_property_native(name); if v == nil then return def end; return v end
+
+local function chapter_list()
+  if #S.chapters > 0 then return S.chapters end
+  return prop("chapter-list", {})
+end
 local function send(...) mp.commandv("script-message", "zerk-event", ...) end
 
 local function esc(s)
@@ -203,7 +208,7 @@ local function buttons()
     { id = "audio", glyph = ICON.audio, label = tr("audio") },
     { id = "subs", glyph = ICON.subs, label = tr("subtitles") },
   }
-  if #(prop("chapter-list", {})) > 1 then right[#right + 1] = { id = "chapters", glyph = ICON.chapters, label = tr("chapters") } end
+  if #chapter_list() > 1 then right[#right + 1] = { id = "chapters", glyph = ICON.chapters, label = tr("chapters") } end
   if S.next_up then right[#right + 1] = { id = "next", glyph = ICON.next, label = tr("next_episode") } end
   if S.versions_title and #S.versions > 1 then
     right[#right + 1] = { id = "versions", glyph = ICON.channels, label = S.versions_title }
@@ -235,10 +240,13 @@ local function track_items(kind)
 end
 
 local function chapter_items()
-  local items, cur = {}, prop("chapter", -1)
-  for i, c in ipairs(prop("chapter-list", {})) do
-    items[#items + 1] = { id = i - 1, label = (c.title and c.title ~= "") and c.title or tr("chapter", i),
-      detail = fmt_time(c.time), selected = (i - 1) == cur }
+  local items, list, pos, cur = {}, chapter_list(), prop("time-pos", 0), 0
+  for i, c in ipairs(list) do
+    if c.time <= pos + 0.5 then cur = i end
+  end
+  for i, c in ipairs(list) do
+    items[#items + 1] = { id = c.time, label = (c.title and c.title ~= "") and c.title or tr("chapter", i),
+      detail = fmt_time(c.time), selected = i == cur }
   end
   return items
 end
@@ -340,7 +348,7 @@ local function panel_activate(item)
   local p = S.panel
   if p.kind == "audio" then send("audio", tostring(item.id)); S.panel = nil
   elseif p.kind == "subs" then send("sub", tostring(item.id)); S.panel = nil
-  elseif p.kind == "chapters" then mp.set_property_number("chapter", item.id); S.panel = nil
+  elseif p.kind == "chapters" then mp.commandv("seek", item.id, "absolute+exact"); S.panel = nil
   elseif p.kind == "settings" then
     if item.id == "stats" then mp.commandv("script-binding", "stats/display-stats-toggle"); S.panel = nil; S.visible = false
     else open_panel(item.id) end
@@ -393,7 +401,7 @@ local function draw_progress(out, y, focused, mini)
   if cfrac > frac then out[#out + 1] = rrect(x1, y - h / 2, width * cfrac, h, h / 2, T.white, "90") end
   if frac > 0 then out[#out + 1] = rrect(x1, y - h / 2, math.max(h, width * frac), h, h / 2, T.accent, "00") end
 
-  for _, c in ipairs(prop("chapter-list", {})) do
+  for _, c in ipairs(chapter_list()) do
     if dur > 0 and c.time > 1 and c.time < dur - 1 then
       local cx = R(x1 + width * (c.time / dur))
       local top, bottom = R(y - h / 2), R(y + h / 2)
@@ -1147,6 +1155,12 @@ end)
 
 mp.register_script_message("versions", function(raw)
   S.versions = json(raw) or {}
+end)
+
+mp.register_script_message("chapters", function(raw)
+  S.chapters = json(raw) or {}
+  if S.panel and S.panel.kind == "chapters" then open_panel("chapters") end
+  refresh()
 end)
 
 mp.register_script_message("segments", function(raw)

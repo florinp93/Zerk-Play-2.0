@@ -505,5 +505,15 @@
   "updateDownloading": "Se descarcă… {percent}%",
   "updateInstalling": "Se instalează…",
   "updateFailed": "Actualizarea a eșuat: {error}",
-  "updateAllowInstalls": "Permite aplicației Zerk Play să instaleze aplicații, apoi alege din nou Actualizează acum."
+  "updateAllowInstalls": "Permite aplicației Zerk Play să instaleze aplicații, apoi alege din nou Actualizează acum.",
+  "sectionHome": "Acasă",
+  "homeCollections": "Colecții pe Acasă",
+  "homeCollectionsHint": "Arată filmele din colecțiile tale ca rânduri pe Acasă.",
+  "homeCollectionsCount": "{count, plural, =0{Niciuna aleasă} =1{O colecție} few{{count} colecții} other{{count} de colecții}}",
+  "homeCollectionsIntro": "Alege colecțiile care apar ca rânduri pe Acasă. Apar în ordinea de mai jos, imediat după Continuă vizionarea.",
+  "homeCollectionsNone": "Serverul nu are încă nicio colecție.",
+  "onHome": "Pe Acasă",
+  "moveUp": "Mută mai sus",
+  "cardTrailers": "Trailere în carduri",
+  "cardTrailersHint": "Când un card rămâne selectat, se lărgește și pornește trailerul. Setarea Sunet trailer se aplică și aici."
 }

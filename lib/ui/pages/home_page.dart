@@ -22,6 +22,7 @@ import '../widgets/media_row.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/mixed_cards.dart';
 import '../widgets/mood_shelf.dart';
+import '../widgets/trailer.dart';
 import 'hero.dart';
 import 'title_extras.dart';
 import 'routes.dart';
@@ -77,6 +78,7 @@ class _HomePageState extends State<HomePage> {
   Future<List<TitleTag>>? _tasteTags;
 
   AppServices? _services;
+  String _pickedCollections = '';
 
   @override
   void didChangeDependencies() {
@@ -90,7 +92,27 @@ class _HomePageState extends State<HomePage> {
     if (_services == null) {
       _services = AppServicesScope.read(context);
       _services!.libraryChanged.addListener(refresh);
+      _pickedCollections = _collectionsKey(_services!);
+      _services!.addListener(_onServices);
     }
+  }
+
+  static List<(String, String)> _collections(AppServices s) =>
+      s.isSignedIn ? s.settings.homeCollectionsOf(s.janus.session.userId) : const [];
+
+  static String _collectionsKey(AppServices s) => [for (final (id, _) in _collections(s)) id].join(',');
+
+  void _onServices() {
+    final key = _collectionsKey(_services!);
+    if (key == _pickedCollections || !mounted) return;
+    _pickedCollections = key;
+    setState(() {
+      _rows = _buildRows(_services!);
+      _data.clear();
+      _resolved.clear();
+      _allowFirstRows();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pump());
   }
 
   void _allowFirstRows() {
@@ -149,6 +171,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _services?.libraryChanged.removeListener(refresh);
+    _services?.removeListener(_onServices);
     _hero.dispose();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
@@ -208,6 +231,10 @@ class _HomePageState extends State<HomePage> {
 
     return [
       _Row((l) => l.continueWatching, () => c.continueWatching(), kind: _Kind.continueWatching, recommends: false),
+      for (final (id, name) in _collections(s))
+        _Row((l) => name,
+            () => items(c.query(parentId: id, recursive: false, sortBy: 'PremiereDate,ProductionYear,SortName', limit: 100)),
+            recommends: false),
       _because(s, (t) => t.recentMovies, 0),
       _Row((l) => l.latestMovies, () => c.latest(types: ['Movie']), recommends: false),
       if (r.tmdb != null) _Row((l) => l.moodShelfTitle, () async => const [], kind: _Kind.moods, recommends: false),
@@ -325,7 +352,7 @@ class _HomePageState extends State<HomePage> {
     final seerr = s.seerr;
     final (library, details) = await (
       c.query(personIds: person.id, types: types, filters: 'IsUnplayed', sortBy: 'CommunityRating', descending: true, limit: 40),
-      c.item(person.id).then<EmbyItem?>((v) => v, onError: (Object _) => null),
+      seerr == null ? Future<EmbyItem?>.value() : c.item(person.id).then<EmbyItem?>((v) => v, onError: (Object _) => null),
     ).wait;
     final requestable = <SeerrMedia>[];
     final tmdbId = details?.tmdbId;
@@ -422,10 +449,12 @@ class _HomePageState extends State<HomePage> {
       ),
       Positioned.fill(
         top: heroHeight,
-        child: RowsScrollView(
-          controller: _scroll,
-          top: 24,
-          children: [for (final (i, row) in rows.indexed) _buildRow(row, first: i == 0)],
+        child: CardTrailers(
+          child: RowsScrollView(
+            controller: _scroll,
+            top: 24,
+            children: [for (final (i, row) in rows.indexed) _buildRow(row, first: i == 0)],
+          ),
         ),
       ),
       Positioned(

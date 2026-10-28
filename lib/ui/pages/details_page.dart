@@ -21,6 +21,7 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/rows_scroll_view.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/trailer.dart';
 import 'details_parts.dart';
@@ -49,6 +50,7 @@ class _DetailsPageState extends State<DetailsPage> {
   MixedItems _similar = const [];
   List<TitleTag> _tags = const [];
   List<EmbyItem> _siblings = const [];
+  List<ChapterInfo> _chapters = const [];
   ({EmbyItem collection, List<EmbyItem> films, int? total})? _collection;
 
   List<SeerrMedia> _collectionRequestable = const [];
@@ -89,6 +91,11 @@ class _DetailsPageState extends State<DetailsPage> {
       });
       if (focusPlay) WidgetsBinding.instance.addPostFrameCallback((_) => _playNode.requestFocus());
       _trailer.load(item.id, () => Trailers.forItem(s, item));
+      s.playback.chapters(item, fetch: false).then((v) {
+        if (mounted && _item?.id == item.id) setState(() => _chapters = v);
+      }).catchError((Object e) {
+        debugPrint('[details] chapters of ${item.id}: $e');
+      });
       _loadExtras(s, item);
       if (item.isMovie) {
         s.catalog.collectionOf(item).then((v) {
@@ -233,13 +240,13 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
-  Future<void> _play({bool fromStart = false}) async {
+  Future<void> _play({bool fromStart = false, Duration? at}) async {
     final item = _item;
     if (item == null) return;
     final outcome = await playItem(
       context,
       item,
-      start: fromStart ? Duration.zero : null,
+      start: at ?? (fromStart ? Duration.zero : null),
       mediaSourceId: _source?.id,
       audioIndex: _audio,
       subtitleIndex: _subtitle ?? -1,
@@ -294,7 +301,7 @@ class _DetailsPageState extends State<DetailsPage> {
           video: TrailerVideo(controller: _trailer),
         ),
       ),
-      ListView(
+      PageScrollView(
         controller: _scroll,
         padding: EdgeInsets.only(top: size.height * 0.2, bottom: 120),
         children: [
@@ -318,6 +325,7 @@ class _DetailsPageState extends State<DetailsPage> {
             padding: const EdgeInsets.only(left: pageLeft, right: 120),
             child: FocusZone(
               debugLabel: 'actions',
+              revealsTop: true,
               child: Wrap(spacing: 18, runSpacing: 18, children: [
                 if (item.isPlayable)
                   TvButton(
@@ -413,6 +421,10 @@ class _DetailsPageState extends State<DetailsPage> {
               },
             ),
             const SizedBox(height: 60),
+          ],
+          if (ChaptersRow.worthShowing(_chapters)) ...[
+            ChaptersRow(item: item, chapters: _chapters, onPlay: (at) => _play(at: at)),
+            const SizedBox(height: Zs.rowGap),
           ],
           CastRow(people: item.people),
           if (_tags.isNotEmpty) ...[const SizedBox(height: Zs.rowGap), TagRow(tags: _tags)],

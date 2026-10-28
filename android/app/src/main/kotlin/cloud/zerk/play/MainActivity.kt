@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private lateinit var videoLayer: FrameLayout
     private var player: ZerkPlayer? = null
+    private var trailers: TrailerTextures? = null
 
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
@@ -41,11 +42,14 @@ class MainActivity : FlutterActivity() {
         player = ZerkPlayer(this, flutterEngine.dartExecutor.binaryMessenger).also {
             if (::videoLayer.isInitialized) it.attach(videoLayer)
         }
+        trailers = TrailerTextures(this, flutterEngine.dartExecutor.binaryMessenger, flutterEngine.renderer)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         player?.release()
         player = null
+        trailers?.release()
+        trailers = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

@@ -24,6 +24,7 @@ import '../widgets/media_row.dart';
 import '../widgets/remote_setup_panel.dart';
 import '../widgets/setting_rows.dart';
 import '../widgets/update_dialog.dart';
+import 'home_collections_page.dart';
 
 enum _Section {
   playback(Icons.play_circle_outline_rounded),
@@ -356,7 +357,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     ]),
                   ),
           ),
-          SettingHeader(l10n.sectionMetadata, first: true),
+          SettingHeader(l10n.sectionHome, first: true),
+          if (services.isSignedIn)
+            SettingActionRow(
+              title: l10n.homeCollections,
+              subtitle: l10n.homeCollectionsCount(app.homeCollectionsOf(services.janus.session.userId).length),
+              icon: Icons.chevron_right_rounded,
+              onSelect: () => Navigator.of(context).push(tvRoute<void>(const HomeCollectionsPage(), name: 'settings/home-collections')),
+            ),
+          SettingHeader(l10n.sectionMetadata),
           SettingChoiceRow<String>(
             title: l10n.metadataLanguage,
             subtitle: services.tmdb == null && app.metadataLanguage.isNotEmpty
@@ -399,6 +408,12 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: l10n.trailerSoundHint,
               value: app.trailerSound,
               onChanged: (v) => services.updateSettings(app.copyWith(trailerSound: v)),
+            ),
+            SettingToggleRow(
+              title: l10n.cardTrailers,
+              subtitle: l10n.cardTrailersHint,
+              value: app.cardTrailers,
+              onChanged: (v) => services.updateSettings(app.copyWith(cardTrailers: v)),
             ),
             SettingChoiceRow<String>(
               title: l10n.trailerLanguage,

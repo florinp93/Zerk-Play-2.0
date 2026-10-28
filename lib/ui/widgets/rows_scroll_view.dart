@@ -25,3 +25,18 @@ class RowsScrollView extends StatelessWidget {
     );
   }
 }
+
+class PageScrollView extends StatelessWidget {
+  const PageScrollView({super.key, this.controller, required this.padding, required this.children});
+
+  final ScrollController? controller;
+  final EdgeInsets padding;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        controller: controller,
+        padding: padding,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+      );
+}

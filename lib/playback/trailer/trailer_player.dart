@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'trailer_player_stub.dart'
-    if (dart.library.ffi) 'trailer_player_mpv.dart' as impl;
+    if (dart.library.ffi) 'trailer_player_native.dart' as impl;
 import 'trailers.dart';
 
 @immutable

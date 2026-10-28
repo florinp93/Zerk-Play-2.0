@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import '../widgets/cards.dart';
 import '../widgets/media_row.dart';
 import '../widgets/net_image.dart';
+import '../widgets/rows_scroll_view.dart';
 import 'details_parts.dart';
 import 'routes.dart';
 
@@ -34,7 +35,7 @@ class _PersonPageState extends State<PersonPage> {
   Widget build(BuildContext context) {
     final c = AppServicesScope.of(context).catalog;
     final p = widget.person;
-    return ListView(
+    return PageScrollView(
       padding: const EdgeInsets.only(top: 90, bottom: 120),
       children: [
         Padding(

@@ -12,13 +12,16 @@ import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
+import 'net_image.dart';
 
 class TrailerController extends ChangeNotifier {
-  TrailerController(this._services) {
+  TrailerController(this._services, {this.inCards = false}) {
     _services.addListener(_onSettings);
   }
 
   final AppServices _services;
+
+  final bool inCards;
 
   List<TrailerRef> _refs = const [];
   String? _key;
@@ -37,9 +40,17 @@ class TrailerController extends ChangeNotifier {
 
   AppSettings get _settings => _services.settings;
 
-  bool get available => TrailerPlayer.supported && _settings.trailers != TrailerMode.off && _refs.isNotEmpty;
+  bool get _enabled => _settings.trailers != TrailerMode.off && (!inCards || _settings.cardTrailers);
+
+  bool get _autoplays => inCards ? _enabled : _settings.trailers == TrailerMode.autoplay;
+
+  bool get available => TrailerPlayer.supported && _enabled && _refs.isNotEmpty;
 
   bool get playing => _playing;
+
+  String? get key => _key;
+
+  bool get exhausted => _done && !_playing;
 
   bool get sound => _settings.trailerSound;
 
@@ -48,7 +59,7 @@ class TrailerController extends ChangeNotifier {
   Size get renderSize => _renderSize;
 
   void load(String key, Future<List<TrailerRef>> Function() find) {
-    if (key == _key || !TrailerPlayer.supported || _settings.trailers == TrailerMode.off) return;
+    if (key == _key || !TrailerPlayer.supported || !_enabled) return;
     _key = key;
     _done = false;
     _refs = const [];
@@ -64,6 +75,15 @@ class TrailerController extends ChangeNotifier {
     }).catchError((Object e) {
       debugPrint('[trailer] lookup $key: $e');
     });
+  }
+
+  void clear() {
+    if (_key == null) return;
+    _key = null;
+    _refs = const [];
+    _autoplay?.cancel();
+    unawaited(_player?.stop());
+    notifyListeners();
   }
 
   void toggleSound() {
@@ -122,15 +142,15 @@ class TrailerController extends ChangeNotifier {
   void _onSettings() {
     final p = _player;
     if (p != null && p.state.value.muted == sound) p.setMuted(!sound);
-    if (_settings.trailers == TrailerMode.off && p != null) unawaited(p.stop());
+    if (!_enabled && p != null) unawaited(p.stop());
     notifyListeners();
   }
 
   void _scheduleAutoplay() {
     _autoplay?.cancel();
-    if (_done || !_onstage || _watching || _refs.isEmpty || _settings.trailers != TrailerMode.autoplay) return;
+    if (_done || !_onstage || _watching || _refs.isEmpty || !_autoplays) return;
     unawaited(_refs.first.resolve().then((_) {}, onError: (_) {}));
-    _autoplay = Timer(autoplayDelay, _start);
+    _autoplay = Timer(inCards ? Duration.zero : autoplayDelay, _start);
   }
 
   Future<TrailerPlayer?> _ensurePlayer() {
@@ -167,6 +187,7 @@ class TrailerController extends ChangeNotifier {
       }
     }
     _done = true;
+    notifyListeners();
   }
 
   void _onPlayerState() {
@@ -190,6 +211,274 @@ class TrailerController extends ChangeNotifier {
     _player = null;
     super.dispose();
   }
+}
+
+class CardTrailers extends StatefulWidget {
+  const CardTrailers({super.key, required this.child});
+
+  final Widget child;
+
+  static const dwell = Duration(milliseconds: 1200);
+
+  static CardTrailersState? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_CardTrailersScope>()?.state;
+
+  @override
+  State<CardTrailers> createState() => CardTrailersState();
+}
+
+class CardTrailersState extends State<CardTrailers> {
+  late final TrailerController controller = TrailerController(AppServicesScope.read(context), inCards: true);
+  Timer? _dwell;
+  String? _focused;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final onstage = TickerMode.valuesOf(context).enabled;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!onstage) _clear();
+      controller.setOnstage(onstage);
+      controller.setRenderSize(const Size(960, 540));
+    });
+  }
+
+  @override
+  void dispose() {
+    _dwell?.cancel();
+    controller.dispose();
+    super.dispose();
+  }
+
+  bool showing(String key) => controller.key == key && controller.playing;
+
+  bool expanded(String key) => controller.key == key && controller.available && !controller.exhausted;
+
+  void focus(String key, Future<List<TrailerRef>> Function() find) {
+    _focused = key;
+    _dwell?.cancel();
+    controller.clear();
+    _dwell = Timer(CardTrailers.dwell, () {
+      if (mounted && _focused == key) controller.load(key, find);
+    });
+  }
+
+  void blur(String key) {
+    if (_focused != key) return;
+    _clear();
+  }
+
+  void _clear() {
+    _focused = null;
+    _dwell?.cancel();
+    controller.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) => _CardTrailersScope(state: this, child: widget.child);
+}
+
+class _CardTrailersScope extends InheritedWidget {
+  const _CardTrailersScope({required this.state, required super.child});
+
+  final CardTrailersState state;
+
+  @override
+  bool updateShouldNotify(_CardTrailersScope old) => old.state != state;
+}
+
+class CardTrailer extends StatelessWidget {
+  const CardTrailer({
+    super.key,
+    required this.trailerKey,
+    required this.find,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.title,
+    required this.child,
+    this.meta,
+    this.backdrop,
+    this.logo,
+    this.onSelect,
+  });
+
+  final String trailerKey;
+  final Future<List<TrailerRef>> Function() find;
+  final double imageWidth;
+  final double imageHeight;
+  final String title;
+  final String? meta;
+  final Uri? backdrop;
+  final Uri? logo;
+  final VoidCallback? onSelect;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = CardTrailers.maybeOf(context);
+    if (scope == null || !TrailerPlayer.supported) return child;
+    final controller = scope.controller;
+    final wide = imageHeight * 16 / 9;
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (f) => f ? scope.focus(trailerKey, find) : scope.blur(trailerKey),
+      child: ListenableBuilder(
+        listenable: controller,
+        child: child,
+        builder: (context, child) {
+          final open = scope.expanded(trailerKey);
+          return AnimatedContainer(
+            duration: Zm.normal,
+            curve: Zm.curve,
+            width: open && wide > imageWidth ? wide : imageWidth,
+            child: Stack(clipBehavior: Clip.none, children: [
+              AnimatedOpacity(
+                opacity: open ? 0 : 1,
+                duration: Zm.fast,
+                child: Align(alignment: Alignment.topLeft, child: child),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: imageHeight,
+                child: IgnorePointer(
+                  ignoring: !open,
+                  child: AnimatedOpacity(
+                    opacity: open ? 1 : 0,
+                    duration: Zm.normal,
+                    curve: Zm.curve,
+                    child: !open
+                        ? const SizedBox.shrink()
+                        : GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onSelect,
+                            child: FocusFrame(
+                              focused: true,
+                              scale: 1.04,
+                              child: _ExpandedCard(
+                                controller: controller,
+                                playing: scope.showing(trailerKey),
+                                title: title,
+                                meta: meta,
+                                backdrop: backdrop,
+                                logo: logo,
+                                width: wide,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ExpandedCard extends StatelessWidget {
+  const _ExpandedCard({
+    required this.controller,
+    required this.playing,
+    required this.title,
+    required this.width,
+    this.meta,
+    this.backdrop,
+    this.logo,
+  });
+
+  final TrailerController controller;
+  final bool playing;
+  final String title;
+  final String? meta;
+  final Uri? backdrop;
+  final Uri? logo;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = controller.player;
+    return Stack(fit: StackFit.expand, children: [
+      const ColoredBox(color: Zc.surfaceHigh),
+      NetImage(url: backdrop, width: width),
+      if (player != null)
+        ValueListenableBuilder<TrailerState>(
+          valueListenable: player.state,
+          builder: (context, s, _) => !s.hasSurface
+              ? const SizedBox.shrink()
+              : AnimatedOpacity(
+                  opacity: playing ? 1 : 0,
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeInOutSine,
+                  child: _Frame(state: s, size: controller.renderSize),
+                ),
+        ),
+      const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x00000000), Color(0x00000000), Color(0xD9000000)],
+            stops: [0, 0.5, 1],
+          ),
+        ),
+      ),
+      Positioned(
+        left: 22,
+        right: 22,
+        bottom: 18,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          if (logo != null)
+            SizedBox(
+              height: 64,
+              width: width * 0.5,
+              child: NetImage(
+                url: logo,
+                width: width * 0.5,
+                fit: BoxFit.contain,
+                alignment: Alignment.bottomLeft,
+                fallback: _Title(title),
+              ),
+            )
+          else
+            _Title(title),
+          if (meta != null && meta!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, style: Zt.caption.copyWith(color: Zc.text)),
+          ],
+        ]),
+      ),
+      Positioned(
+        top: 12,
+        right: 12,
+        child: AnimatedOpacity(
+          opacity: playing ? 1 : 0,
+          duration: Zm.normal,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+            child: Icon(controller.sound ? Icons.volume_up_rounded : Icons.volume_off_rounded, size: 20, color: Colors.white),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _Title extends StatelessWidget {
+  const _Title(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Zt.title.copyWith(shadows: const [Shadow(color: Colors.black87, blurRadius: 12)]));
 }
 
 class TrailerButtons extends StatelessWidget {

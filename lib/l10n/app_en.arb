@@ -1114,5 +1114,20 @@
       }
     }
   },
-  "updateAllowInstalls": "Allow Zerk Play to install apps, then choose Update now again."
+  "updateAllowInstalls": "Allow Zerk Play to install apps, then choose Update now again.",
+  "sectionHome": "Home",
+  "homeCollections": "Collections on Home",
+  "homeCollectionsHint": "Show the films of your own collections as rows on Home.",
+  "homeCollectionsCount": "{count, plural, =0{None picked} =1{1 collection} other{{count} collections}}",
+  "@homeCollectionsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "homeCollectionsIntro": "Pick collections to show as rows on Home. They appear in the order below, right after Continue watching.",
+  "homeCollectionsNone": "This server has no collections yet.",
+  "onHome": "On Home",
+  "moveUp": "Move up",
+  "cardTrailers": "Trailers in cards",
+  "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Trailer sound applies here too."
 }

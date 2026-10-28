@@ -4,22 +4,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/host.dart';
 import '../mpv/mpv_player.dart';
 import 'chunked_proxy.dart';
 import 'trailer_player.dart';
 import 'trailers.dart';
 
-bool get trailersSupported => Host.isWindows;
-
-Future<TrailerPlayer?> createTrailerPlayer({required Size renderSize, required bool acceptInvalidCertificates}) async {
-  try {
-    return await _MpvTrailerPlayer.create(renderSize, acceptInvalidCertificates);
-  } catch (e) {
-    debugPrint('[trailer] player: $e');
-    return null;
-  }
-}
+Future<TrailerPlayer> createMpvTrailerPlayer({required Size renderSize, required bool acceptInvalidCertificates}) =>
+    _MpvTrailerPlayer.create(renderSize, acceptInvalidCertificates);
 
 const _channel = MethodChannel('zerk/trailer');
 

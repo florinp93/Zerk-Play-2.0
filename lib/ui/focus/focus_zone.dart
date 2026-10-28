@@ -16,6 +16,7 @@ class FocusZone extends StatefulWidget {
     this.autofocus = false,
     this.onEnter,
     this.preferredEntry,
+    this.revealsTop = false,
   });
 
   final Widget child;
@@ -25,6 +26,8 @@ class FocusZone extends StatefulWidget {
   final FocusNode? Function()? preferredEntry;
 
   final VoidCallback? onEnter;
+
+  final bool revealsTop;
 
   @override
   State<FocusZone> createState() => _FocusZoneState();
@@ -43,6 +46,7 @@ class _FocusZoneState extends State<FocusZone> {
     super.initState();
     _node.onEnter = widget.onEnter;
     _node.preferredEntry = widget.preferredEntry;
+    _node.revealsTop = widget.revealsTop;
   }
 
   @override
@@ -50,6 +54,7 @@ class _FocusZoneState extends State<FocusZone> {
     super.didUpdateWidget(oldWidget);
     _node.onEnter = widget.onEnter;
     _node.preferredEntry = widget.preferredEntry;
+    _node.revealsTop = widget.revealsTop;
   }
 
   @override
@@ -68,6 +73,7 @@ class ZoneScopeNode extends FocusScopeNode {
 
   VoidCallback? onEnter;
   FocusNode? Function()? preferredEntry;
+  bool revealsTop = false;
 
   Iterable<FocusNode> get items => traversalDescendants.where(
         (n) => n is! FocusScopeNode && n.canRequestFocus && _zoneOf(n) == this && n.context != null,
@@ -270,6 +276,13 @@ class RevealController extends ScrollController {
 void revealFocused(BuildContext context, {Duration duration = const Duration(milliseconds: 260)}) {
   RenderObject? target = context.findRenderObject();
   var scrollable = Scrollable.maybeOf(context);
+  var top = false;
+  for (FocusNode? n = Focus.maybeOf(context); n != null; n = n.parent) {
+    if (n is ZoneScopeNode) {
+      top = n.revealsTop;
+      break;
+    }
+  }
   while (scrollable != null && target != null && target.attached) {
     final position = scrollable.position;
     final viewport = RenderAbstractViewport.maybeOf(target);
@@ -280,7 +293,10 @@ void revealFocused(BuildContext context, {Duration duration = const Duration(mil
     final leading = viewport.getOffsetToReveal(target, 0).offset;
     final trailing = viewport.getOffsetToReveal(target, 1).offset;
     double to;
-    if (policy.mode == RevealMode.anchored) {
+    if (top && axisDirectionToAxis(position.axisDirection) == Axis.vertical) {
+      to = position.minScrollExtent;
+      top = false;
+    } else if (policy.mode == RevealMode.anchored) {
       to = leading - policy.anchor;
     } else if (trailing + policy.margin <= position.minScrollExtent) {
       to = position.minScrollExtent;

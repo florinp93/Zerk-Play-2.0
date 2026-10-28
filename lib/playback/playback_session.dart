@@ -119,6 +119,7 @@ final class PlaybackSession {
     _videoSignature = null;
     _osd('next', null);
     _osd('video', null);
+    _osd('chapters', null);
     _osdState('loading', item);
 
     try {
@@ -247,6 +248,7 @@ final class PlaybackSession {
     _sendTracks();
     _sendVersions();
     unawaited(_sendSegments(cur));
+    unawaited(_sendChapters(cur));
     final hz = _settings.matchRefreshRate ? _matchRefreshRate(cur) : null;
     if (_settings.matchRefreshRate) debugPrint('[session] refresh rate match: ${hz == null ? 'no change' : '$hz Hz'}');
     unawaited(_sendVideo(cur, announce: true, refreshHz: hz));
@@ -601,6 +603,18 @@ final class PlaybackSession {
       'introEnd': ?secs(cur.item.introEndTicks ?? marker('IntroEnd')),
       'creditsStart': ?secs(credits ?? fallback),
     });
+  }
+
+  Future<void> _sendChapters(_Current cur) async {
+    final chapters = await _api.chapters(cur.item).catchError((Object e) {
+      debugPrint('[session] chapters: $e');
+      return const <ChapterInfo>[];
+    });
+    if (!identical(_current, cur) || chapters.length < 2) return;
+    _osd('chapters', [
+      for (final c in chapters)
+        {'time': c.startTicks / 1e7, 'title': ?c.name, 'image': ?_api.chapterImage(cur.item.id, c, width: 320)?.toString()},
+    ]);
   }
 
   void _toast(String text) => _player.osd('toast', text);

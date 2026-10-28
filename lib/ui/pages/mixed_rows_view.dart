@@ -11,6 +11,7 @@ import '../widgets/backdrop.dart';
 import '../widgets/media_row.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/mixed_cards.dart';
+import '../widgets/trailer.dart';
 import 'hero.dart';
 
 final class MixedRowSpec {
@@ -80,14 +81,16 @@ class _MixedRowsViewState extends State<MixedRowsView> {
       ),
       Positioned.fill(
         top: heroHeight,
-        child: FutureBuilder<int>(
-          future: _firstNonEmpty,
-          builder: (context, first) => RowsScrollView(
-            key: ValueKey(first.data),
-            controller: _scroll,
-            children: [
-              for (final (i, row) in widget.rows.indexed) _row(row, autofocus: first.data == i),
-            ],
+        child: CardTrailers(
+          child: FutureBuilder<int>(
+            future: _firstNonEmpty,
+            builder: (context, first) => RowsScrollView(
+              key: ValueKey(first.data),
+              controller: _scroll,
+              children: [
+                for (final (i, row) in widget.rows.indexed) _row(row, autofocus: first.data == i),
+              ],
+            ),
           ),
         ),
       ),

@@ -19,6 +19,7 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/rows_scroll_view.dart';
 import '../widgets/trailer.dart';
 import 'details_parts.dart';
 import 'hero.dart';
@@ -212,7 +213,7 @@ class _SeriesPageState extends State<SeriesPage> {
 
     return Stack(children: [
       Positioned.fill(child: Backdrop(url: c.backdrop(series), drift: true, video: TrailerVideo(controller: _trailer))),
-      ListView(
+      PageScrollView(
         controller: _scroll,
         padding: EdgeInsets.only(top: size.height * 0.16, bottom: 120),
         children: [
@@ -244,6 +245,7 @@ class _SeriesPageState extends State<SeriesPage> {
             padding: const EdgeInsets.only(left: pageLeft),
             child: FocusZone(
               debugLabel: 'series-actions',
+              revealsTop: true,
               child: Wrap(spacing: 18, children: [
                 TvButton(focusNode: _playNode, label: playLabel, icon: Icons.play_arrow_rounded, primary: true, onSelect: _playMain),
                 if (next?.resumePosition != null)

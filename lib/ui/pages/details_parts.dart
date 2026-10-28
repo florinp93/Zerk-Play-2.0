@@ -140,6 +140,69 @@ class CastRow extends StatelessWidget {
       name.split(' ').where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
 }
 
+class ChaptersRow extends StatelessWidget {
+  const ChaptersRow({super.key, required this.item, required this.chapters, required this.onPlay, this.left = pageLeft});
+
+  final EmbyItem item;
+  final List<ChapterInfo> chapters;
+  final ValueChanged<Duration> onPlay;
+  final double left;
+
+  static const _width = 320.0;
+
+  static bool worthShowing(List<ChapterInfo> chapters) =>
+      chapters.length > 1 && chapters.any((c) => c.isNamed || c.imageTag != null);
+
+  @override
+  Widget build(BuildContext context) {
+    final playback = AppServicesScope.read(context).playback;
+    return MediaRow(
+      left: left,
+      title: context.l10n.chapters,
+      height: _width * 9 / 16 + 96,
+      itemCount: chapters.length,
+      itemBuilder: (context, i) {
+        final c = chapters[i];
+        final title = c.name ?? context.l10n.chapterNumber('${i + 1}');
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: TvFocusable(
+            onSelect: () => onPlay(c.start),
+            builder: (context, focused) => SizedBox(
+              width: _width,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                FocusFrame(
+                  focused: focused,
+                  scale: 1.06,
+                  child: SizedBox(
+                    width: _width,
+                    height: _width * 9 / 16,
+                    child: NetImage(
+                      url: playback.chapterImage(item.id, c, width: 640),
+                      width: _width,
+                      fallback: TitleArt(title: title, icon: Icons.bookmark_border_rounded),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: Zt.label.copyWith(color: focused ? Zc.text : Zc.textMuted)),
+                Text(_clock(c.start), style: Zt.caption),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  static String _clock(Duration d) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final h = d.inHours, m = d.inMinutes % 60, s = d.inSeconds % 60;
+    return h > 0 ? '$h:${two(m)}:${two(s)}' : '${two(m)}:${two(s)}';
+  }
+}
+
 class CollectionHighlight extends StatefulWidget {
   const CollectionHighlight({
     super.key,

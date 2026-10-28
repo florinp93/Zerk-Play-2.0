@@ -93,6 +93,7 @@ final class EmbyItem {
     this.introStartTicks,
     this.introEndTicks,
     this.creditsStartTicks,
+    this.chapters = const [],
     this.localizedPosterPath,
     this.localizedLogoPath,
     this.localizedBackdropPath,
@@ -167,6 +168,8 @@ final class EmbyItem {
   final int? introStartTicks;
   final int? introEndTicks;
   final int? creditsStartTicks;
+
+  final List<ChapterInfo> chapters;
 
   final String? localizedPosterPath;
   final String? localizedLogoPath;
@@ -266,7 +269,7 @@ final class EmbyItem {
       isFavorite: isFavorite ?? this.isFavorite, lastPlayedDate: lastPlayedDate,
       providerIds: providerIds, people: people ?? this.people, mediaSources: mediaSources, partCount: partCount,
       introStartTicks: introStartTicks, introEndTicks: introEndTicks,
-      creditsStartTicks: creditsStartTicks,
+      creditsStartTicks: creditsStartTicks, chapters: chapters,
       localizedPosterPath: localizedPosterPath ?? this.localizedPosterPath,
       localizedLogoPath: localizedLogoPath ?? this.localizedLogoPath,
       localizedBackdropPath: localizedBackdropPath ?? this.localizedBackdropPath,
@@ -353,6 +356,7 @@ final class EmbyItem {
       introStartTicks: introStart,
       introEndTicks: introEnd,
       creditsStartTicks: creditsStart,
+      chapters: ChapterInfo.listFromJson(json['Chapters']),
     );
   }
 

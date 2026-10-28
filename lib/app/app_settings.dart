@@ -65,6 +65,8 @@ final class AppSettings {
     this.startFullScreen = false,
     this.posterSize = PosterSize.medium,
     this.collectionsView = CollectionsView.covers,
+    this.homeCollections = const {},
+    this.cardTrailers = true,
   });
 
   final String seerrUrl;
@@ -96,6 +98,15 @@ final class AppSettings {
   final bool startFullScreen;
   final PosterSize posterSize;
   final CollectionsView collectionsView;
+
+  final Map<String, List<(String, String)>> homeCollections;
+
+  final bool cardTrailers;
+
+  List<(String, String)> homeCollectionsOf(String userId) => homeCollections[userId] ?? const [];
+
+  AppSettings withHomeCollections(String userId, List<(String, String)> picked) =>
+      copyWith(homeCollections: {...homeCollections, userId: picked});
 
   String get resolvedUiLanguage {
     if (uiLanguages.containsKey(uiLanguage)) return uiLanguage;
@@ -132,6 +143,8 @@ final class AppSettings {
     bool? startFullScreen,
     PosterSize? posterSize,
     CollectionsView? collectionsView,
+    Map<String, List<(String, String)>>? homeCollections,
+    bool? cardTrailers,
   }) =>
       AppSettings(
         seerrUrl: seerrUrl ?? this.seerrUrl,
@@ -152,6 +165,8 @@ final class AppSettings {
         startFullScreen: startFullScreen ?? this.startFullScreen,
         posterSize: posterSize ?? this.posterSize,
         collectionsView: collectionsView ?? this.collectionsView,
+        homeCollections: homeCollections ?? this.homeCollections,
+        cardTrailers: cardTrailers ?? this.cardTrailers,
       );
 
   static Future<bool> exist() async => (await SharedPreferences.getInstance()).containsKey(_key);
@@ -191,6 +206,11 @@ final class AppSettings {
         startFullScreen: j['startFullScreen'] as bool? ?? false,
         posterSize: PosterSize.values.asNameMap()[j['posterSize']] ?? PosterSize.medium,
         collectionsView: CollectionsView.values.asNameMap()[j['collectionsView']] ?? CollectionsView.covers,
+        homeCollections: {
+          for (final MapEntry(:key, :value) in ((j['homeCollections'] as Map?) ?? const {}).entries)
+            '$key': [for (final c in value as List) (c[0] as String, c[1] as String)],
+        },
+        cardTrailers: j['cardTrailers'] as bool? ?? true,
       );
     } catch (_) {
       return const AppSettings();
@@ -220,6 +240,10 @@ final class AppSettings {
         'startFullScreen': startFullScreen,
         'posterSize': posterSize.name,
         'collectionsView': collectionsView.name,
+        'homeCollections': {
+          for (final MapEntry(:key, :value) in homeCollections.entries) key: [for (final (id, name) in value) [id, name]],
+        },
+        'cardTrailers': cardTrailers,
       }),
     );
   }

@@ -269,6 +269,26 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     if (chosen != null) model.send(event, chosen);
   }
 
+  Future<void> _chooseChapter() async {
+    final chapters = model.chapters;
+    final position = model.state.value.position;
+    final current = chapters.lastIndexWhere((c) => c.start <= position + const Duration(milliseconds: 500));
+    _panelOpen = true;
+    final chosen = await showSidePanel<Duration>(context, title: context.l10n.chapters, options: [
+      for (final (i, c) in chapters.indexed)
+        PanelOption(
+          value: c.start,
+          title: c.title ?? context.l10n.chapterNumber('${i + 1}'),
+          subtitle: _fmt(c.start),
+          image: c.image,
+          selected: i == current,
+        ),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen != null) model.seekTo(chosen);
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
     if (e is KeyUpEvent) return KeyEventResult.ignored;
     final key = e.logicalKey;
@@ -573,6 +593,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
               onScrub: _scrubTo,
               onScrubEnd: _commitScrub,
               step: model.seekStep,
+              marks: [for (final c in model.chapters) c.start],
             ),
           ),
           const SizedBox(height: 34),
@@ -611,6 +632,10 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 TvButton(label: l10n.subtitles, icon: Icons.subtitles_outlined, onSelect: () => _choose(l10n.subtitles, model.subs, 'sub', offOption: true)),
                 const SizedBox(width: 18),
               ],
+              if (model.chapters.length > 1) ...[
+                TvButton(label: l10n.chapters, icon: Icons.list_rounded, onSelect: _chooseChapter),
+                const SizedBox(width: 18),
+              ],
               if (model.versions.length > 1) ...[
                 TvButton(
                   label: model.versionsTitle ?? l10n.version,
@@ -644,11 +669,13 @@ class _ProgressBar extends StatelessWidget {
     this.onHover,
     this.onScrub,
     this.onScrubEnd,
+    this.marks = const [],
   });
 
   final Duration position;
   final Duration duration;
   final bool focused;
+  final List<Duration> marks;
 
   final double? hover;
   final ValueChanged<double?>? onHover;
@@ -679,6 +706,13 @@ class _ProgressBar extends StatelessWidget {
                 height: focused ? 10 : 6,
                 decoration: BoxDecoration(color: Zc.accent, borderRadius: BorderRadius.circular(5)),
               ),
+              if (duration > Duration.zero)
+                for (final m in marks)
+                  if (m > const Duration(seconds: 1) && m < duration - const Duration(seconds: 1))
+                    Positioned(
+                      left: box.maxWidth * m.inMilliseconds / duration.inMilliseconds - 1,
+                      child: Container(width: 2, height: focused ? 10 : 6, color: Colors.black54),
+                    ),
               if (focused)
                 Positioned(
                   left: (box.maxWidth * frac - 14).clamp(0, box.maxWidth - 28),
@@ -731,6 +765,7 @@ class _SeekBar extends StatefulWidget {
     required this.onScrub,
     required this.onScrubEnd,
     required this.step,
+    this.marks = const [],
   });
 
   final Duration position;
@@ -739,6 +774,7 @@ class _SeekBar extends StatefulWidget {
   final void Function(Duration target) onScrub;
   final VoidCallback onScrubEnd;
   final int step;
+  final List<Duration> marks;
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
@@ -783,6 +819,7 @@ class _SeekBarState extends State<_SeekBar> {
         position: widget.position,
         duration: widget.duration,
         focused: _node.hasFocus || _hover != null,
+        marks: widget.marks,
         hover: _hover,
         onHover: (frac) => setState(() => _hover = frac),
         onScrub: widget.duration > Duration.zero ? (frac) => widget.onScrub(_at(frac)) : null,

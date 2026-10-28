@@ -304,6 +304,24 @@ final class EmbyPlaybackApi {
     return null;
   }
 
+  Future<List<ChapterInfo>> chapters(EmbyItem item, {bool fetch = true}) async {
+    final all = item.chapters.isNotEmpty || !fetch ? item.chapters : await _chapters(item.id);
+    return _jellyfin ? all : [for (final c in all) if (c.markerType == null || c.markerType == 'Chapter') c];
+  }
+
+  Future<List<ChapterInfo>> _chapters(String itemId) async {
+    final userId = _janus.session.userId;
+    final json = _jellyfin
+        ? await _janus.client.getJson('/Items/$itemId', queryParameters: {'userId': userId})
+        : await _janus.client.getJson('/Users/$userId/Items/$itemId', queryParameters: {'Fields': 'Chapters'});
+    return ChapterInfo.listFromJson(json['Chapters']);
+  }
+
+  Uri? chapterImage(String itemId, ChapterInfo chapter, {int width = 480}) => chapter.imageTag == null
+      ? null
+      : _janus.client.buildUri('/Items/$itemId/Images/Chapter/${chapter.index}',
+          queryParameters: {'maxWidth': '$width', 'tag': chapter.imageTag});
+
   Future<({int? introStart, int? introEnd, int? creditsStart})?> segments(String itemId) async {
     if (!_jellyfin) return null;
     final json = await _janus.client.getJson('/MediaSegments/$itemId');

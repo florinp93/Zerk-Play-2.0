@@ -6,6 +6,7 @@ import '../../app/app_services.dart';
 import '../../core/emby/models/emby_item.dart';
 import '../../core/host.dart';
 import '../../data/catalog_api.dart';
+import '../../data/recommendations.dart';
 import '../../data/seerr_api.dart';
 import '../../l10n/l10n.dart';
 import '../core/playback_launcher.dart';
@@ -61,6 +62,12 @@ class _SearchPageState extends State<SearchPage> {
     setState(() => _searching = true);
     final s = AppServicesScope.read(context);
     final c = s.catalog;
+    final external = s.tmdb == null && s.seerr == null
+        ? null
+        : s.recommender.search(q).then(s.recommender.resolve).then<MixedItems?>((v) => v, onError: (Object e) {
+            debugPrint('[search] TMDB / *seerr: $e');
+            return null;
+          });
     final results = await Future.wait([
       c.query(searchTerm: q, types: ['Movie'], limit: 30, sortBy: 'SortName').then((p) => p.items).catchError((_) => <EmbyItem>[]),
       c.query(searchTerm: q, types: ['Series'], limit: 30, sortBy: 'SortName').then((p) => p.items).catchError((_) => <EmbyItem>[]),
@@ -68,32 +75,33 @@ class _SearchPageState extends State<SearchPage> {
       _matchingCollections(c, q),
     ]);
     final movies = [...results[0]], shows = [...results[1]];
-    List<SeerrMedia> requestable = const [];
-    try {
-      final hits = await s.recommender.search(q);
-      final resolved = await s.recommender.resolve(hits);
-      final have = {for (final i in [...movies, ...shows]) i.id};
-      final owned = {for (final i in [...movies, ...shows]) ?i.tmdbId};
-      for (final item in resolved.whereType<EmbyItem>()) {
-        if (!have.add(item.id)) continue;
-        (item.isSeries ? shows : movies).add(item);
-      }
-      if (s.seerr != null) {
-        requestable = [
-          for (final m in resolved.whereType<SeerrMedia>())
-            if (!m.availability.isOnServer && !owned.contains(m.tmdbId)) m,
-        ];
-      }
-    } catch (e) {
-      debugPrint('[search] TMDB / *seerr: $e');
-    }
     if (!mounted || q != _query) return;
     setState(() {
       _movies = movies;
       _shows = shows;
       _episodes = results[2];
       _collections = results[3];
-      _requestable = requestable;
+      _requestable = const [];
+      _searching = external != null;
+    });
+    if (external == null) return;
+    final resolved = await external ?? const [];
+    if (!mounted || q != _query) return;
+    final have = {for (final i in [...movies, ...shows]) i.id};
+    final owned = {for (final i in [...movies, ...shows]) ?i.tmdbId};
+    for (final item in resolved.whereType<EmbyItem>()) {
+      if (!have.add(item.id)) continue;
+      (item.isSeries ? shows : movies).add(item);
+    }
+    setState(() {
+      _movies = [...movies];
+      _shows = [...shows];
+      _requestable = s.seerr == null
+          ? const []
+          : [
+              for (final m in resolved.whereType<SeerrMedia>())
+                if (!m.availability.isOnServer && !owned.contains(m.tmdbId)) m,
+            ];
       _searching = false;
     });
   }

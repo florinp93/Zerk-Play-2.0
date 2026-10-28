@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
+import 'net_image.dart';
 
 class PanelOption<T> {
-  const PanelOption({required this.value, required this.title, this.subtitle, this.selected = false, this.icon});
+  const PanelOption({required this.value, required this.title, this.subtitle, this.selected = false, this.icon, this.image});
 
   final T value;
   final String title;
   final String? subtitle;
   final bool selected;
   final IconData? icon;
+  final Uri? image;
 }
 
 Future<T?> showSidePanel<T>(BuildContext context, {required String title, required List<PanelOption<T>> options}) {
@@ -73,6 +75,13 @@ class _SidePanel<T> extends StatelessWidget {
                             if (o.icon != null) ...[
                               Icon(o.icon, color: focused ? Zc.background : Zc.textMuted, size: 30),
                               const SizedBox(width: 18),
+                            ],
+                            if (o.image != null) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: NetImage(url: o.image, width: 160, height: 90),
+                              ),
+                              const SizedBox(width: 22),
                             ],
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

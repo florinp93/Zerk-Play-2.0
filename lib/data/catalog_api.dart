@@ -270,6 +270,9 @@ final class CatalogApi {
         'Fields': cardFields,
       });
 
+  Future<List<EmbyItem>> boxSets() async =>
+      (await query(types: ['BoxSet'], sortBy: 'SortName', limit: 500, localize: false)).items;
+
   Future<List<EmbyItem>> collectionItems(EmbyItem collection) async {
     if (collection.id.isNotEmpty) {
       final page = await query(

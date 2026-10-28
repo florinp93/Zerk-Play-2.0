@@ -5,6 +5,7 @@ import '../../core/emby/models/emby_item.dart';
 import '../../data/release_info.dart';
 import '../../data/seerr_api.dart';
 import '../../l10n/l10n.dart';
+import '../../playback/trailer/trailers.dart';
 import '../core/artwork.dart';
 import '../focus/tv_focusable.dart';
 import '../core/playback_launcher.dart';
@@ -13,6 +14,7 @@ import '../theme/tokens.dart';
 import 'cards.dart';
 import 'common.dart';
 import 'net_image.dart';
+import 'trailer.dart';
 
 enum CardStyle {
   poster,
@@ -46,6 +48,55 @@ Widget mixedCard(
   required CardStyle style,
   int rank = 0,
   bool autofocus = false,
+  VoidCallback? onFocus,
+}) {
+  final card = _mixedCard(context, data, style: style, rank: rank, autofocus: autofocus, onFocus: onFocus);
+  final (width, height) = switch (style) {
+    CardStyle.poster => (Zs.posterWidth, Zs.posterWidth * 1.5),
+    CardStyle.landscape => (Zs.landscapeWidth, Zs.landscapeWidth * 9 / 16),
+    _ => (0.0, 0.0),
+  };
+  if (width == 0) return card;
+  final services = AppServicesScope.read(context);
+  final wide = (height * 16 / 9).round();
+  return switch (data) {
+    final SeerrMedia m => CardTrailer(
+        trailerKey: 'seerr:${m.key}',
+        find: () => Trailers.forSeerr(services, m),
+        imageWidth: width,
+        imageHeight: height,
+        title: m.title,
+        meta: [?m.year?.toString(), if ((m.voteAverage ?? 0) > 0) '★ ${m.voteAverage!.toStringAsFixed(1)}'].join('  ·  '),
+        backdrop: m.backdrop(width: wide),
+        onSelect: () => openRequest(context, m),
+        child: card,
+      ),
+    final EmbyItem item when item.isMovie || item.isSeries => CardTrailer(
+        trailerKey: item.id,
+        find: () => Trailers.forItem(services, item),
+        imageWidth: width,
+        imageHeight: height,
+        title: item.name,
+        meta: [
+          ?item.productionYear?.toString(),
+          if ((item.communityRating ?? 0) > 0) '★ ${item.communityRating!.toStringAsFixed(1)}',
+          ?item.genres.firstOrNull,
+        ].join('  ·  '),
+        backdrop: services.catalog.backdrop(item, width: wide) ?? services.catalog.landscape(item, width: wide.toDouble()),
+        logo: services.catalog.logo(item),
+        onSelect: () => openItem(context, item),
+        child: card,
+      ),
+    _ => card,
+  };
+}
+
+Widget _mixedCard(
+  BuildContext context,
+  Object data, {
+  required CardStyle style,
+  required int rank,
+  required bool autofocus,
   VoidCallback? onFocus,
 }) {
   if (data is SeerrMedia) {
