@@ -4,7 +4,7 @@
 
 <p align="center">
   An Emby / Jellyfin client for <b>Windows</b> and <b>Android TV / Google TV</b>,<br>
-  built around discovery and Jellyseerr / Overseerr requests.
+  built around discovery and *Seerr requests.
 </p>
 
 <p align="center">
@@ -14,16 +14,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Windows-setup.exe"><b>Download for Windows</b></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Android.apk"><b>Download for Android TV</b></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases">All releases</a>
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases"><b>Download the latest release</b></a> for Windows and Android TV
 </p>
 
 ![Home](screenshots/01-home-hero.png)
 
-Zerk Play 2 is a full rewrite, and this is its first public release. It's still in beta, so expect rough edges and please report anything that breaks.
+Zerk Play 2 is a full rewrite and still in beta, so expect rough edges and please report anything that breaks. Installed copies update themselves when a new release is out.
 
 When you open it, it should help you find something to watch, not leave you scrolling a library grid. If what you want isn't on the server yet, you can request it from the same screen.
 
@@ -54,9 +50,9 @@ There's also a **Discover** tab (trending, popular, coming soon), a **Calendar**
 
 ![Discover](screenshots/13-discover.png)
 
-## Requests built in (Jellyseerr / Overseerr)
+## Requests built in (\*Seerr)
 
-Connect Jellyseerr or Overseerr and titles you don't have show up right next to the ones you do:
+Connect \*Seerr and titles you don't have show up right next to the ones you do:
 
 - A **Request** badge on anything not in your library, in every row: home, Discover, search, More like this
 - One **Request** page: pick the seasons, watch the trailer, done
@@ -92,18 +88,18 @@ Add your own Xtream Codes IPTV account to get a proper **TV guide**: channel gro
 
 The whole UI is driven by **D-pad / remote / keyboard** first. It works on Windows too: plug in a gamepad or use the arrow keys, and the mouse cursor hides itself until you move it again. The mouse still works everywhere, with hover and wheel scrolling.
 
-Setup on a TV is painless: **scan a QR code with your phone** and fill in the server, TMDB key and Jellyseerr details there instead of typing with a remote.
+Setup on a TV is painless: **scan a QR code with your phone** and fill in the server, TMDB key and \*Seerr details there instead of typing with a remote.
 
 ![Library](screenshots/20-library-movies.png)
 
 ## Getting started
 
-1. Download the [Windows installer](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Windows-setup.exe) or the [Android TV APK](https://github.com/florinp93/Zerk-Play-2.0/releases/download/v2-beta/ZerkPlay-Public-Android.apk).
+1. Open the [latest release](https://github.com/florinp93/Zerk-Play-2.0/releases) (the newest is at the top) and download `ZerkPlay-Public-Windows-setup.exe` for Windows or `ZerkPlay-Public-Android.apk` for Android TV.
 2. On first start, choose **Emby or Jellyfin** and sign in.
 3. *(Optional)* Add a free **TMDB API key** for metadata in your language, tags and collections.
-4. *(Optional)* Add your **Jellyseerr / Overseerr** address and API key for requests.
+4. *(Optional)* Add your **\*Seerr** address and API key for requests.
 
-> The \*seerr address has to be reachable from the device running Zerk Play. Don't use `localhost` unless \*seerr runs on that same machine.
+> The \*Seerr address has to be reachable from the device running Zerk Play. Don't use `localhost` unless \*Seerr runs on that same machine.
 
 ## Good to know
 
@@ -111,6 +107,6 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 - The APK isn't on the Play Store: install it with Downloader, Send Files to TV, or adb.
 - Tested on Windows 11 and a Chromecast with Google TV 4K. Other Android TV boxes should work; reports are welcome.
 - You bring your own servers and API keys. Nothing is hardcoded in the public build.
-- Zerk Play is not affiliated with Emby, Jellyfin, Jellyseerr, Overseerr or TMDB.
+- Zerk Play is not affiliated with Emby, Jellyfin, \*Seerr or TMDB.
 
 Feedback, bug reports and feature ideas are very welcome: open an issue or join the Discord.
