@@ -47,6 +47,11 @@ class _FocusZoneState extends State<FocusZone> {
     _node.onEnter = widget.onEnter;
     _node.preferredEntry = widget.preferredEntry;
     _node.revealsTop = widget.revealsTop;
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _node.focusedChild == null && _node.items.isNotEmpty) ZoneNavigator.enter(_node);
+      });
+    }
   }
 
   @override
@@ -99,6 +104,12 @@ abstract final class ZoneNavigator {
     if (current == null || current.context == null) return false;
     final zone = current is ZoneScopeNode ? current : _zoneOf(current);
     if (zone == null) return current.focusInDirection(dir);
+
+    if (current is ZoneScopeNode && current.items.isNotEmpty) {
+      enter(current);
+      UiSounds.play(UiSound.move);
+      return true;
+    }
 
     final from = current.rect;
 
