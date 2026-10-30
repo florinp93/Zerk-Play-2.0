@@ -3,14 +3,17 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/emby/emby_api_exception.dart';
 import '../core/emby/models/emby_item.dart';
 import '../core/windows/native_window.dart';
 import '../core/emby/models/media_source.dart';
 import '../l10n/app_localizations.dart';
 import 'emby_playback_api.dart';
 import 'kept_display.dart';
+import 'language.dart';
 import 'player_backend.dart';
 import 'player_settings.dart';
+import 'subtitle_style.dart';
 import 'track_labels.dart';
 import 'track_policy.dart';
 import 'versions.dart';
@@ -39,7 +42,7 @@ final class _Current {
   });
 
   final EmbyItem item;
-  final ResolvedStream stream;
+  ResolvedStream stream;
 
   final List<MediaSourceInfo> versions;
   int? audioIndex;
@@ -105,6 +108,8 @@ final class PlaybackSession {
     _osd('config', {
       'seekStep': _settings.seekStepSeconds,
       'autoSkipIntro': _settings.skipIntroAutomatically,
+      'subtitleSearch': true,
+      'subLanguages': _searchLanguages(),
     });
 
     unawaited(_play(request));
@@ -516,7 +521,85 @@ final class PlaybackSession {
         unawaited(_playNext());
       case 'next-cancel':
         _nextCancelled = true;
+      case 'subscale-preview':
+        SubtitleStyle.applyScale(_player, arg);
+      case 'subscale':
+        SubtitleStyle.applyScale(_player, arg, save: true);
+      case 'subsearch':
+        if (arg != null) unawaited(_searchSubtitles(arg));
+      case 'subdownload':
+        if (arg != null) unawaited(_downloadSubtitle(arg));
     }
+  }
+
+  List<Map<String, String>> _searchLanguages() {
+    final preferred = normalizeLanguage(_settings.preferredSubtitleLanguage);
+    final first = preferred.isNotEmpty ? preferred : normalizeLanguage(l10n.localeName);
+    return [
+      for (final code in {first, ...languageNames.keys})
+        if (code.isNotEmpty && searchLanguageCode(code) != null) {'id': code, 'label': languageNames[code] ?? code.toUpperCase()},
+    ];
+  }
+
+  String _subtitleError(Object e) => e is EmbyApiException && (e.statusCode == 401 || e.statusCode == 403)
+      ? l10n.subtitleSearchDenied
+      : l10n.subtitleSearchFailed;
+
+  Future<void> _searchSubtitles(String language) async {
+    final cur = _current;
+    final code = searchLanguageCode(language);
+    if (cur == null || code == null) return;
+    try {
+      final results = await _api.searchSubtitles(cur.item.id, cur.source.id, code);
+      if (!identical(_current, cur)) return;
+      _osd('subsearch', {
+        'results': [
+          for (final r in results.take(50))
+            {
+              'id': r.id,
+              'label': r.name,
+              'detail': [
+                ?r.provider,
+                ?r.format,
+                if (r.downloads != null) l10n.subtitleDownloadCount(r.downloads!),
+                if (r.hashMatch) l10n.subtitleExactMatch,
+              ].join('  ·  '),
+            },
+        ],
+      });
+    } catch (e) {
+      debugPrint('[session] subtitle search: $e');
+      _osd('subsearch', {'error': _subtitleError(e)});
+    }
+  }
+
+  Future<void> _downloadSubtitle(String id) async {
+    final cur = _current;
+    if (cur == null) return;
+    final known = {for (final s in cur.source.streams) s.index};
+    _toast(l10n.subtitleDownloading);
+    try {
+      await _api.downloadSubtitle(cur.item.id, cur.source.id, id);
+    } catch (e) {
+      debugPrint('[session] subtitle download: $e');
+      _toast(_subtitleError(e));
+      return;
+    }
+    for (var attempt = 0; attempt < 45; attempt++) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!identical(_current, cur) || _finishing) return;
+      final streams = await _api.currentStreams(cur.item.id, cur.source.id).catchError((Object _) => null);
+      final added = [
+        for (final s in streams ?? const <MediaStream>[])
+          if (s.type == MediaStreamType.subtitle && !known.contains(s.index)) s,
+      ];
+      if (added.isEmpty) continue;
+      cur.stream = cur.stream.withSource(cur.source.withStreams([...cur.source.streams, ...added]));
+      await _switchSubtitle(added.first.index);
+      _toast(l10n.subtitleAdded);
+      return;
+    }
+    _toast(l10n.subtitleNotPickedUp);
   }
 
   void _onState() {

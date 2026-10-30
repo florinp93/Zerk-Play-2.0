@@ -33,6 +33,9 @@ final class ResolvedStream {
 
   bool get tracksMatchSource => method != PlayMethod.transcode;
 
+  ResolvedStream withSource(MediaSourceInfo source) =>
+      ResolvedStream(url: url, method: method, source: source, playSessionId: playSessionId);
+
   String? get copiedDolbyVision {
     if (method != PlayMethod.transcode || !url.path.toLowerCase().endsWith('.m3u8')) return null;
     final reasons = (url.queryParameters['TranscodeReasons'] ?? '').split(',').where((r) => r.isNotEmpty);
@@ -47,6 +50,26 @@ final class ResolvedStream {
     final level = rates.indexWhere((r) => rate <= r * 1.01) + 1;
     return 'dvhe.0${sub.group(1)}.${(level == 0 ? 13 : level).toString().padLeft(2, '0')}';
   }
+}
+
+final class RemoteSubtitle {
+  const RemoteSubtitle({required this.id, required this.name, this.provider, this.format, this.downloads, this.hashMatch = false});
+
+  final String id;
+  final String name;
+  final String? provider;
+  final String? format;
+  final int? downloads;
+  final bool hashMatch;
+
+  factory RemoteSubtitle.fromJson(Map<String, dynamic> j) => RemoteSubtitle(
+        id: '${j['Id']}',
+        name: j['Name'] as String? ?? '${j['Id']}',
+        provider: j['ProviderName'] as String?,
+        format: (j['Format'] as String?)?.toUpperCase(),
+        downloads: (j['DownloadCount'] as num?)?.toInt(),
+        hashMatch: j['IsHashMatch'] == true,
+      );
 }
 
 final class PlaybackReport {
@@ -263,6 +286,23 @@ final class EmbyPlaybackApi {
       return absoluteUrl(stream.deliveryUrl!);
     }
     return absoluteUrl('/Videos/$itemId/${source.id}/Subtitles/${stream.index}/0/Stream.$format');
+  }
+
+  Future<List<RemoteSubtitle>> searchSubtitles(String itemId, String mediaSourceId, String language) async {
+    final list = await _janus.client.getJsonList('/Items/$itemId/RemoteSearch/Subtitles/$language',
+        queryParameters: {'MediaSourceId': mediaSourceId, 'IsPerfectMatch': 'false'});
+    return [for (final e in list.whereType<Map<String, dynamic>>()) RemoteSubtitle.fromJson(e)]
+      ..sort((a, b) => a.hashMatch != b.hashMatch ? (a.hashMatch ? -1 : 1) : (b.downloads ?? 0).compareTo(a.downloads ?? 0));
+  }
+
+  Future<void> downloadSubtitle(String itemId, String mediaSourceId, String subtitleId) => _janus.client.postNoContent(
+      '/Items/$itemId/RemoteSearch/Subtitles/${Uri.encodeComponent(subtitleId)}',
+      queryParameters: {'MediaSourceId': mediaSourceId});
+
+  Future<List<MediaStream>?> currentStreams(String itemId, String mediaSourceId) async {
+    final json = await _janus.client.getJson('/Users/${_janus.session.userId}/Items/$itemId',
+        queryParameters: {'Fields': 'MediaSources,MediaStreams'});
+    return EmbyItem.fromJson(json).mediaSources.where((m) => m.id == mediaSourceId).firstOrNull?.streams;
   }
 
   Future<void> reportStart(PlaybackReport r) =>

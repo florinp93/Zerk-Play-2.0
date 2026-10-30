@@ -7,13 +7,16 @@ import '../data/xtream/xtream.dart';
 import '../l10n/app_localizations.dart';
 import 'player_backend.dart';
 import 'player_settings.dart';
+import 'subtitle_style.dart';
 
 final class LiveSource {
-  const LiveSource(this.label, this.streamId);
+  const LiveSource(this.label, this.streamId, [this.url]);
 
   final String label;
 
   final int streamId;
+
+  final String? url;
 }
 
 final class ZapList {
@@ -24,7 +27,7 @@ final class ZapList {
   final String? Function(LiveChannel channel) onNow;
 
   static List<LiveSource> sourcesOf(LiveChannel c) => [
-        for (final s in c.sources) LiveSource(c.sources.length > 1 && s.label.isNotEmpty ? s.label : c.name, s.streamId),
+        for (final s in c.sources) LiveSource(c.sources.length > 1 && s.label.isNotEmpty ? s.label : c.name, s.streamId, s.url),
       ];
 }
 
@@ -85,6 +88,11 @@ final class LiveSession {
     _trackSignature = null;
     _sendLinks();
     _state('loading');
+    final url = sources[index].url;
+    if (url != null) {
+      _player.load(Uri.parse(url));
+      return;
+    }
     var account = _account;
     if (account == null) {
       try {
@@ -127,6 +135,10 @@ final class LiveSession {
             _player.selectTrack('audio', arg);
           case 'sub':
             _player.selectTrack('sub', arg == '-1' ? null : arg);
+          case 'subscale-preview':
+            SubtitleStyle.applyScale(_player, arg);
+          case 'subscale':
+            SubtitleStyle.applyScale(_player, arg, save: true);
         }
       case PlayerShutdown():
         unawaited(_finish());
@@ -138,7 +150,7 @@ final class LiveSession {
     _recovering = true;
     try {
       debugPrint('[live] ${sources[_index].label}: $message');
-      final current = _account;
+      final current = sources[_index].url == null ? _account : null;
       if (current != null) {
         final now = await server.status(current.account);
         if (_finishing) return;

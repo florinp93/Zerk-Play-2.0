@@ -3,6 +3,8 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/host.dart';
+
 
 const uiLanguages = {'en': 'English', 'ro': 'Română'};
 
@@ -50,6 +52,7 @@ final class AppSettings {
     this.seerrUrl = '',
     this.seerrApiKey = '',
     this.tmdbApiKey = '',
+    this.mdblistApiKey = '',
     this.metadataLanguage = '',
     this.sounds = true,
     this.hideAnimation = true,
@@ -62,6 +65,8 @@ final class AppSettings {
     this.trailerLanguage = '',
     this.xtreamUrl = '',
     this.xtreamAccounts = const [],
+    this.playlistUrl = '',
+    this.playlistGuideUrl = '',
     this.startFullScreen = false,
     this.posterSize = PosterSize.medium,
     this.collectionsView = CollectionsView.covers,
@@ -73,6 +78,8 @@ final class AppSettings {
   final String seerrApiKey;
 
   final String tmdbApiKey;
+
+  final String mdblistApiKey;
 
   final String metadataLanguage;
   final bool sounds;
@@ -94,6 +101,9 @@ final class AppSettings {
 
   final String xtreamUrl;
   final List<(String, String)> xtreamAccounts;
+
+  final String playlistUrl;
+  final String playlistGuideUrl;
 
   final bool startFullScreen;
   final PosterSize posterSize;
@@ -128,6 +138,7 @@ final class AppSettings {
     String? seerrUrl,
     String? seerrApiKey,
     String? tmdbApiKey,
+    String? mdblistApiKey,
     String? metadataLanguage,
     bool? sounds,
     bool? hideAnimation,
@@ -140,6 +151,8 @@ final class AppSettings {
     String? trailerLanguage,
     String? xtreamUrl,
     List<(String, String)>? xtreamAccounts,
+    String? playlistUrl,
+    String? playlistGuideUrl,
     bool? startFullScreen,
     PosterSize? posterSize,
     CollectionsView? collectionsView,
@@ -150,6 +163,7 @@ final class AppSettings {
         seerrUrl: seerrUrl ?? this.seerrUrl,
         seerrApiKey: seerrApiKey ?? this.seerrApiKey,
         tmdbApiKey: tmdbApiKey ?? this.tmdbApiKey,
+        mdblistApiKey: mdblistApiKey ?? this.mdblistApiKey,
         metadataLanguage: metadataLanguage ?? this.metadataLanguage,
         sounds: sounds ?? this.sounds,
         hideAnimation: hideAnimation ?? this.hideAnimation,
@@ -162,6 +176,8 @@ final class AppSettings {
         trailerLanguage: trailerLanguage ?? this.trailerLanguage,
         xtreamUrl: xtreamUrl ?? this.xtreamUrl,
         xtreamAccounts: xtreamAccounts ?? this.xtreamAccounts,
+        playlistUrl: playlistUrl ?? this.playlistUrl,
+        playlistGuideUrl: playlistGuideUrl ?? this.playlistGuideUrl,
         startFullScreen: startFullScreen ?? this.startFullScreen,
         posterSize: posterSize ?? this.posterSize,
         collectionsView: collectionsView ?? this.collectionsView,
@@ -176,13 +192,14 @@ final class AppSettings {
   static Future<AppSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
-    if (raw == null) return const AppSettings();
+    if (raw == null) return AppSettings(cardTrailers: !Host.isAndroid);
     try {
       final j = jsonDecode(raw) as Map<String, dynamic>;
       return AppSettings(
         seerrUrl: j['seerrUrl'] as String? ?? '',
         seerrApiKey: j['seerrApiKey'] as String? ?? '',
         tmdbApiKey: j['tmdbApiKey'] as String? ?? '',
+        mdblistApiKey: j['mdblistApiKey'] as String? ?? '',
         metadataLanguage: j['metadataLanguage'] as String? ?? '',
         sounds: j['sounds'] as bool? ?? true,
         hideAnimation: j['hideAnimation'] as bool? ?? true,
@@ -203,6 +220,8 @@ final class AppSettings {
           if (j['xtreamAccounts'] == null && (j['xtreamUser'] as String? ?? '').isNotEmpty)
             (j['xtreamUser'] as String, j['xtreamPassword'] as String? ?? ''),
         ],
+        playlistUrl: j['playlistUrl'] as String? ?? '',
+        playlistGuideUrl: j['playlistGuideUrl'] as String? ?? '',
         startFullScreen: j['startFullScreen'] as bool? ?? false,
         posterSize: PosterSize.values.asNameMap()[j['posterSize']] ?? PosterSize.medium,
         collectionsView: CollectionsView.values.asNameMap()[j['collectionsView']] ?? CollectionsView.covers,
@@ -210,10 +229,10 @@ final class AppSettings {
           for (final MapEntry(:key, :value) in ((j['homeCollections'] as Map?) ?? const {}).entries)
             '$key': [for (final c in value as List) (c[0] as String, c[1] as String)],
         },
-        cardTrailers: j['cardTrailers'] as bool? ?? true,
+        cardTrailers: Host.isAndroid && j['cardTrailersV'] != 2 ? false : j['cardTrailers'] as bool? ?? !Host.isAndroid,
       );
     } catch (_) {
-      return const AppSettings();
+      return AppSettings(cardTrailers: !Host.isAndroid);
     }
   }
 
@@ -225,6 +244,7 @@ final class AppSettings {
         'seerrUrl': seerrUrl,
         'seerrApiKey': seerrApiKey,
         'tmdbApiKey': tmdbApiKey,
+        'mdblistApiKey': mdblistApiKey,
         'metadataLanguage': metadataLanguage,
         'sounds': sounds,
         'hideAnimation': hideAnimation,
@@ -237,6 +257,8 @@ final class AppSettings {
         'trailerLanguage': trailerLanguage,
         'xtreamUrl': xtreamUrl,
         'xtreamAccounts': [for (final (u, p) in xtreamAccounts) [u, p]],
+        'playlistUrl': playlistUrl,
+        'playlistGuideUrl': playlistGuideUrl,
         'startFullScreen': startFullScreen,
         'posterSize': posterSize.name,
         'collectionsView': collectionsView.name,
@@ -244,6 +266,7 @@ final class AppSettings {
           for (final MapEntry(:key, :value) in homeCollections.entries) key: [for (final (id, name) in value) [id, name]],
         },
         'cardTrailers': cardTrailers,
+        'cardTrailersV': 2,
       }),
     );
   }

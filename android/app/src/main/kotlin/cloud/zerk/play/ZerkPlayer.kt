@@ -69,6 +69,10 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private var subtitleShadow: SubtitleView? = null
 
     private var subtitlePadding = 40f / 720
+
+    private var subtitleLift = 0f
+
+    private var shadowOffset = 2f / 720
     private var player: ExoPlayer? = null
 
     private var mediaUrl: Uri? = null
@@ -163,9 +167,12 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                     result.success(null)
                 }
                 "subtitleLift" -> {
-                    val padding = maxOf(subtitlePadding, (call.argument<Number>("fraction") ?: 0).toFloat())
-                    subtitles?.setBottomPaddingFraction(padding)
-                    subtitleShadow?.setBottomPaddingFraction(padding)
+                    subtitleLift = (call.argument<Number>("fraction") ?: 0).toFloat()
+                    liftSubtitles()
+                    result.success(null)
+                }
+                "subtitleStyle" -> {
+                    restyleSubtitles(call.argument<Map<String, Any?>>("style") ?: emptyMap())
                     result.success(null)
                 }
                 "displayHdr" -> result.success(DeviceCaps.displayHdr(activity))
@@ -196,9 +203,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         layer.addView(frame, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
         layer.addView(shadow, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         layer.addView(subtitles, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        val offsetFraction = ((subtitleStyle["shadowOffsetFraction"] as? Number)?.toFloat() ?: (2f / 720))
+        shadowOffset = (subtitleStyle["shadowOffsetFraction"] as? Number)?.toFloat() ?: (2f / 720)
         shadow.addOnLayoutChangeListener { v, _, top, _, bottom, _, _, _, _ ->
-            val px = (bottom - top) * offsetFraction
+            val px = (bottom - top) * shadowOffset
             v.translationX = px
             v.translationY = px
         }
@@ -250,6 +257,25 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         subtitlePadding = (subtitleStyle["bottomPaddingFraction"] as? Number)?.toFloat() ?: (40f / 720)
         this.player = exo
         main.post(ticker)
+    }
+
+    private fun liftSubtitles() {
+        val padding = maxOf(subtitlePadding, subtitleLift)
+        subtitles?.setBottomPaddingFraction(padding)
+        subtitleShadow?.setBottomPaddingFraction(padding)
+    }
+
+    private fun restyleSubtitles(style: Map<String, Any?>) {
+        subtitles?.let { applyStyle(it, style, shadow = false) }
+        subtitleShadow?.let {
+            applyStyle(it, style, shadow = true)
+            shadowOffset = (style["shadowOffsetFraction"] as? Number)?.toFloat() ?: shadowOffset
+            val px = it.height * shadowOffset
+            it.translationX = px
+            it.translationY = px
+        }
+        subtitlePadding = (style["bottomPaddingFraction"] as? Number)?.toFloat() ?: subtitlePadding
+        liftSubtitles()
     }
 
     private fun applyStyle(view: SubtitleView, style: Map<String, Any?>, shadow: Boolean) {

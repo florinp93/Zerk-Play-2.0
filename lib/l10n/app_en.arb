@@ -70,6 +70,13 @@
   "metadataSourceEmbyHint": "Shown as your server has it.",
   "tmdbApiKey": "TMDB API key",
   "tmdbApiKeyHint": "API key or read access token from themoviedb.org → Settings → API",
+  "ratingsHeader": "Ratings",
+  "ratingsIntro": "Rotten Tomatoes critic and audience scores on title pages. With an MDBList key they come from MDBList, otherwise from *seerr when it has them.",
+  "mdblistApiKey": "MDBList API key",
+  "mdblistApiKeyHint": "Free key from mdblist.com → Preferences → API",
+  "testMdblistKey": "Test MDBList key",
+  "mdblistKeyFirst": "Enter an MDBList key first",
+  "mdblistKeyWorks": "MDBList key works",
   "tmdbKeyMissing": "Enter a TMDB API key, or choose the media server.",
   "obRequestsTitle": "Requests",
   "obRequestsBody": "Connect Jellyseerr or Overseerr to discover and request titles that aren't in your library yet. This is optional.",
@@ -135,10 +142,29 @@
   "subtitleOff": "Off",
   "preferredSubtitleLanguage": "Preferred subtitle language",
   "subtitleSize": "Subtitle size",
+  "subtitleSizeHint": "Left and right change it in small steps. The preview below matches the size on screen.",
+  "subtitlePreviewLine1": "We have to leave before it gets dark.",
+  "subtitlePreviewLine2": "Then let's go. Right now.",
+  "searchSubtitles": "Search subtitles",
+  "subtitleSearching": "Searching…",
+  "subtitleSearchEmpty": "No subtitles found. The server may have no subtitle provider set up.",
+  "subtitleSearchFailed": "Subtitle search failed",
+  "subtitleSearchDenied": "This account isn't allowed to download subtitles",
+  "subtitleDownloading": "Downloading subtitle…",
+  "subtitleAdded": "Subtitle added",
+  "subtitleNotPickedUp": "Downloaded, but the server hasn't added it yet. Try again in a moment.",
+  "subtitleExactMatch": "Exact match",
+  "subtitleDownloadCount": "{count} downloads",
+  "@subtitleDownloadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sizeSmall": "Small",
   "sizeNormal": "Normal",
   "sizeLarge": "Large",
-  "sizeExtraLarge": "Extra large",
   "subtitleBackground": "Subtitle background",
   "subtitleBackgroundHint": "A dark box behind each line instead of the outline and shadow. Easier to read on bright scenes.",
   "backgroundOpacity": "Background opacity",
@@ -517,6 +543,16 @@
   "pickSeason": "Pick at least one season.",
   "requestedMessage": "Requested. It will show up in your library once it's ready.",
   "requestNotAllowed": "Your *seerr account isn't allowed to request this.",
+  "qualityProfile": "Quality profile",
+  "qualityDefault": "Default",
+  "requestQuality": "Quality: {name}",
+  "@requestQuality": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "openInLibrary": "Open in library",
   "requesting": "Requesting…",
   "releaseInCinemas": "IN CINEMAS",
@@ -923,6 +959,26 @@
   "sectionLiveTv": "Live TV",
   "liveTvIntro": "Connect an Xtream Codes IPTV account to watch LaLiga, Premier League and UEFA matches from its guide.",
   "xtreamServer": "Server address",
+  "livePlaylist": "Playlist",
+  "livePlaylistIntro": "An M3U playlist with an XMLTV guide, such as Tunarr or NostalgiaTV. Its channels show next to the others under Live TV.",
+  "livePlaylistUrl": "Playlist address (M3U)",
+  "livePlaylistGuide": "Guide address (XMLTV, optional)",
+  "livePlaylistFound": "{count} channels found",
+  "@livePlaylistFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "livePlaylistProblem": "Couldn't read the playlist: {problem}",
+  "@livePlaylistProblem": {
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
   "liveTv": "Live TV",
   "xtreamAccountUser": "Account {n} – username",
   "@xtreamAccountUser": {
@@ -1129,5 +1185,5 @@
   "onHome": "On Home",
   "moveUp": "Move up",
   "cardTrailers": "Trailers in cards",
-  "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Trailer sound applies here too."
+  "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Turn off to keep cards still while you browse. Trailer sound applies here too."
 }

@@ -152,6 +152,7 @@ String _countryName(L10n l10n, String country) => switch (country) {
       'RO' => l10n.liveCountryRO,
       'IE' => l10n.liveCountryIE,
       'US' => l10n.liveCountryUS,
+      playlistCountry => l10n.livePlaylist,
       _ => l10n.liveCountryUK,
     };
 

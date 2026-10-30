@@ -106,10 +106,11 @@ class ProgressStrip extends StatelessWidget {
 }
 
 class MetaLine extends StatelessWidget {
-  const MetaLine(this.parts, {super.key, this.leading = const [], this.style});
+  const MetaLine(this.parts, {super.key, this.leading = const [], this.trailing = const [], this.style});
 
   final List<String?> parts;
   final List<Widget> leading;
+  final List<Widget> trailing;
   final TextStyle? style;
 
   @override
@@ -120,6 +121,7 @@ class MetaLine extends StatelessWidget {
       if (children.isNotEmpty) children.add(Text('  ·  ', style: style ?? Zt.meta));
       children.add(Text(t, style: style ?? Zt.meta));
     }
+    children.addAll(trailing);
     return Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: children);
   }
 }

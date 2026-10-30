@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'subtitle_style.dart';
+
 enum SubtitleMode {
   off,
 
@@ -216,7 +218,7 @@ final class PlayerSettings {
       autoHdr: pick('autoHdr', d.autoHdr),
       matchRefreshRate: pick('matchHz', d.matchRefreshRate),
       smoothMotion: pick('smooth', d.smoothMotion),
-      subtitleScale: pick('subScale', d.subtitleScale),
+      subtitleScale: pick('subScale', d.subtitleScale).clamp(SubtitleStyle.minScale, SubtitleStyle.maxScale),
       subtitleBottomMargin: pick('subMargin', d.subtitleBottomMargin),
       overrideAssStyles: pick('assOverride', d.overrideAssStyles),
       subtitleBackground: pick('subBg', d.subtitleBackground),

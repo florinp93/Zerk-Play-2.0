@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
 import '../core/ui_sounds.dart';
@@ -208,6 +209,59 @@ class _TextDialogState extends State<_TextDialog> {
               ]),
             ]),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class SettingStepperRow extends StatelessWidget {
+  const SettingStepperRow({super.key, required this.title, this.subtitle, required this.value, required this.onStep, this.onSelect});
+
+  final String title;
+  final String? subtitle;
+  final String value;
+  final ValueChanged<int> onStep;
+  final VoidCallback? onSelect;
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final step = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -1,
+      LogicalKeyboardKey.arrowRight => 1,
+      _ => 0,
+    };
+    if (step == 0) return KeyEventResult.ignored;
+    UiSounds.play(UiSound.move);
+    onStep(step);
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button(IconData icon, int step) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onStep(step),
+          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: Icon(icon, size: 30)),
+        );
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onKey,
+      child: TvFocusable(
+        onSelect: onSelect,
+        builder: (context, focused) => _RowShell(
+          focused: focused,
+          title: title,
+          subtitle: subtitle,
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            button(Icons.remove_rounded, -1),
+            SizedBox(
+              width: 92,
+              child: Text(value, textAlign: TextAlign.center, style: Zt.label.copyWith(color: _trailingColor(focused))),
+            ),
+            button(Icons.add_rounded, 1),
+          ]),
         ),
       ),
     );

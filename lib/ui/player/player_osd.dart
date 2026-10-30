@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/l10n.dart';
 import '../../playback/media3/osd_model.dart';
 import '../../playback/player_backend.dart';
+import '../../playback/subtitle_style.dart';
 import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
@@ -258,15 +259,75 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     model.send('next-cancel');
   }
 
-  Future<void> _choose(String title, List<OsdChoice> choices, String event, {bool offOption = false}) async {
+  Future<void> _choose(String title, List<OsdChoice> choices, String event) async {
     _panelOpen = true;
     final chosen = await showSidePanel<String>(context, title: title, options: [
-      if (offOption) PanelOption(value: '-1', title: context.l10n.subtitleOff, selected: !choices.any((c) => c.selected)),
       for (final c in choices) PanelOption(value: c.id, title: c.label, subtitle: c.detail, selected: c.selected),
     ]);
     _panelOpen = false;
     _armHide();
     if (chosen != null) model.send(event, chosen);
+  }
+
+  Future<void> _chooseSubtitles() async {
+    final l10n = context.l10n;
+    _panelOpen = true;
+    final chosen = await showSidePanel<String>(context, title: l10n.subtitles, options: [
+      if (model.subtitleSearch) PanelOption(value: 'search', title: l10n.searchSubtitles, icon: Icons.search_rounded),
+      PanelOption(value: 'size', title: l10n.subtitleSize, subtitle: SubtitleStyle.percent(model.subtitleScale), icon: Icons.format_size_rounded),
+      PanelOption(value: '-1', title: l10n.subtitleOff, selected: !model.subs.any((c) => c.selected)),
+      for (final c in model.subs) PanelOption(value: c.id, title: c.label, subtitle: c.detail, selected: c.selected),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen == 'size') return _chooseSubtitleSize();
+    if (chosen == 'search') return _searchSubtitles();
+    if (chosen != null) model.send('sub', chosen);
+  }
+
+  Future<void> _searchSubtitles() async {
+    final l10n = context.l10n;
+    _panelOpen = true;
+    final language = await showSidePanel<String>(context, title: l10n.searchSubtitles, options: [
+      for (final c in model.subtitleLanguages) PanelOption(value: c.id, title: c.label),
+    ]);
+    if (language == null || !mounted) {
+      _panelOpen = false;
+      _armHide();
+      return;
+    }
+    model.onToast?.call(l10n.subtitleSearching);
+    final found = await model.searchSubtitles(language);
+    if (!mounted) return;
+    if (found.error != null || found.results.isEmpty) {
+      _panelOpen = false;
+      _armHide();
+      model.onToast?.call(found.error ?? l10n.subtitleSearchEmpty);
+      return;
+    }
+    final chosen = await showSidePanel<String>(context, title: l10n.searchSubtitles, options: [
+      for (final c in found.results) PanelOption(value: c.id, title: c.label, subtitle: c.detail),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen != null) model.send('subdownload', chosen);
+  }
+
+  Future<void> _chooseSubtitleSize() async {
+    final original = model.subtitleScale;
+    _panelOpen = true;
+    final chosen = await showSidePanel<double>(
+      context,
+      title: context.l10n.subtitleSize,
+      options: [
+        for (final s in SubtitleStyle.scales)
+          PanelOption(value: s, title: SubtitleStyle.percent(s), selected: (s - original).abs() < 0.001),
+      ],
+      onFocus: (s) => model.send('subscale-preview', s.toStringAsFixed(2)),
+    );
+    _panelOpen = false;
+    _armHide();
+    model.send(chosen == null ? 'subscale-preview' : 'subscale', (chosen ?? original).toStringAsFixed(2));
   }
 
   Future<void> _chooseChapter() async {
@@ -628,8 +689,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 TvButton(label: l10n.audio, icon: Icons.graphic_eq_rounded, onSelect: () => _choose(l10n.audio, model.audio, 'audio')),
                 const SizedBox(width: 18),
               ],
-              if (model.subs.isNotEmpty) ...[
-                TvButton(label: l10n.subtitles, icon: Icons.subtitles_outlined, onSelect: () => _choose(l10n.subtitles, model.subs, 'sub', offOption: true)),
+              if (model.subs.isNotEmpty || model.subtitleSearch) ...[
+                TvButton(label: l10n.subtitles, icon: Icons.subtitles_outlined, onSelect: _chooseSubtitles),
                 const SizedBox(width: 18),
               ],
               if (model.chapters.length > 1) ...[

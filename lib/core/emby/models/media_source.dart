@@ -232,6 +232,29 @@ final class MediaSourceInfo {
   List<MediaStream> get subtitleStreams =>
       streams.where((s) => s.type == MediaStreamType.subtitle).toList(growable: false);
 
+  MediaSourceInfo withStreams(List<MediaStream> streams) => MediaSourceInfo(
+        id: id,
+        streams: streams,
+        chapters: chapters,
+        name: name,
+        path: path,
+        protocol: protocol,
+        container: container,
+        size: size,
+        bitrate: bitrate,
+        runTimeTicks: runTimeTicks,
+        supportsDirectPlay: supportsDirectPlay,
+        supportsDirectStream: supportsDirectStream,
+        supportsTranscoding: supportsTranscoding,
+        directStreamUrl: directStreamUrl,
+        transcodingUrl: transcodingUrl,
+        transcodingSubProtocol: transcodingSubProtocol,
+        defaultAudioStreamIndex: defaultAudioStreamIndex,
+        defaultSubtitleStreamIndex: defaultSubtitleStreamIndex,
+        isRemote: isRemote,
+        liveStreamId: liveStreamId,
+      );
+
   MediaStream? streamByIndex(int index) {
     for (final s in streams) {
       if (s.index == index) return s;

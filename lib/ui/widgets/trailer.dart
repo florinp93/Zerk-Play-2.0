@@ -17,6 +17,15 @@ import 'net_image.dart';
 class TrailerController extends ChangeNotifier {
   TrailerController(this._services, {this.inCards = false}) {
     _services.addListener(_onSettings);
+    _live.add(this);
+  }
+
+  static final _live = <TrailerController>{};
+
+  static void suspendAll() {
+    for (final c in _live) {
+      c._suspend();
+    }
   }
 
   final AppServices _services;
@@ -34,6 +43,8 @@ class TrailerController extends ChangeNotifier {
 
   bool _done = false;
   bool _disposed = false;
+  bool _suspended = false;
+  int _generation = 0;
   Size _renderSize = const Size(1920, 1080);
 
   static const autoplayDelay = Duration(milliseconds: 2500);
@@ -63,6 +74,7 @@ class TrailerController extends ChangeNotifier {
     _key = key;
     _done = false;
     _refs = const [];
+    _generation++;
     _autoplay?.cancel();
     unawaited(_player?.stop());
     notifyListeners();
@@ -81,6 +93,7 @@ class TrailerController extends ChangeNotifier {
     if (_key == null) return;
     _key = null;
     _refs = const [];
+    _generation++;
     _autoplay?.cancel();
     unawaited(_player?.stop());
     notifyListeners();
@@ -126,11 +139,18 @@ class TrailerController extends ChangeNotifier {
     if (onstage == _onstage) return;
     _onstage = onstage;
     if (onstage) {
+      _suspended = false;
       _scheduleAutoplay();
-    } else {
-      _autoplay?.cancel();
-      if (!_watching) unawaited(_player?.stop());
+    } else if (!_watching) {
+      _suspend();
     }
+  }
+
+  void _suspend() {
+    _suspended = true;
+    _generation++;
+    _autoplay?.cancel();
+    unawaited(_player?.stop());
   }
 
   void setRenderSize(Size size) {
@@ -148,7 +168,7 @@ class TrailerController extends ChangeNotifier {
 
   void _scheduleAutoplay() {
     _autoplay?.cancel();
-    if (_done || !_onstage || _watching || _refs.isEmpty || !_autoplays) return;
+    if (_done || _suspended || !_onstage || _watching || _refs.isEmpty || !_autoplays) return;
     unawaited(_refs.first.resolve().then((_) {}, onError: (_) {}));
     _autoplay = Timer(inCards ? Duration.zero : autoplayDelay, _start);
   }
@@ -172,19 +192,20 @@ class TrailerController extends ChangeNotifier {
   }
 
   Future<void> _start() async {
-    final key = _key;
+    final generation = _generation;
+    bool stale() => _disposed || generation != _generation || (!_watching && (_suspended || !_onstage));
     final player = await _ensurePlayer();
-    if (player == null) return;
+    if (player == null || stale()) return;
     player.setCover(!_watching);
     for (final ref in _refs) {
-      if (_disposed || key != _key || (!_onstage && !_watching)) return;
       try {
         final stream = await ref.resolve();
-        if (_disposed || key != _key) return;
+        if (stale()) return;
         if (await player.open(stream, muted: !sound)) return;
       } catch (e) {
         debugPrint('[trailer] $ref: $e');
       }
+      if (stale()) return;
     }
     _done = true;
     notifyListeners();
@@ -204,6 +225,7 @@ class TrailerController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _live.remove(this);
     _services.removeListener(_onSettings);
     _autoplay?.cancel();
     _player?.state.removeListener(_onPlayerState);
@@ -288,7 +310,7 @@ class _CardTrailersScope extends InheritedWidget {
   bool updateShouldNotify(_CardTrailersScope old) => old.state != state;
 }
 
-class CardTrailer extends StatelessWidget {
+class CardTrailer extends StatefulWidget {
   const CardTrailer({
     super.key,
     required this.trailerKey,
@@ -315,66 +337,103 @@ class CardTrailer extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  State<CardTrailer> createState() => _CardTrailerState();
+}
+
+class _CardTrailerState extends State<CardTrailer> {
+  CardTrailersState? _scope;
+  bool _open = false;
+  bool _showing = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final scope = CardTrailers.maybeOf(context);
+    if (scope == _scope) return;
+    _scope?.controller.removeListener(_onTrailer);
+    _scope = scope;
+    scope?.controller.addListener(_onTrailer);
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    _scope?.controller.removeListener(_onTrailer);
+    super.dispose();
+  }
+
+  bool _sync() {
+    final scope = _scope;
+    final open = scope != null && scope.expanded(widget.trailerKey);
+    final showing = scope != null && scope.showing(widget.trailerKey);
+    if (open == _open && showing == _showing) return false;
+    _open = open;
+    _showing = showing;
+    return true;
+  }
+
+  void _onTrailer() {
+    if (_sync()) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = _scope;
+    final child = widget.child;
     if (scope == null || !TrailerPlayer.supported) return child;
-    final controller = scope.controller;
+    final imageWidth = widget.imageWidth;
+    final imageHeight = widget.imageHeight;
     final wide = imageHeight * 16 / 9;
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
-      onFocusChange: (f) => f ? scope.focus(trailerKey, find) : scope.blur(trailerKey),
-      child: ListenableBuilder(
-        listenable: controller,
-        child: child,
-        builder: (context, child) {
-          final open = scope.expanded(trailerKey);
-          return AnimatedContainer(
-            duration: Zm.normal,
-            curve: Zm.curve,
-            width: open && wide > imageWidth ? wide : imageWidth,
-            child: Stack(clipBehavior: Clip.none, children: [
-              AnimatedOpacity(
-                opacity: open ? 0 : 1,
-                duration: Zm.fast,
-                child: Align(alignment: Alignment.topLeft, child: child),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                height: imageHeight,
-                child: IgnorePointer(
-                  ignoring: !open,
-                  child: AnimatedOpacity(
-                    opacity: open ? 1 : 0,
-                    duration: Zm.normal,
-                    curve: Zm.curve,
-                    child: !open
-                        ? const SizedBox.shrink()
-                        : GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: onSelect,
-                            child: FocusFrame(
-                              focused: true,
-                              scale: 1.04,
-                              child: _ExpandedCard(
-                                controller: controller,
-                                playing: scope.showing(trailerKey),
-                                title: title,
-                                meta: meta,
-                                backdrop: backdrop,
-                                logo: logo,
-                                width: wide,
-                              ),
+      onFocusChange: (f) => f ? scope.focus(widget.trailerKey, widget.find) : scope.blur(widget.trailerKey),
+      child: AnimatedContainer(
+        duration: Zm.normal,
+        curve: Zm.curve,
+        width: _open && wide > imageWidth ? wide : imageWidth,
+        child: Stack(clipBehavior: Clip.none, children: [
+          AnimatedOpacity(
+            opacity: _open ? 0 : 1,
+            duration: Zm.fast,
+            child: Align(alignment: Alignment.topLeft, child: child),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: imageHeight,
+            child: IgnorePointer(
+              ignoring: !_open,
+              child: AnimatedOpacity(
+                opacity: _open ? 1 : 0,
+                duration: Zm.normal,
+                curve: Zm.curve,
+                child: !_open
+                    ? const SizedBox.shrink()
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: widget.onSelect,
+                        child: FocusFrame(
+                          focused: true,
+                          scale: 1.04,
+                          child: RepaintBoundary(
+                            child: _ExpandedCard(
+                              controller: scope.controller,
+                              playing: _showing,
+                              title: widget.title,
+                              meta: widget.meta,
+                              backdrop: widget.backdrop,
+                              logo: widget.logo,
+                              width: wide,
                             ),
                           ),
-                  ),
-                ),
+                        ),
+                      ),
               ),
-            ]),
-          );
-        },
+            ),
+          ),
+        ]),
       ),
     );
   }

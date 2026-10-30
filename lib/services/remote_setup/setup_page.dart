@@ -75,11 +75,17 @@ String setupFormPage(Map<String, Object?> values) {
   <p class="hint">Titles, descriptions, posters and logos from TMDB in the app language (English where a translation is missing), or as your server has them.</p>
   <label for="metadataSource">Source</label>
   <select id="metadataSource" name="metadataSource"><option value="tmdb">TMDB</option><option value="emby">Media server</option></select>
-  <div id="tmdbField">
-    <label for="tmdbApiKey">TMDB API key</label>
-    <input id="tmdbApiKey" name="tmdbApiKey" autocomplete="off" autocorrect="off" placeholder="API key or read access token" autocapitalize="off" spellcheck="false">
-  </div>
+  <label for="tmdbApiKey">TMDB API key</label>
+  <p class="hint">Trailers, collections and discovery use it whichever source you pick. Needed for TMDB metadata.</p>
+  <input id="tmdbApiKey" name="tmdbApiKey" autocomplete="off" autocorrect="off" placeholder="API key or read access token" autocapitalize="off" spellcheck="false">
   <p class="result" id="tmdb"></p>
+</section>
+<section>
+  <h2>Ratings</h2>
+  <p class="hint">Rotten Tomatoes scores from MDBList. Free key at mdblist.com → Preferences → API. Optional.</p>
+  <label for="mdblistApiKey">MDBList API key</label>
+  <input id="mdblistApiKey" name="mdblistApiKey" autocomplete="off" autocorrect="off" placeholder="API key" autocapitalize="off" spellcheck="false">
+  <p class="result" id="mdblist"></p>
 </section>
 <section id="seerrSection">
   <h2>Requests</h2>
@@ -89,6 +95,14 @@ String setupFormPage(Map<String, Object?> values) {
   <label for="seerrApiKey">API key</label>
   <input id="seerrApiKey" name="seerrApiKey" autocomplete="off" autocorrect="off" placeholder="Settings → General → API Key" autocapitalize="off" spellcheck="false">
   <p class="result" id="seerr"></p>
+</section>
+<section>
+  <h2>Live TV playlist</h2>
+  <p class="hint">An M3U playlist with an XMLTV guide, such as Tunarr or NostalgiaTV. Optional.</p>
+  <label for="playlistUrl">Playlist address (M3U)</label>
+  <input id="playlistUrl" name="playlistUrl" placeholder="http://192.168.1.10:8000/api/channels.m3u" inputmode="url" autocapitalize="off" spellcheck="false">
+  <label for="playlistGuideUrl">Guide address (XMLTV, optional)</label>
+  <input id="playlistGuideUrl" name="playlistGuideUrl" placeholder="http://192.168.1.10:8000/api/xmltv.xml" inputmode="url" autocapitalize="off" spellcheck="false">
 </section>
 <button id="save" type="submit">Save to TV</button>
 <p class="result" id="overall"></p>
@@ -103,16 +117,12 @@ f.uiLanguage.value = v.uiLanguage || 'en';
 f.subtitleLanguage.value = v.subtitleLanguage || '';
 f.metadataSource.value = v.metadataSource || 'tmdb';
 f.seerrUrl.value = v.seerrUrl || '';
+f.playlistUrl.value = v.playlistUrl || '';
+f.playlistGuideUrl.value = v.playlistGuideUrl || '';
 if (v.signedIn) byId('embyHint').textContent = 'The TV is signed in. Fill in a username only to switch account.';
 if (v.hasSeerrKey) f.seerrApiKey.placeholder = 'Saved on the TV. Leave blank to keep it.';
 if (v.hasTmdbKey) f.tmdbApiKey.placeholder = 'Saved on the TV. Leave blank to keep it.';
-// Preset in this build: not asked for, and not sent.
-function syncTmdb() {
-  const field = byId('tmdbField');
-  if (field) field.hidden = f.metadataSource.value !== 'tmdb';
-}
-f.metadataSource.addEventListener('change', syncTmdb);
-syncTmdb();
+if (v.hasMdblistKey) f.mdblistApiKey.placeholder = 'Saved on the TV. Leave blank to keep it.';
 function show(id, r) {
   const el = byId(id);
   if (!el) return;
@@ -123,7 +133,7 @@ f.addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = byId('save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  ['emby', 'seerr', 'tmdb', 'overall'].forEach((id) => show(id, null));
+  ['emby', 'seerr', 'tmdb', 'mdblist', 'overall'].forEach((id) => show(id, null));
   try {
     const res = await fetch(location.pathname.replace(/\\/\$/, '') + '/apply', {
       method: 'POST',
@@ -132,11 +142,11 @@ f.addEventListener('submit', async (e) => {
     });
     if (!res.ok) throw new Error(await res.text());
     const r = await res.json();
-    show('emby', r.emby); show('seerr', r.seerr); show('tmdb', r.tmdb);
+    show('emby', r.emby); show('seerr', r.seerr); show('tmdb', r.tmdb); show('mdblist', r.mdblist);
     const failed = Object.values(r).some((x) => !x.ok);
     show('overall', {ok: !failed, message: failed ? 'Saved, but something needs another look.' : 'Saved. You can put your phone away.'});
     if (r.emby && r.emby.ok) f.password.value = '';
-    if (!failed) { if (f.seerrApiKey) f.seerrApiKey.value = ''; if (f.tmdbApiKey) f.tmdbApiKey.value = ''; }
+    if (!failed) { if (f.seerrApiKey) f.seerrApiKey.value = ''; if (f.tmdbApiKey) f.tmdbApiKey.value = ''; f.mdblistApiKey.value = ''; }
   } catch (err) {
     show('overall', {ok: false, message: 'Could not reach the TV. Is the setup screen still open? ' + (err.message || '')});
   } finally {

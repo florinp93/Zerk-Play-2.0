@@ -136,8 +136,11 @@ final class RemoteSetupServer {
           : player.preferredSubtitleLanguage,
       'metadataSource': s.tmdbMetadataEnabled || !s.onboarded ? 'tmdb' : 'emby',
       'seerrUrl': s.seerrUrl,
+      'playlistUrl': s.playlistUrl,
+      'playlistGuideUrl': s.playlistGuideUrl,
       'hasSeerrKey': s.seerrApiKey.trim().isNotEmpty,
       'hasTmdbKey': s.tmdbApiKey.trim().isNotEmpty,
+      'hasMdblistKey': s.mdblistApiKey.trim().isNotEmpty,
     };
   }
 
@@ -156,6 +159,9 @@ final class RemoteSetupServer {
       await player.copyWith(preferredSubtitleLanguage: subtitles).save();
     }
 
+    final mdblistKey = field('mdblistApiKey');
+    if (mdblistKey != null && mdblistKey.isNotEmpty) s = s.copyWith(mdblistApiKey: mdblistKey);
+
     final tmdbKey = field('tmdbApiKey');
     if (tmdbKey != null && tmdbKey.isNotEmpty) s = s.copyWith(tmdbApiKey: tmdbKey);
     final useTmdb = switch (field('metadataSource')) {
@@ -168,6 +174,7 @@ final class RemoteSetupServer {
     final seerrUrl = field('seerrUrl');
     final seerrKey = field('seerrApiKey');
     s = s.copyWith(seerrUrl: seerrUrl, seerrApiKey: seerrKey == null || seerrKey.isEmpty ? null : seerrKey);
+    s = s.copyWith(playlistUrl: field('playlistUrl'), playlistGuideUrl: field('playlistGuideUrl'));
     await _services.updateSettings(s);
 
     if (_services.seerr != null) {
@@ -177,7 +184,7 @@ final class RemoteSetupServer {
         'message': problem == null ? 'Connected to ${_services.seerr!.baseUrl}.' : l10n.seerrProblem(problem),
       };
     }
-    if (useTmdb) {
+    if (useTmdb || (tmdbKey?.isNotEmpty ?? false)) {
       final tmdb = _services.tmdb;
       final problem = tmdb == null ? null : await tmdb.check();
       final ok = tmdb != null && problem == null;
@@ -185,6 +192,11 @@ final class RemoteSetupServer {
         'ok': ok,
         'message': tmdb == null ? l10n.tmdbKeyMissing : (problem == null ? l10n.tmdbKeyWorks : l10n.tmdbProblem(problem)),
       };
+    }
+
+    if (mdblistKey != null && mdblistKey.isNotEmpty) {
+      final problem = await _services.mdblist?.check();
+      result['mdblist'] = {'ok': problem == null, 'message': problem ?? l10n.mdblistKeyWorks};
     }
 
     final settingsOk = result.values.every((r) => r['ok'] != false);

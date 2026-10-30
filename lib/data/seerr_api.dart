@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/log/logging_http_client.dart';
 import 'release_info.dart';
+import 'title_ratings.dart';
 
 enum SeerrMediaType { movie, tv }
 
@@ -272,6 +273,24 @@ final class WatchProvider {
       logoPath == null || logoPath!.isEmpty ? null : Uri.parse('https://image.tmdb.org/t/p/w$width$logoPath');
 }
 
+final class SeerrQuality {
+  const SeerrQuality({
+    required this.serverId,
+    required this.serverName,
+    required this.is4k,
+    required this.profileId,
+    required this.profileName,
+    required this.isDefault,
+  });
+
+  final int serverId;
+  final String serverName;
+  final bool is4k;
+  final int profileId;
+  final String profileName;
+  final bool isDefault;
+}
+
 final class SeerrException implements Exception {
   const SeerrException(this.status, this.message);
 
@@ -484,6 +503,64 @@ final class SeerrApi {
   Future<Map<String, dynamic>> seasonJson(int tmdbId, int season) =>
       _get('/api/v1/tv/$tmdbId/season/$season', null, true);
 
+  final _ratings = <String, Future<TitleRatings?>>{};
+
+  static TitleRatings? _rt(Object? j) {
+    if (j is! Map) return null;
+    final critics = (j['criticsScore'] as num?)?.toInt();
+    final audience = (j['audienceScore'] as num?)?.toInt();
+    if (critics == null && audience == null) return null;
+    return TitleRatings(critics: critics, audience: audience, certified: j['criticsRating'] == 'Certified Fresh');
+  }
+
+  Future<TitleRatings?> ratings(int tmdbId, SeerrMediaType type) => _ratings.putIfAbsent('${type.name}:$tmdbId', () async {
+        try {
+          if (type == SeerrMediaType.tv) return _rt(await _get('/api/v1/tv/$tmdbId/ratings'));
+          return _rt((await _get('/api/v1/movie/$tmdbId/ratingscombined'))['rt']);
+        } catch (e) {
+          debugPrint('[seerr] ratings ${type.name} $tmdbId: $e');
+          return null;
+        }
+      });
+
+  static const _admin = 2, _manageRequests = 16, _request4k = 1024, _request4kMovie = 2048, _request4kTv = 4096,
+      _requestAdvanced = 8192;
+
+  Future<List<SeerrQuality>> qualities(SeerrMediaType type) async {
+    final int permissions;
+    try {
+      final user = await linkedUserId();
+      final json = await _get(user == null ? '/api/v1/auth/me' : '/api/v1/user/$user');
+      permissions = (json['permissions'] as num?)?.toInt() ?? 0;
+    } on SeerrException {
+      return const [];
+    }
+    bool has(int bits) => permissions & bits != 0;
+    if (!has(_admin | _manageRequests | _requestAdvanced)) return const [];
+    final tv = type == SeerrMediaType.tv;
+    final kind = tv ? 'sonarr' : 'radarr';
+    final out = <SeerrQuality>[];
+    for (final s in (await _fetch('/api/v1/service/$kind') as List? ?? const []).whereType<Map>()) {
+      final id = (s['id'] as num?)?.toInt();
+      final is4k = s['is4k'] == true;
+      if (id == null || is4k && !has(_admin | _request4k | (tv ? _request4kTv : _request4kMovie))) continue;
+      final detail = await _get('/api/v1/service/$kind/$id');
+      for (final p in (detail['profiles'] as List? ?? const []).whereType<Map>()) {
+        final profileId = (p['id'] as num?)?.toInt();
+        if (profileId == null) continue;
+        out.add(SeerrQuality(
+          serverId: id,
+          serverName: s['name'] as String? ?? kind,
+          is4k: is4k,
+          profileId: profileId,
+          profileName: p['name'] as String? ?? '$profileId',
+          isDefault: s['isDefault'] == true && !is4k && profileId == (s['activeProfileId'] as num?)?.toInt(),
+        ));
+      }
+    }
+    return out;
+  }
+
   Future<int?> linkedUserId() async {
     final emby = _normalizeId(embyUserId?.call());
     if (emby == null) return null;
@@ -549,11 +626,12 @@ final class SeerrApi {
     return out;
   }
 
-  Future<void> request(SeerrMedia media, {List<int>? seasons, bool is4k = false}) async {
+  Future<void> request(SeerrMedia media, {List<int>? seasons, SeerrQuality? quality}) async {
     final body = <String, Object?>{
       'mediaType': media.isTv ? 'tv' : 'movie',
       'mediaId': media.tmdbId,
-      'is4k': is4k,
+      'is4k': quality?.is4k ?? false,
+      if (quality != null && !quality.isDefault) ...{'serverId': quality.serverId, 'profileId': quality.profileId},
       if (media.isTv)
         'seasons': seasons ??
             [for (final s in media.seasons) if (s.number > 0 && s.availability == Availability.none) s.number],
@@ -591,13 +669,16 @@ final class SeerrApi {
     ];
   }
 
-  Future<Map<String, dynamic>> _get(String path, [Map<String, String>? query, bool localized = false]) async {
+  Future<Map<String, dynamic>> _get(String path, [Map<String, String>? query, bool localized = false]) async =>
+      await _fetch(path, query, localized) as Map<String, dynamic>;
+
+  Future<Object?> _fetch(String path, [Map<String, String>? query, bool localized = false]) async {
     final lang = localized ? language?.split('-').first : null;
     final params = {...?query, 'language': ?lang};
     final uri = _uri(path).replace(queryParameters: params.isEmpty ? null : params);
     final res = await _http.get(uri, headers: _headers).timeout(const Duration(seconds: 12));
     if (res.statusCode >= 300) throw SeerrException(res.statusCode, _message(res.body));
-    return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
   static String _message(String body) {

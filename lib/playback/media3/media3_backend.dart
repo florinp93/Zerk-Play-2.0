@@ -21,7 +21,7 @@ final class Media3Backend implements PlayerBackend {
   static const _eventChannel = EventChannel('zerk/player/events');
 
   final NavigatorState _navigator;
-  final PlayerSettings _settings;
+  PlayerSettings _settings;
   final _state = ValueNotifier(const PlayerState());
   final _events = StreamController<PlayerEvent>.broadcast(sync: true);
   late final OsdModel _osd = OsdModel(
@@ -29,7 +29,7 @@ final class Media3Backend implements PlayerBackend {
     send: (name, [arg]) => _events.add(PlayerOsdEvent(name, arg)),
     togglePause: () => _call('togglePause'),
     seekTo: (position) => _call('seekTo', {'ms': position.inMilliseconds}),
-  );
+  )..subtitleScale = _settings.subtitleScale;
   StreamSubscription<Object?>? _sub;
   Route<void>? _route;
 
@@ -99,6 +99,13 @@ final class Media3Backend implements PlayerBackend {
 
   @override
   void osd(String command, Object? data) => _osd.handle(command, data);
+
+  @override
+  void setSubtitleScale(double scale) {
+    _settings = _settings.copyWith(subtitleScale: scale);
+    _osd.subtitleScale = scale;
+    _call('subtitleStyle', {'style': SubtitleStyle.androidStyle(_settings)});
+  }
 
   @override
   double? matchRefreshRate(double fps) => null;

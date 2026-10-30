@@ -59,7 +59,7 @@ class PosterCard extends StatelessWidget {
                   fallback: TitleArt(title: item.name, subtitle: item.productionYear?.toString(),
                       icon: item.isSeries ? Icons.tv_rounded : Icons.movie_outlined),
                 ),
-                _PosterBadges(item: item),
+                _StatusBadge(item: item),
                 if (marked != null)
                   Positioned(
                     left: 0,
@@ -94,8 +94,8 @@ class PosterCard extends StatelessWidget {
   }
 }
 
-class _PosterBadges extends StatelessWidget {
-  const _PosterBadges({required this.item});
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.item});
 
   final EmbyItem item;
 
@@ -214,8 +214,7 @@ class LandscapeCard extends StatelessWidget {
                     fallback: TitleArt(title: item.seriesName ?? item.name, subtitle: item.episodeCode, icon: Icons.play_circle_outline),
                   ),
                 ),
-                if (item.isPlayed)
-                  const Positioned(top: 10, right: 10, child: _Corner(child: Icon(Icons.check_rounded, size: 22, color: Colors.white))),
+                _StatusBadge(item: item),
                 if (missing)
                   Center(child: Pill(item.premiereDate != null && item.premiereDate!.isAfter(DateTime.now()) ? context.l10n.upcoming : context.l10n.missing)),
                 if (focused && !missing && onSelect != null)

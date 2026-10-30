@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../player_backend.dart';
@@ -91,6 +93,18 @@ final class OsdModel extends ChangeNotifier {
   bool zap = false;
   bool autoSkipIntro = false;
 
+  double subtitleScale = 1;
+
+  bool subtitleSearch = false;
+  List<OsdChoice> subtitleLanguages = const [];
+  Completer<({List<OsdChoice> results, String? error})>? _search;
+
+  Future<({List<OsdChoice> results, String? error})> searchSubtitles(String language) {
+    _search = Completer();
+    send('subsearch', language);
+    return _search!.future;
+  }
+
   String? videoFormat;
   String? videoOutput;
 
@@ -143,9 +157,16 @@ final class OsdModel extends ChangeNotifier {
         versionsTitle = m['versionsTitle'] as String?;
         autoSkipIntro = m['autoSkipIntro'] == true;
         zap = m['zap'] == true;
+        subtitleSearch = m['subtitleSearch'] == true;
+        subtitleLanguages = OsdChoice.list(m['subLanguages']);
       case 'video':
         videoFormat = m['format'] as String?;
         videoOutput = m['output'] as String?;
+      case 'subsearch':
+        final search = _search;
+        _search = null;
+        if (search != null && !search.isCompleted) search.complete((results: OsdChoice.list(m['results']), error: m['error'] as String?));
+        return;
       case 'toast':
         if (data is String) onToast?.call(data);
         return;

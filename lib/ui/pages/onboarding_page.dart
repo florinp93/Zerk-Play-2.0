@@ -112,15 +112,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
         await _player?.save();
         return null;
       case _Step.metadata:
-        if (!_useTmdb) {
+        final key = _tmdbKey.trim();
+        if (key.isEmpty) {
+          if (_useTmdb) return l10n.tmdbKeyMissing;
           await _services.updateSettings(app.copyWith(metadataLanguage: ''));
           return null;
         }
-        final key = _tmdbKey.trim();
-        if (key.isEmpty) return l10n.tmdbKeyMissing;
         final problem = await TmdbApi(apiKey: key).check();
         if (problem != null) return l10n.tmdbProblem(problem);
-        await _services.updateSettings(app.copyWith(tmdbApiKey: key, metadataLanguage: app.uiMetadataLanguage));
+        await _services.updateSettings(
+            app.copyWith(tmdbApiKey: key, metadataLanguage: _useTmdb ? app.uiMetadataLanguage : ''));
         return null;
       case _Step.requests:
         final url = _seerrUrl.trim(), key = _seerrKey.trim();
@@ -271,15 +272,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
               _error = null;
             }),
           ),
-          if (_useTmdb)
-            SettingTextRow(
-              title: l10n.tmdbApiKey,
-              value: _tmdbKey,
-              hint: l10n.tmdbApiKeyHint,
-              obscure: true,
-              onChanged: (v) => setState(() => _tmdbKey = v),
-            ),
-          if (_useTmdb) phone,
+          SettingTextRow(
+            title: l10n.tmdbApiKey,
+            value: _tmdbKey,
+            hint: l10n.tmdbApiKeyHint,
+            obscure: true,
+            onChanged: (v) => setState(() => _tmdbKey = v),
+          ),
+          phone,
         ];
       case _Step.requests:
         return [

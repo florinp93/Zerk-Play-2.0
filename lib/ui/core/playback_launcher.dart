@@ -8,6 +8,7 @@ import '../../playback/platform_player.dart';
 import '../../playback/playback_session.dart';
 import '../../playback/player_settings.dart';
 import '../../playback/trailer/trailer_player.dart';
+import '../widgets/trailer.dart';
 import 'artwork.dart';
 
 final class PlaybackOutcome {
@@ -37,8 +38,11 @@ Future<PlaybackOutcome?> playItem(
     final services = AppServicesScope.read(context);
     final l10n = context.l10n;
     final navigator = Navigator.of(context, rootNavigator: true);
+    TrailerController.suspendAll();
     await TrailerPlayer.stopAll();
-    final full = item.mediaSources.isNotEmpty || item.isChannel ? item : await services.catalog.item(item.id);
+    final target = item.isSeries || item.isSeason ? await services.catalog.episodeToPlay(item) : item;
+    if (target == null) return null;
+    final full = target.mediaSources.isNotEmpty || target.isChannel ? target : await services.catalog.item(target.id);
     final settings = await PlayerSettings.load();
     final acceptBadCerts = services.settings.acceptInvalidCertificates;
     final session = PlaybackSession(
@@ -88,6 +92,7 @@ Future<void> playChannel(BuildContext context, ZapList zap, int index) async {
     final services = AppServicesScope.read(context);
     final l10n = context.l10n;
     final navigator = Navigator.of(context, rootNavigator: true);
+    TrailerController.suspendAll();
     await TrailerPlayer.stopAll();
     final settings = await PlayerSettings.load();
     final session = LiveSession(

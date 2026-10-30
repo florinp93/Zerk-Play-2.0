@@ -131,6 +131,10 @@ final class MpvBackend implements PlayerBackend {
         'playback_speed': l.playbackSpeed,
         'subtitle_delay': l.subtitleDelay,
         'audio_delay': l.audioDelay,
+        'subtitle_size': l.subtitleSize,
+        'search_subtitles': l.searchSubtitles,
+        'searching': l.subtitleSearching,
+        'no_subtitles_found': l.subtitleSearchEmpty,
         'playback_info': l.playbackInfo,
         'playback_info_detail': l.playbackInfoDetail,
         'hdr_on': l.badgeHdrOn,
@@ -195,6 +199,9 @@ final class MpvBackend implements PlayerBackend {
 
   @override
   void setSpeed(double speed) => _mpv.setProperty('speed', '$speed');
+
+  @override
+  void setSubtitleScale(double scale) => _mpv.setProperty('sub-scale', scale.toStringAsFixed(2));
 
   @override
   double? matchRefreshRate(double fps) => _refresh.matchFrameRate(fps);

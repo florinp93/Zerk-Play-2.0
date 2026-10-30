@@ -14,6 +14,7 @@ import '../data/seerr_api.dart';
 import '../data/title_tags.dart';
 import '../data/tmdb_api.dart';
 import '../data/emby_live_tv.dart';
+import '../data/title_ratings.dart';
 import '../data/xtream/live_catalog.dart';
 import '../data/xtream/xtream.dart';
 import '../playback/emby_playback_api.dart';
@@ -103,7 +104,7 @@ final class AppServices extends ChangeNotifier {
     return services;
   }
 
-  bool get liveTvAvailable => _settings.xtreamConfigured;
+  bool get liveTvAvailable => _settings.xtreamConfigured || playlist.configured;
 
   late final embyLiveTv = EmbyLiveTv(janus);
   bool _embyTvAvailable = false;
@@ -121,7 +122,20 @@ final class AppServices extends ChangeNotifier {
   XtreamServer get xtream =>
       XtreamServer(_settings.xtreamUrl, [for (final (u, p) in _settings.xtreamAccounts) XtreamAccount(u, p)]);
 
-  void _warmLiveTv() => LiveTv(xtream).warmUp();
+  M3uPlaylist get playlist => M3uPlaylist(_settings.playlistUrl, _settings.playlistGuideUrl);
+
+  void _warmLiveTv() => LiveTv(xtream, playlist).warmUp();
+
+  MdbListApi? _mdblist;
+
+  MdbListApi? get mdblist {
+    final key = _settings.mdblistApiKey.trim();
+    if (key.isEmpty) return null;
+    return _mdblist?.apiKey == key ? _mdblist : _mdblist = MdbListApi(key);
+  }
+
+  Future<TitleRatings?> titleRatings(int tmdbId, {required bool tv}) async =>
+      await mdblist?.ratings(tmdbId, tv: tv) ?? await seerr?.ratings(tmdbId, tv ? SeerrMediaType.tv : SeerrMediaType.movie);
 
   TmdbApi? get tmdb {
     final key = _settings.tmdbApiKey.trim();
@@ -133,7 +147,8 @@ final class AppServices extends ChangeNotifier {
         next.tmdbApiKey != _settings.tmdbApiKey || next.metadataLanguage != _settings.metadataLanguage;
     final recommendationsChanged = next.hideAnimation != _settings.hideAnimation;
     final xtreamChanged = next.xtreamUrl != _settings.xtreamUrl || next.xtreamAccounts.length != _settings.xtreamAccounts.length ||
-        next.xtreamAccounts.indexed.any((e) => e.$2 != _settings.xtreamAccounts[e.$1]);
+        next.xtreamAccounts.indexed.any((e) => e.$2 != _settings.xtreamAccounts[e.$1]) ||
+        next.playlistUrl != _settings.playlistUrl || next.playlistGuideUrl != _settings.playlistGuideUrl;
     _settings = next;
     UiSounds.enabled = next.sounds;
     RecommendationFilter.hideAnimation = next.hideAnimation;

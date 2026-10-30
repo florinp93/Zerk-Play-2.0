@@ -32,7 +32,8 @@ local L = {
   aspect_zoom = "Zoom to fill", aspect_zoom_detail = "Crops the picture to fill the screen",
   aspect_stretch = "Stretch to fill", aspect_stretch_detail = "Distorts the picture",
   aspect_ratio = "Aspect ratio", aspect_toast = "Aspect ratio: {n}", playback_speed = "Playback speed",
-  subtitle_delay = "Subtitle delay", audio_delay = "Audio delay",
+  subtitle_delay = "Subtitle delay", audio_delay = "Audio delay", subtitle_size = "Subtitle size",
+  search_subtitles = "Search subtitles", searching = "Searching…", no_subtitles_found = "No subtitles found",
   playback_info = "Playback info", playback_info_detail = "Codecs, bitrate, dropped frames",
   hdr_on = "HDR ON", tone_mapped = "TONE-MAPPED", muted = "Muted", press_back = "Press Back to return",
   skip_intro = "Skip intro", up_next = "Up next", starts_in = "Starts in {n} s", intro_skipped = "Intro skipped",
@@ -75,6 +76,7 @@ local S = {
   tracks = { audio = {}, subs = {} },
   versions = {},
   versions_title = nil,
+  sub_search = false, sub_languages = {}, sub_results = nil,
   seg = {}, intro_skipped = false, chapters = {},
   next_up = nil, next_elapsed = 0, next_last = nil, next_cancelled = false, next_choice = 1, next_img = nil,
   scrub = nil, scrub_commit_at = 0, scrub_repeat = 0, scrub_last = 0,
@@ -226,12 +228,16 @@ end
 
 local open_panel
 
+local function percent(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
+
 local function track_items(kind)
   local items = {}
   if kind == "subs" then
+    if S.sub_search then items[#items + 1] = { id = "subsearch", label = tr("search_subtitles"), submenu = true } end
+    items[#items + 1] = { id = "subsize", label = tr("subtitle_size"), detail = percent(prop("sub-scale", 1)), submenu = true }
     local any = false
     for _, t in ipairs(S.tracks.subs) do if t.selected then any = true end end
-    items[1] = { id = -1, label = tr("off"), selected = not any }
+    items[#items + 1] = { id = -1, label = tr("off"), selected = not any }
   end
   for _, t in ipairs(S.tracks[kind]) do
     items[#items + 1] = { id = t.id, label = t.label, detail = t.detail, selected = t.selected }
@@ -294,6 +300,7 @@ local function settings_items()
     { id = "aspect", label = tr("aspect_ratio"), detail = aspect_label(S.aspect), submenu = true },
     { id = "speed", label = tr("playback_speed"), detail = string.format("%gx", speed), submenu = true },
     { id = "subdelay", label = tr("subtitle_delay"), detail = string.format("%+.1fs", prop("sub-delay", 0)), submenu = true },
+    { id = "subsize", label = tr("subtitle_size"), detail = percent(prop("sub-scale", 1)), submenu = true },
     { id = "audiodelay", label = tr("audio_delay"), detail = string.format("%+.2fs", prop("audio-delay", 0)), submenu = true },
     { id = "stats", label = tr("playback_info"), detail = tr("playback_info_detail") },
   }) do items[#items + 1] = it end
@@ -337,6 +344,28 @@ open_panel = function(kind)
     end
   elseif kind == "subdelay" then p.title, p.items = tr("subtitle_delay"), delay_items("sub-delay", 0.1, "1")
   elseif kind == "audiodelay" then p.title, p.items = tr("audio_delay"), delay_items("audio-delay", 0.05, "2")
+  elseif kind == "subsize" then
+    local cur = prop("sub-scale", 1)
+    p.title, p.items = tr("subtitle_size"), {}
+    for i = 0, 20 do
+      local v = 0.5 + i * 0.05
+      p.items[#p.items + 1] = { id = v, label = percent(v), selected = math.abs(v - cur) < 0.025 }
+    end
+    p.preview = function(it) mp.set_property_number("sub-scale", it.id) end
+    p.revert = function() mp.set_property_number("sub-scale", cur) end
+  elseif kind == "sublang" then
+    p.title, p.items = tr("search_subtitles"), {}
+    for _, l in ipairs(S.sub_languages) do p.items[#p.items + 1] = { id = l.id, label = l.label, submenu = true } end
+  elseif kind == "subresults" then
+    local r = S.sub_results
+    p.title = tr("search_subtitles")
+    if not r then p.items = { { label = tr("searching"), inert = true } }
+    elseif r.error then p.items = { { label = r.error, inert = true } }
+    elseif #(r.results or {}) == 0 then p.items = { { label = tr("no_subtitles_found"), inert = true } }
+    else
+      p.items = {}
+      for _, it in ipairs(r.results) do p.items[#p.items + 1] = { id = it.id, label = it.label, detail = it.detail } end
+    end
   end
   if not p.items or #p.items == 0 then return end
   p.cursor = panel_cursor(p.items)
@@ -347,7 +376,9 @@ end
 local function panel_activate(item)
   local p = S.panel
   if p.kind == "audio" then send("audio", tostring(item.id)); S.panel = nil
-  elseif p.kind == "subs" then send("sub", tostring(item.id)); S.panel = nil
+  elseif p.kind == "subs" then
+    if item.id == "subsize" or item.id == "subsearch" then open_panel(item.id == "subsize" and "subsize" or "sublang")
+    else send("sub", tostring(item.id)); S.panel = nil end
   elseif p.kind == "chapters" then mp.commandv("seek", item.id, "absolute+exact"); S.panel = nil
   elseif p.kind == "settings" then
     if item.id == "stats" then mp.commandv("script-binding", "stats/display-stats-toggle"); S.panel = nil; S.visible = false
@@ -361,7 +392,30 @@ local function panel_activate(item)
     S.toast, S.toast_until = tr("aspect_toast", item.label), now() + 2
   elseif p.kind == "subdelay" then mp.set_property_number("sub-delay", item.id); S.panel = nil
   elseif p.kind == "audiodelay" then mp.set_property_number("audio-delay", item.id); S.panel = nil
+  elseif p.kind == "sublang" then
+    S.sub_results = nil
+    send("subsearch", item.id)
+    open_panel("subresults")
+  elseif p.kind == "subresults" then
+    if not item.inert then send("subdownload", item.id); S.panel = nil end
+  elseif p.kind == "subsize" then
+    p.revert = nil
+    mp.set_property_number("sub-scale", item.id)
+    send("subscale", string.format("%.2f", item.id))
+    S.panel = nil
   end
+end
+
+local function close_panel()
+  local p = S.panel
+  if p and p.revert then p.revert() end
+  S.panel = nil
+end
+
+local function move_panel_cursor(p, cursor)
+  if cursor == p.cursor then return end
+  p.cursor = cursor
+  if p.preview then p.preview(p.items[cursor]) end
 end
 
 local render
@@ -915,10 +969,10 @@ local function on_key(name)
     if S.panel then
       local p = S.panel
       p.free_scroll = false
-      if name == "up" then p.cursor = math.max(1, p.cursor - 1)
-      elseif name == "down" then p.cursor = math.min(#p.items, p.cursor + 1)
+      if name == "up" then move_panel_cursor(p, math.max(1, p.cursor - 1))
+      elseif name == "down" then move_panel_cursor(p, math.min(#p.items, p.cursor + 1))
       elseif name == "ok" or name == "right" then panel_activate(p.items[p.cursor])
-      elseif name == "back" or name == "left" then S.panel = nil
+      elseif name == "back" or name == "left" then close_panel()
       end
       touch(); refresh()
       return
@@ -1062,7 +1116,7 @@ local function update_hover()
     if key == "next:play" then S.next_choice = 1
     elseif key == "next:keep" then S.next_choice = 2
     elseif btn then S.btn, S.area = btn, "buttons"
-    elseif row and S.panel then S.panel.cursor = tonumber(row)
+    elseif row and S.panel then move_panel_cursor(S.panel, tonumber(row))
     elseif key == "back" then S.area = "top"
     elseif key == "seek" then S.area = "seek"
     end
@@ -1098,12 +1152,12 @@ mp.add_forced_key_binding("MBTN_LEFT", "zerk-click", function()
     touch(); render(); update_hover(); refresh()
     return
   end
-  if S.panel then S.panel = nil; refresh(); return end
+  if S.panel then close_panel(); refresh(); return end
   toggle_pause()
 end)
 mp.add_forced_key_binding("MBTN_LEFT_DBL", "zerk-dblclick", function() send("fullscreen") end)
 mp.add_forced_key_binding("MBTN_RIGHT", "zerk-rclick", function()
-  if S.panel then S.panel = nil elseif S.visible then S.visible = false else show() end
+  if S.panel then close_panel() elseif S.visible then S.visible = false else show() end
   refresh()
 end)
 
@@ -1190,6 +1244,14 @@ mp.register_script_message("config", function(raw)
   S.auto_skip_intro = c.autoSkipIntro or false
   S.versions_title = c.versionsTitle
   S.zap = c.zap or false
+  S.sub_search = c.subtitleSearch or false
+  S.sub_languages = c.subLanguages or {}
+end)
+
+mp.register_script_message("subsearch", function(raw)
+  S.sub_results = json(raw) or {}
+  if S.panel and S.panel.kind == "subresults" then open_panel("subresults") end
+  refresh()
 end)
 
 mp.register_script_message("video", function(raw)

@@ -13,6 +13,8 @@ import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
+import '../widgets/critic_scores.dart';
+import '../widgets/media_badges.dart';
 import '../widgets/media_row.dart';
 import '../widgets/net_image.dart';
 import '../widgets/scroll_arrows.dart';
@@ -49,13 +51,14 @@ class TitleBlock extends StatelessWidget {
         Text([item.episodeCode, item.name].whereType<String>().join('  ·  '), style: Zt.title),
       ],
       const SizedBox(height: 16),
-      MetaLine([...extraMeta], leading: [if (item.communityRating != null) RatingPill(item.communityRating!)]),
+      MetaLine(
+        [...extraMeta],
+        leading: [if (item.communityRating != null) RatingPill(item.communityRating!)],
+        trailing: [CriticScores.forItem(item)],
+      ),
       if (v != null) ...[
         const SizedBox(height: 14),
-        Wrap(spacing: 10, runSpacing: 8, children: [
-          Pill(v.resolution == '2160p' ? '4K' : v.resolution, outlined: true),
-          if (v.hdr != null) Pill(v.hdr!, outlined: true),
-          if (v.bestAudio != null) Pill(v.bestAudio!, outlined: true),
+        MediaBadges(v, trailing: [
           if (item.mediaSources.length > 1) Pill(context.l10n.versionCount(item.mediaSources.length), color: Zc.accent),
         ]),
       ],

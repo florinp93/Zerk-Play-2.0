@@ -22,8 +22,15 @@ String normalizeLanguage(String? raw) {
   return _iso3To1[v] ?? _englishNames[v] ?? v;
 }
 
+String? searchLanguageCode(String iso1) {
+  for (final e in _iso3To1.entries) {
+    if (e.value == iso1) return e.key;
+  }
+  return null;
+}
+
 const Map<String, String> _iso3To1 = {
-  'eng': 'en', 'ron': 'ro', 'rum': 'ro', 'fre': 'fr', 'fra': 'fr', 'ger': 'de', 'deu': 'de',
+  'eng': 'en', 'rum': 'ro', 'ron': 'ro', 'fre': 'fr', 'fra': 'fr', 'ger': 'de', 'deu': 'de',
   'spa': 'es', 'ita': 'it', 'por': 'pt', 'jpn': 'ja', 'chi': 'zh', 'zho': 'zh', 'kor': 'ko',
   'dut': 'nl', 'nld': 'nl', 'nor': 'no', 'nob': 'nb', 'nno': 'nn', 'dan': 'da', 'fin': 'fi',
   'swe': 'sv', 'pol': 'pl', 'rus': 'ru', 'ukr': 'uk', 'cze': 'cs', 'ces': 'cs', 'slo': 'sk',

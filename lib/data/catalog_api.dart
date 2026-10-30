@@ -257,6 +257,15 @@ final class CatalogApi {
         'IsMissing': null,
       });
 
+  Future<EmbyItem?> episodeToPlay(EmbyItem show) async {
+    final seriesId = show.isSeries ? show.id : show.seriesId;
+    if (seriesId == null) return null;
+    final next = (await nextUp(seriesId: seriesId, limit: 1)).firstOrNull;
+    if (next != null && (!show.isSeason || next.seasonId == show.id)) return next;
+    final all = (await episodes(seriesId, seasonId: show.isSeason ? show.id : null)).where((e) => e.isPlayable);
+    return all.where((e) => (e.parentIndexNumber ?? 1) > 0).firstOrNull ?? all.firstOrNull;
+  }
+
   Future<List<EmbyItem>> episodes(String seriesId, {String? seasonId}) =>
       _list('/Shows/$seriesId/Episodes', {
         'UserId': _userId,

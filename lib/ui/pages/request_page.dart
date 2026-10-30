@@ -15,8 +15,10 @@ import '../theme/tokens.dart';
 import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
+import '../widgets/critic_scores.dart';
 import '../widgets/net_image.dart';
 import '../widgets/rows_scroll_view.dart';
+import '../widgets/side_panel.dart';
 import '../widgets/trailer.dart';
 import 'details_parts.dart';
 import 'hero.dart';
@@ -43,6 +45,8 @@ class _RequestPageState extends State<RequestPage> {
   final _trailerNode = FocusNode(debugLabel: 'trailer');
   List<TitleTag> _tags = const [];
   MixedItems _similar = const [];
+  List<SeerrQuality> _qualities = const [];
+  SeerrQuality? _quality;
 
   @override
   void initState() {
@@ -53,6 +57,11 @@ class _RequestPageState extends State<RequestPage> {
     _trailer.load(m.key, () => Trailers.forSeerr(s, m));
     s.titleTags?.of(m.tmdbId, m.type).then((v) {
       if (mounted) setState(() => _tags = v);
+    });
+    s.seerr?.qualities(m.type).then((v) {
+      if (mounted) setState(() => _qualities = v);
+    }).catchError((Object e) {
+      debugPrint('[request] qualities: $e');
     });
     s.recommender.moreLikeThis(tmdbId: m.tmdbId, type: m.type, animated: m.genreIds.contains(16)).then((v) {
       if (mounted) setState(() => _similar = v);
@@ -114,7 +123,7 @@ class _RequestPageState extends State<RequestPage> {
     }
     setState(() => _busy = true);
     try {
-      await seerr.request(_media, seasons: _media.isTv ? (_selectedSeasons.toList()..sort()) : null);
+      await seerr.request(_media, seasons: _media.isTv ? (_selectedSeasons.toList()..sort()) : null, quality: _quality);
       RequestStatuses.record(_media, Availability.pending);
       if (!mounted) return;
       final waits = ReleaseInfos.of(_media)?.notOut ?? false;
@@ -139,6 +148,17 @@ class _RequestPageState extends State<RequestPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  SeerrQuality? get _shownQuality => _quality ?? _qualities.where((q) => q.isDefault).firstOrNull;
+
+  Future<void> _chooseQuality() async {
+    final current = _shownQuality;
+    final chosen = await showSidePanel<SeerrQuality>(context, title: context.l10n.qualityProfile, options: [
+      for (final q in _qualities)
+        PanelOption(value: q, title: q.profileName, subtitle: q.is4k ? '${q.serverName}  ·  4K' : q.serverName, selected: q == current),
+    ]);
+    if (chosen != null && mounted) setState(() => _quality = chosen);
   }
 
   @override
@@ -186,6 +206,7 @@ class _RequestPageState extends State<RequestPage> {
                   MetaLine(
                     [m.year?.toString(), if (m.runtimeMinutes != null) formatRuntime(l10n, Duration(minutes: m.runtimeMinutes!)), if (m.genres.isNotEmpty) m.genres.take(3).join(', ')],
                     leading: [if ((m.voteAverage ?? 0) > 0) RatingPill(m.voteAverage!)],
+                    trailing: [CriticScores(tmdbId: m.tmdbId, tv: m.isTv)],
                   ),
                   if (note != null) ...[
                     const SizedBox(height: 16),
@@ -231,6 +252,12 @@ class _RequestPageState extends State<RequestPage> {
                           accent: Zc.request,
                           autofocus: _libraryItem == null,
                           onSelect: _request,
+                        ),
+                      if (canRequest && _qualities.length > 1)
+                        TvButton(
+                          label: l10n.requestQuality(_shownQuality?.profileName ?? l10n.qualityDefault),
+                          icon: Icons.tune_rounded,
+                          onSelect: _chooseQuality,
                         ),
                       if (!canRequest && _libraryItem == null)
                         TvButton(label: statusLabel, icon: Icons.schedule_rounded, autofocus: true, onSelect: () {}),

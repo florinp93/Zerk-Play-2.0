@@ -10,13 +10,15 @@ import 'package:path_provider/path_provider.dart';
 import 'xtream.dart';
 
 part 'channel_db.dart';
+part 'm3u.dart';
 
 final class ChannelSource {
-  const ChannelSource({required this.name, required this.streamId, this.logo});
+  const ChannelSource({required this.name, required this.streamId, this.logo, this.url});
 
   final String name;
   final int streamId;
   final String? logo;
+  final String? url;
 
   String get label => _split(name).$2;
 }
@@ -107,7 +109,7 @@ final class LiveCatalog {
         'l': c.logo,
         'e': c.epgId,
         'no': ?c.number,
-        's': [for (final s in c.sources) [s.name, s.streamId, s.logo]],
+        's': [for (final s in c.sources) [s.name, s.streamId, s.logo, ?s.url]],
       };
 
   static LiveChannel _channelFromJson(Map c) => LiveChannel(
@@ -119,15 +121,24 @@ final class LiveCatalog {
         epgId: c['e'] as String?,
         number: c['no'] as int?,
         sources: [
-          for (final s in c['s'] as List) ChannelSource(name: s[0] as String, streamId: s[1] as int, logo: s[2] as String?),
+          for (final s in c['s'] as List)
+            ChannelSource(
+              name: s[0] as String,
+              streamId: s[1] as int,
+              logo: s[2] as String?,
+              url: (s as List).length > 3 ? s[3] as String? : null,
+            ),
         ],
       );
 }
 
 final class LiveTv {
-  LiveTv(this.server);
+  LiveTv(this.server, this.playlist);
 
   final XtreamServer server;
+  final M3uPlaylist playlist;
+
+  String get _key => '${server.key}#${playlist.key}';
 
   static LiveCatalog? _memory;
   static String? _memoryKey;
@@ -140,7 +151,7 @@ final class LiveTv {
 
   Future<void> warmUp() async {
     _refresher?.cancel();
-    if (!server.configured) {
+    if (!server.configured && !playlist.configured) {
       latest.value = null;
       return;
     }
@@ -154,7 +165,7 @@ final class LiveTv {
 
   Future<void> refreshIfStale() async {
     final c = latest.value;
-    if (c != null && _memoryKey == server.key && !isStale(c)) return;
+    if (c != null && _memoryKey == _key && !isStale(c)) return;
     try {
       await load();
     } catch (e) {
@@ -164,11 +175,11 @@ final class LiveTv {
   }
 
   Future<LiveCatalog?> cached() async {
-    if (_memoryKey == server.key && _memory != null) return _memory;
+    if (_memoryKey == _key && _memory != null) return _memory;
     final c = await _readCache();
     if (c != null) {
       _memory = c;
-      _memoryKey = server.key;
+      _memoryKey = _key;
     }
     return c;
   }
@@ -190,11 +201,12 @@ final class LiveTv {
     final c = await compute(_load, (
       base: server.base,
       accounts: [for (final a in server.accounts) (a.username, a.password)],
+      playlist: (playlist.url, playlist.guide),
       days: 3,
       folder: await _supportFolder(),
     ));
     _memory = c;
-    _memoryKey = server.key;
+    _memoryKey = _key;
     latest.value = c;
     error.value = null;
     unawaited(_writeCache(c));
@@ -210,7 +222,7 @@ final class LiveTv {
     try {
       final file = await _cacheFile();
       if (file == null || !await file.exists()) return null;
-      return await compute(_parseCache, (text: await file.readAsString(), key: server.key));
+      return await compute(_parseCache, (text: await file.readAsString(), key: _key));
     } catch (e) {
       debugPrint('[live] cache: $e');
       return null;
@@ -221,7 +233,7 @@ final class LiveTv {
     try {
       final file = await _cacheFile();
       if (file == null) return;
-      await file.writeAsString(await compute(_encodeCache, (catalog: c, key: server.key)));
+      await file.writeAsString(await compute(_encodeCache, (catalog: c, key: _key)));
     } catch (e) {
       debugPrint('[live] cache write: $e');
     }
@@ -236,24 +248,44 @@ Future<String?> _supportFolder() async {
   }
 }
 
-typedef _Args = ({String base, List<(String, String)> accounts, int days, String? folder});
+typedef _Args = ({
+  String base,
+  List<(String, String)> accounts,
+  (String, String) playlist,
+  int days,
+  String? folder,
+});
 
 Future<LiveCatalog> _load(_Args a) async {
   final client = http.Client();
   final server = XtreamServer(a.base, [for (final (u, pw) in a.accounts) XtreamAccount(u, pw)]);
+  final playlist = M3uPlaylist(a.playlist.$1, a.playlist.$2);
   try {
-    Object? error;
-    for (final account in server.accounts) {
-      try {
-        return await _loadWith(client, server, account, a.days, a.folder);
-      } catch (e) {
-        error = e;
-      }
-    }
-    throw error ?? Exception('no account');
+    final parts = [
+      if (server.configured) await _loadXtream(client, server, a.days, a.folder),
+      if (playlist.configured) await _loadPlaylist(client, playlist),
+    ];
+    if (parts.length == 1) return parts.single;
+    return LiveCatalog(
+      channels: [for (final c in parts) ...c.channels],
+      guide: {for (final c in parts) ...c.guide},
+      loadedAt: DateTime.now(),
+    );
   } finally {
     client.close();
   }
+}
+
+Future<LiveCatalog> _loadXtream(http.Client client, XtreamServer server, int days, String? folder) async {
+  Object? error;
+  for (final account in server.accounts) {
+    try {
+      return await _loadWith(client, server, account, days, folder);
+    } catch (e) {
+      error = e;
+    }
+  }
+  throw error ?? Exception('no account');
 }
 
 Future<LiveCatalog> _loadWith(
@@ -266,7 +298,6 @@ Future<LiveCatalog> _loadWith(
     return body;
   }
 
-  final now = DateTime.now().toUtc();
   final categories = {
     for (final c in await list('get_live_categories')) '${c['category_id']}': (c['category_name'] ?? '').toString(),
   };
@@ -334,11 +365,15 @@ Future<LiveCatalog> _loadWith(
     }
   }
   final tvEpg = {for (final c in channels) ?c.epgId};
+  return LiveCatalog(channels: channels, guide: await _readGuide(client, server.guide(account), tvEpg), loadedAt: DateTime.now());
+}
 
+Future<Map<String, List<Programme>>> _readGuide(http.Client client, Uri uri, Set<String> ids) async {
+  final now = DateTime.now().toUtc();
   final guide = <String, List<Programme>>{};
   final from = now.subtract(const Duration(hours: 2));
   final to = now.add(const Duration(hours: 26));
-  final res = await client.send(http.Request('GET', server.guide(account)));
+  final res = await client.send(http.Request('GET', uri));
   if (res.statusCode != 200) throw Exception('xmltv: HTTP ${res.statusCode}');
   final buf = StringBuffer();
   await for (final chunk in res.stream.transform(const Utf8Decoder(allowMalformed: true))) {
@@ -357,7 +392,7 @@ Future<LiveCatalog> _loadWith(
       final block = text.substring(open, pos);
       final channel = _channelOf(block);
       if (channel == null) continue;
-      if (tvEpg.contains(channel)) {
+      if (ids.contains(channel)) {
         final programme = _guideEntry(block, from, to);
         if (programme != null) (guide[channel] ??= []).add(programme);
       }
@@ -369,7 +404,7 @@ Future<LiveCatalog> _loadWith(
   for (final list in guide.values) {
     list.sort((a, b) => a.start.compareTo(b.start));
   }
-  return LiveCatalog(channels: channels, guide: guide, loadedAt: DateTime.now());
+  return guide;
 }
 
 final _eventSlot = RegExp(r'\bEVENT\s*\d+', caseSensitive: false);

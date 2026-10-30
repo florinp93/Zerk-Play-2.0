@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../app/app_services.dart';
 import '../../app/app_settings.dart';
@@ -6,12 +9,14 @@ import '../../app/release.dart';
 import '../../core/host.dart';
 import '../../core/log/app_log.dart';
 import '../../core/windows/native_window.dart';
+import '../../data/xtream/live_catalog.dart';
 import '../../data/xtream/xtream.dart';
 import '../../data/metadata_localizer.dart';
 import '../../l10n/l10n.dart';
 import '../../playback/language.dart';
 import '../../playback/mpv_conf.dart';
 import '../../playback/player_settings.dart';
+import '../../playback/subtitle_style.dart';
 import '../../playback/trailer/trailer_player.dart';
 import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
@@ -23,6 +28,8 @@ import '../widgets/exit_app.dart';
 import '../widgets/media_row.dart';
 import '../widgets/remote_setup_panel.dart';
 import '../widgets/setting_rows.dart';
+import '../widgets/side_panel.dart';
+import '../widgets/subtitle_preview.dart';
 import '../widgets/update_dialog.dart';
 import 'home_collections_page.dart';
 
@@ -291,12 +298,20 @@ class _SettingsPageState extends State<SettingsPage> {
             options: languages,
             onChanged: (v) => _savePlayer(p.copyWith(preferredSubtitleLanguage: v)),
           ),
-          SettingChoiceRow<double>(
+          SettingStepperRow(
             title: l10n.subtitleSize,
-            value: p.subtitleScale,
-            options: {0.8: l10n.sizeSmall, 1.0: l10n.sizeNormal, 1.2: l10n.sizeLarge, 1.45: l10n.sizeExtraLarge},
-            onChanged: (v) => _savePlayer(p.copyWith(subtitleScale: v)),
+            subtitle: l10n.subtitleSizeHint,
+            value: SubtitleStyle.percent(p.subtitleScale),
+            onStep: (step) => _savePlayer(p.copyWith(subtitleScale: SubtitleStyle.step(p.subtitleScale, step))),
+            onSelect: () async {
+              final chosen = await showSidePanel<double>(context, title: l10n.subtitleSize, options: [
+                for (final s in SubtitleStyle.scales)
+                  PanelOption(value: s, title: SubtitleStyle.percent(s), selected: (s - p.subtitleScale).abs() < 0.001),
+              ]);
+              if (chosen != null) await _savePlayer(p.copyWith(subtitleScale: chosen));
+            },
           ),
+          SubtitlePreview(settings: p),
           SettingToggleRow(
             title: l10n.subtitleBackground,
             subtitle: l10n.subtitleBackgroundHint,
@@ -456,6 +471,26 @@ class _SettingsPageState extends State<SettingsPage> {
               _toast(problem ?? l10n.tmdbKeyWorks);
             },
           ),
+          SettingHeader(l10n.ratingsHeader),
+          _intro(l10n.ratingsIntro),
+          SettingTextRow(
+            title: l10n.mdblistApiKey,
+            value: app.mdblistApiKey,
+            obscure: true,
+            hint: l10n.mdblistApiKeyHint,
+            onChanged: (v) => services.updateSettings(app.copyWith(mdblistApiKey: v)),
+          ),
+          SettingActionRow(
+            title: l10n.testMdblistKey,
+            icon: Icons.wifi_tethering_rounded,
+            onSelect: () async {
+              final mdblist = services.mdblist;
+              final problem = mdblist == null ? l10n.mdblistKeyFirst : await mdblist.check();
+              if (!mounted) return;
+              UiSounds.play(problem == null ? UiSound.select : UiSound.error);
+              _toast(problem ?? l10n.mdblistKeyWorks);
+            },
+          ),
           SettingHeader(l10n.sectionRequests),
           _intro(l10n.requestsIntro),
           SettingTextRow(
@@ -525,6 +560,38 @@ class _SettingsPageState extends State<SettingsPage> {
                 ].join('\n'),
                 duration: const Duration(seconds: 6),
               );
+            },
+          ),
+          SettingHeader(l10n.livePlaylist),
+          _intro(l10n.livePlaylistIntro),
+          SettingTextRow(
+            title: l10n.livePlaylistUrl,
+            value: app.playlistUrl,
+            hint: 'http://192.168.1.10:8000/api/channels.m3u',
+            onChanged: (v) => services.updateSettings(app.copyWith(playlistUrl: v)),
+          ),
+          SettingTextRow(
+            title: l10n.livePlaylistGuide,
+            value: app.playlistGuideUrl,
+            hint: 'http://192.168.1.10:8000/api/xmltv.xml',
+            onChanged: (v) => services.updateSettings(app.copyWith(playlistGuideUrl: v)),
+          ),
+          SettingActionRow(
+            title: l10n.testConnection,
+            icon: Icons.wifi_tethering_rounded,
+            onSelect: () async {
+              String message;
+              try {
+                final res = await http.get(Uri.parse(app.playlistUrl.trim())).timeout(const Duration(seconds: 12));
+                if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
+                final found = parseM3u(utf8.decode(res.bodyBytes, allowMalformed: true), res.request!.url);
+                message = l10n.livePlaylistFound(found.channels.length);
+              } catch (e) {
+                message = l10n.livePlaylistProblem('$e');
+              }
+              if (!mounted) return;
+              UiSounds.play(UiSound.select);
+              _toast(message);
             },
           ),
         ];

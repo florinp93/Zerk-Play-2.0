@@ -8,6 +8,7 @@ Map<String, String> buildMpvOptions({
   String? logFile,
 }) {
   final spdif = settings.mpvSpdif;
+  final bitstream = spdif.isNotEmpty;
   return {
     'wid': '$wid',
     'log-file': ?logFile,
@@ -39,7 +40,7 @@ Map<String, String> buildMpvOptions({
     'gpu-api': 'd3d11',
     'hwdec': settings.hwdec,
     'target-colorspace-hint': settings.hdrPassthrough ? 'yes' : 'no',
-    'video-sync': settings.smoothMotion ? 'display-resample' : 'audio',
+    'video-sync': !settings.smoothMotion ? 'audio' : (bitstream ? 'display-vdrop' : 'display-resample'),
     'interpolation': settings.smoothMotion ? 'yes' : 'no',
     'tscale': 'oversample',
     ...switch (settings.videoQuality) {
@@ -60,6 +61,7 @@ Map<String, String> buildMpvOptions({
     'tls-verify': acceptInvalidCertificates ? 'no' : 'yes',
 
     'audio-spdif': spdif,
+    if (bitstream) ...{'audio-stream-silence': 'yes', 'audio-buffer': '0.5'},
     'audio-exclusive': settings.audioExclusive ? 'yes' : 'no',
     'audio-channels': 'auto',
     'audio-pitch-correction': 'yes',

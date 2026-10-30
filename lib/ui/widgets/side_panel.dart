@@ -16,14 +16,15 @@ class PanelOption<T> {
   final Uri? image;
 }
 
-Future<T?> showSidePanel<T>(BuildContext context, {required String title, required List<PanelOption<T>> options}) {
+Future<T?> showSidePanel<T>(BuildContext context,
+    {required String title, required List<PanelOption<T>> options, ValueChanged<T>? onFocus}) {
   return Navigator.of(context).push<T>(PageRouteBuilder<T>(
     opaque: false,
     barrierColor: Colors.black54,
     barrierDismissible: true,
     transitionDuration: Zm.normal,
     reverseTransitionDuration: Zm.fast,
-    pageBuilder: (_, _, _) => _SidePanel<T>(title: title, options: options),
+    pageBuilder: (_, _, _) => _SidePanel<T>(title: title, options: options, onFocus: onFocus),
     transitionsBuilder: (_, anim, _, child) => SlideTransition(
       position: Tween(begin: const Offset(0.15, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Zm.curve)),
       child: FadeTransition(opacity: anim, child: child),
@@ -32,10 +33,11 @@ Future<T?> showSidePanel<T>(BuildContext context, {required String title, requir
 }
 
 class _SidePanel<T> extends StatelessWidget {
-  const _SidePanel({required this.title, required this.options});
+  const _SidePanel({required this.title, required this.options, this.onFocus});
 
   final String title;
   final List<PanelOption<T>> options;
+  final ValueChanged<T>? onFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +66,7 @@ class _SidePanel<T> extends StatelessWidget {
                       child: TvFocusable(
                         autofocus: i == (initial < 0 ? 0 : initial),
                         onSelect: () => Navigator.of(context).pop(o.value),
+                        onFocusChange: onFocus == null ? null : (focused) => focused ? onFocus!(o.value) : null,
                         builder: (context, focused) => AnimatedContainer(
                           duration: Zm.fast,
                           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),

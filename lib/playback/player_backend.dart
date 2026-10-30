@@ -107,6 +107,8 @@ abstract interface class PlayerBackend {
   bool get adjustsSpeed;
   void setSpeed(double speed);
 
+  void setSubtitleScale(double scale);
+
   double? matchRefreshRate(double fps);
 
   Future<DisplayHdrStatus> displayHdr();
