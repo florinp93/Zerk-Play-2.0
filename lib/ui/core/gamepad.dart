@@ -99,7 +99,7 @@ abstract final class Gamepad {
       case PadButton.ok:
         if (context != null) Actions.maybeInvoke(context, const ActivateIntent());
       case PadButton.back:
-        if (context != null) Actions.maybeInvoke(context, const BackIntent());
+        if (!DoubleBack.handle() && context != null) Actions.maybeInvoke(context, const BackIntent());
       case PadButton.menu:
         if (context != null) Actions.maybeInvoke(context, const MenuIntent());
       case PadButton.playPause || PadButton.rewind || PadButton.forward || PadButton.info:

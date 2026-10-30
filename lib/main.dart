@@ -81,6 +81,7 @@ class _ZerkAppState extends State<ZerkApp> {
   @override
   void initState() {
     super.initState();
+    DoubleBack.navigator = _navigator;
     _lifecycle = AppLifecycleListener(
       onStateChange: (s) => debugPrint('[app] lifecycle ${s.name}'),
       onExitRequested: () async {

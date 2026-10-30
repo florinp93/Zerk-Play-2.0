@@ -517,7 +517,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       } else if (model.zap) {
         _choose(model.versionsTitle ?? context.l10n.liveChannels, model.versions, 'version');
       } else {
-        _show();
+        model.togglePause();
+        setState(() => _miniUntil = DateTime.now().add(const Duration(seconds: 2)));
       }
       return KeyEventResult.handled;
     }

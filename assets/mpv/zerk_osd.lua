@@ -989,7 +989,7 @@ local function on_key(name)
         open_panel("version")
         touch()
       elseif name == "ok" then
-        if not card_action(pos) then show() end
+        if not card_action(pos) then toggle_pause() end
       elseif name == "up" or name == "down" then show()
       elseif name == "back" then
         if next_visible(pos) then S.next_cancelled = true; send("next-cancel")

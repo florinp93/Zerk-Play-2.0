@@ -9,8 +9,17 @@ import '../focus/focus_zone.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
 
+bool _exitOpen = false;
+
 Future<void> confirmExit(BuildContext context) async {
-  final yes = await showDialog<bool>(context: context, builder: (_) => const _ExitDialog());
+  if (_exitOpen) return;
+  _exitOpen = true;
+  final bool? yes;
+  try {
+    yes = await showDialog<bool>(context: context, builder: (_) => const _ExitDialog());
+  } finally {
+    _exitOpen = false;
+  }
   if (yes == true) await exitApp();
 }
 

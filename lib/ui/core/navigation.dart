@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/tokens.dart';
+import '../widgets/exit_app.dart';
 import 'input_mode.dart';
+import 'playback_launcher.dart';
 import 'text_focus.dart';
 import 'ui_sounds.dart';
 
@@ -57,9 +61,16 @@ final class SystemBack with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(SystemBack._());
     HardwareKeyboard.instance.addHandler((e) {
       if (e.logicalKey == LogicalKeyboardKey.goBack) _lastKey = DateTime.now();
-      return false;
+      return e is KeyDownEvent && _backKeys.contains(e.logicalKey) && focusedTextField() == null && DoubleBack.handle();
     });
   }
+
+  static final _backKeys = {
+    LogicalKeyboardKey.goBack,
+    LogicalKeyboardKey.escape,
+    LogicalKeyboardKey.browserBack,
+    LogicalKeyboardKey.gameButtonB,
+  };
 
   @override
   Future<bool> didPopRoute() async {
@@ -69,6 +80,22 @@ final class SystemBack with WidgetsBindingObserver {
     final focus = FocusManager.instance.primaryFocus?.context;
     if (focus == null || !focus.mounted) return false;
     return Actions.maybeInvoke(focus, const BackIntent()) == true;
+  }
+}
+
+abstract final class DoubleBack {
+  static const _window = Duration(milliseconds: 450);
+  static DateTime _last = DateTime(0);
+  static GlobalKey<NavigatorState>? navigator;
+
+  static bool handle() {
+    final now = DateTime.now();
+    final second = now.difference(_last) < _window;
+    _last = second ? DateTime(0) : now;
+    final context = navigator?.currentState?.overlay?.context;
+    if (!second || playbackActive || context == null) return false;
+    unawaited(confirmExit(context));
+    return true;
   }
 }
 
