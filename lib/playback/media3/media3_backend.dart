@@ -29,6 +29,9 @@ final class Media3Backend implements PlayerBackend {
     send: (name, [arg]) => _events.add(PlayerOsdEvent(name, arg)),
     togglePause: () => _call('togglePause'),
     seekTo: (position) => _call('seekTo', {'ms': position.inMilliseconds}),
+    setSpeed: (speed) => _call('speed', {'speed': speed}),
+    setAspect: (mode) => _call('resizeMode', {'mode': mode}),
+    stats: () async => (await _channel.invokeMapMethod<String, Object?>('stats')) ?? const {},
   )..subtitleScale = _settings.subtitleScale;
   StreamSubscription<Object?>? _sub;
   Route<void>? _route;

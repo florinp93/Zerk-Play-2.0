@@ -60,6 +60,9 @@ final class OsdModel extends ChangeNotifier {
     required this.seekTo,
     this.setVolume,
     this.toggleMute,
+    this.setSpeed,
+    this.setAspect,
+    this.stats,
   });
 
   final ValueListenable<PlayerState> state;
@@ -70,6 +73,13 @@ final class OsdModel extends ChangeNotifier {
 
   final void Function(double volume)? setVolume;
   final VoidCallback? toggleMute;
+
+  final void Function(double speed)? setSpeed;
+  final void Function(String mode)? setAspect;
+  final Future<Map<String, Object?>> Function()? stats;
+
+  double speed = 1;
+  String aspect = 'fit';
 
   String phase = 'loading';
   String title = '';

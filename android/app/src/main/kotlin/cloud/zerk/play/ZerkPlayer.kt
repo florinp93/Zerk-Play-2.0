@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.FormatHolder
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -71,6 +72,12 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private var subtitlePadding = 40f / 720
 
     private var subtitleLift = 0f
+
+    private var resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+    private var videoDecoder: String? = null
+
+    private var audioDecoder: String? = null
 
     private var shadowOffset = 2f / 720
     private var player: ExoPlayer? = null
@@ -171,6 +178,20 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                     liftSubtitles()
                     result.success(null)
                 }
+                "speed" -> {
+                    player?.setPlaybackSpeed((call.argument<Number>("speed") ?: 1).toFloat())
+                    result.success(null)
+                }
+                "resizeMode" -> {
+                    resizeMode = when (call.argument<String>("mode")) {
+                        "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        "fill" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                    frame?.resizeMode = resizeMode
+                    result.success(null)
+                }
+                "stats" -> result.success(stats())
                 "subtitleStyle" -> {
                     restyleSubtitles(call.argument<Map<String, Any?>>("style") ?: emptyMap())
                     result.success(null)
@@ -195,7 +216,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
         val surface = SurfaceView(activity).apply { keepScreenOn = true }
         val frame = AspectRatioFrameLayout(activity).apply {
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            resizeMode = this@ZerkPlayer.resizeMode
             addView(surface, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
         val shadow = SubtitleView(activity).apply { applyStyle(this, subtitleStyle, shadow = true) }
@@ -249,6 +270,19 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         exo.setVideoSurfaceView(surface)
         exo.addListener(this)
         exo.addAnalyticsListener(EventLogger())
+        exo.addAnalyticsListener(object : AnalyticsListener {
+            override fun onVideoDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long,
+            ) {
+                videoDecoder = decoderName
+            }
+
+            override fun onAudioDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long,
+            ) {
+                audioDecoder = decoderName
+            }
+        })
 
         this.surface = surface
         this.frame = frame
@@ -309,6 +343,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             it.release()
         }
         player = null
+        videoDecoder = null
+        audioDecoder = null
         layer?.apply {
             removeAllViews()
             visibility = View.GONE
@@ -558,6 +594,28 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 "fps" to video?.frameRate?.takeIf { it > 0 }?.toDouble(),
                 "tracks" to trackList(exo.currentTracks),
             ),
+        )
+    }
+
+    private fun stats(): Map<String, Any?> {
+        val exo = player ?: return emptyMap()
+        val video = exo.videoFormat
+        val audio = exo.audioFormat
+        return mapOf(
+            "videoMime" to video?.sampleMimeType,
+            "videoCodecs" to video?.codecs,
+            "width" to video?.width?.takeIf { it > 0 },
+            "height" to video?.height?.takeIf { it > 0 },
+            "fps" to video?.frameRate?.takeIf { it > 0 }?.toDouble(),
+            "videoBitrate" to video?.bitrate?.takeIf { it > 0 },
+            "videoDecoder" to videoDecoder,
+            "audioMime" to audio?.sampleMimeType,
+            "channels" to audio?.channelCount?.takeIf { it > 0 },
+            "sampleRate" to audio?.sampleRate?.takeIf { it > 0 },
+            "audioBitrate" to audio?.bitrate?.takeIf { it > 0 },
+            "audioDecoder" to audioDecoder,
+            "dropped" to exo.videoDecoderCounters?.droppedBufferCount,
+            "speed" to exo.playbackParameters.speed.toDouble(),
         )
     }
 

@@ -330,6 +330,116 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     model.send(chosen == null ? 'subscale-preview' : 'subscale', (chosen ?? original).toStringAsFixed(2));
   }
 
+  Future<void> _chooseSettings() async {
+    final l10n = context.l10n;
+    _panelOpen = true;
+    final chosen = await showSidePanel<String>(context, title: l10n.settings, options: [
+      PanelOption(value: 'aspect', title: l10n.aspectRatio, subtitle: _aspectLabel(l10n, model.aspect), icon: Icons.aspect_ratio_rounded),
+      PanelOption(value: 'speed', title: l10n.playbackSpeed, subtitle: _speedLabel(model.speed), icon: Icons.speed_rounded),
+      if (model.stats != null)
+        PanelOption(value: 'info', title: l10n.playbackInfo, subtitle: l10n.playbackInfoDetail, icon: Icons.info_outline_rounded),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen == 'aspect') return _chooseAspect();
+    if (chosen == 'speed') return _chooseSpeed();
+    if (chosen == 'info') return _showInfo();
+  }
+
+  static String _aspectLabel(L10n l10n, String mode) => switch (mode) {
+        'zoom' => l10n.aspectZoom,
+        'fill' => l10n.aspectStretch,
+        _ => l10n.aspectOriginal,
+      };
+
+  static String _speedLabel(double speed) => '${speed == speed.roundToDouble() ? speed.toStringAsFixed(0) : '$speed'}x';
+
+  Future<void> _chooseAspect() async {
+    final l10n = context.l10n;
+    _panelOpen = true;
+    final chosen = await showSidePanel<String>(context, title: l10n.aspectRatio, options: [
+      for (final (mode, detail) in [('fit', l10n.aspectOriginalDetail), ('zoom', l10n.aspectZoomDetail), ('fill', l10n.aspectStretchDetail)])
+        PanelOption(value: mode, title: _aspectLabel(l10n, mode), subtitle: detail, selected: model.aspect == mode),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen == null) return;
+    model.aspect = chosen;
+    model.setAspect?.call(chosen);
+  }
+
+  Future<void> _chooseSpeed() async {
+    _panelOpen = true;
+    final chosen = await showSidePanel<double>(context, title: context.l10n.playbackSpeed, options: [
+      for (final s in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+        PanelOption(value: s, title: _speedLabel(s), selected: s == model.speed),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen == null) return;
+    model.speed = chosen;
+    model.setSpeed?.call(chosen);
+  }
+
+  Future<void> _showInfo() async {
+    final l10n = context.l10n;
+    final s = await model.stats!();
+    if (!mounted) return;
+    String? join(List<String?> parts) {
+      final shown = parts.whereType<String>().where((p) => p.isNotEmpty).toList();
+      return shown.isEmpty ? null : shown.join('  ·  ');
+    }
+
+    String? mbps(Object? bits) => bits is num ? '${(bits / 1e6).toStringAsFixed(1)} Mbps' : null;
+    final fps = s['fps'];
+    final rows = [
+      (l10n.infoVideo, join([
+        _codecName(s['videoMime']),
+        if (s['width'] case final num w when w > 0) '$w×${s['height']}',
+        if (fps is num) '${fps.toStringAsFixed(fps == fps.roundToDouble() ? 0 : 3)} fps',
+        mbps(s['videoBitrate']),
+      ])),
+      (l10n.infoVideoDecoder, s['videoDecoder'] as String?),
+      (l10n.audio, join([
+        _codecName(s['audioMime']),
+        if (s['channels'] case final num c) '$c ch',
+        if (s['sampleRate'] case final num r) '${(r / 1000).toStringAsFixed(r % 1000 == 0 ? 0 : 1)} kHz',
+        mbps(s['audioBitrate']),
+      ])),
+      (l10n.infoAudioDecoder, s['audioDecoder'] as String?),
+      (l10n.infoDropped, s['dropped']?.toString()),
+      (l10n.playbackSpeed, s['speed'] is num ? _speedLabel((s['speed'] as num).toDouble()) : null),
+    ];
+    _panelOpen = true;
+    await showSidePanel<void>(context, title: l10n.playbackInfo, options: [
+      for (final (label, value) in rows)
+        if (value != null) PanelOption(value: null, title: label, subtitle: value),
+    ]);
+    _panelOpen = false;
+    _armHide();
+  }
+
+  static String? _codecName(Object? mime) => switch (mime) {
+        null => null,
+        'video/hevc' => 'HEVC',
+        'video/avc' => 'H.264',
+        'video/dolby-vision' => 'Dolby Vision',
+        'video/av01' => 'AV1',
+        'video/x-vnd.on2.vp9' => 'VP9',
+        'video/mpeg2' => 'MPEG-2',
+        'audio/eac3-joc' => 'E-AC-3 Atmos',
+        'audio/eac3' => 'E-AC-3',
+        'audio/ac3' => 'AC-3',
+        'audio/true-hd' => 'TrueHD',
+        'audio/vnd.dts' => 'DTS',
+        'audio/vnd.dts.hd' => 'DTS-HD',
+        'audio/mp4a-latm' => 'AAC',
+        'audio/opus' => 'Opus',
+        'audio/flac' => 'FLAC',
+        'audio/raw' => 'PCM',
+        final m => '$m'.split('/').last.toUpperCase(),
+      };
+
   Future<void> _chooseChapter() async {
     final chapters = model.chapters;
     final position = model.state.value.position;
@@ -703,6 +813,10 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                   icon: model.versionsTitle != null ? Icons.live_tv_rounded : Icons.high_quality_outlined,
                   onSelect: () => _choose(model.versionsTitle ?? l10n.version, model.versions, 'version'),
                 ),
+                const SizedBox(width: 18),
+              ],
+              if (model.setAspect != null) ...[
+                TvButton(label: l10n.settings, icon: Icons.tune_rounded, onSelect: _chooseSettings),
                 const SizedBox(width: 18),
               ],
               if (model.next != null) TvButton(label: l10n.nextEpisode, icon: Icons.skip_next_rounded, onSelect: _playNext),
