@@ -75,6 +75,26 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private var resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
+    private var cropBox: CropBox? = null
+    private var detector: BarDetector? = null
+    private var scope = 0f
+    private var anamorphic = 1f
+    private var autoCrop = false
+    private var videoAspect = 0f
+    private var cropRuns = 0
+
+    private val cropTicker = object : Runnable {
+        override fun run() {
+            val exo = player ?: return
+            if (!autoCrop) return
+            if (exo.isPlaying) {
+                detector?.sample()
+                cropRuns++
+            }
+            main.postDelayed(this, if (cropRuns < 8) 2_000 else 15_000)
+        }
+    }
+
     private var videoDecoder: String? = null
 
     private var audioDecoder: String? = null
@@ -191,6 +211,17 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                     frame?.resizeMode = resizeMode
                     result.success(null)
                 }
+                "screen" -> {
+                    scope = (call.argument<Number>("scope") ?: 0).toFloat()
+                    anamorphic = (call.argument<Number>("anamorphic") ?: 1).toFloat().coerceAtLeast(1f)
+                    autoCrop = call.argument<Boolean>("autoCrop") == true
+                    if (!autoCrop) applyCrop(0f)
+                    applyScreen()
+                    updateAspect()
+                    restartCropDetection()
+                    result.success(null)
+                }
+                "matchRefresh" -> result.success(DisplayModes.match(activity, (call.argument<Number>("fps") ?: 0).toDouble()))
                 "stats" -> result.success(stats())
                 "subtitleStyle" -> {
                     restyleSubtitles(call.argument<Map<String, Any?>>("style") ?: emptyMap())
@@ -199,6 +230,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 "displayHdr" -> result.success(DeviceCaps.displayHdr(activity))
                 "capabilities" -> result.success(DeviceCaps.query(activity))
                 "close" -> {
+                    if (call.argument<Boolean>("keepRefresh") != true) DisplayModes.restore(activity)
                     close()
                     result.success(null)
                 }
@@ -215,9 +247,12 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         if (player != null) return
 
         val surface = SurfaceView(activity).apply { keepScreenOn = true }
+        val box = CropBox(activity).apply {
+            addView(surface, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        }
         val frame = AspectRatioFrameLayout(activity).apply {
             resizeMode = this@ZerkPlayer.resizeMode
-            addView(surface, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(box, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
         val shadow = SubtitleView(activity).apply { applyStyle(this, subtitleStyle, shadow = true) }
         val subtitles = SubtitleView(activity).apply { applyStyle(this, subtitleStyle, shadow = false) }
@@ -231,6 +266,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             v.translationY = px
         }
         layer.visibility = View.VISIBLE
+        layer.addOnLayoutChangeListener(screenListener)
 
         val renderers = object : DefaultRenderersFactory(activity) {
             override fun buildVideoRenderers(
@@ -286,11 +322,48 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
         this.surface = surface
         this.frame = frame
+        this.cropBox = box
+        this.detector = BarDetector(surface, main) { applyCrop(it) }
         this.subtitles = subtitles
         this.subtitleShadow = shadow
         subtitlePadding = (subtitleStyle["bottomPaddingFraction"] as? Number)?.toFloat() ?: (40f / 720)
         this.player = exo
         main.post(ticker)
+    }
+
+    private val screenListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> applyScreen() }
+
+    private fun applyScreen() {
+        val layer = layer ?: return
+        val height = if (anamorphic > 1f) layer.height else scopeHeight(scope, layer.width, layer.height)
+        val target = if (height >= layer.height) FrameLayout.LayoutParams.MATCH_PARENT else height
+        for (view in listOfNotNull(frame, subtitleShadow, subtitles)) {
+            val lp = view.layoutParams as? FrameLayout.LayoutParams ?: continue
+            if (lp.height == target && lp.gravity == Gravity.CENTER) continue
+            lp.height = target
+            lp.gravity = Gravity.CENTER
+            view.post { view.layoutParams = lp }
+        }
+    }
+
+    private fun updateAspect() {
+        if (videoAspect <= 0f) return
+        val crop = cropBox?.crop ?: 0f
+        frame?.setAspectRatio(videoAspect / anamorphic / (1 - 2 * crop))
+    }
+
+    private fun applyCrop(fraction: Float) {
+        val box = cropBox ?: return
+        if (box.crop == fraction) return
+        Log.i(TAG, "black bars: cropping ${"%.3f".format(fraction)} top and bottom")
+        box.crop = fraction
+        updateAspect()
+    }
+
+    private fun restartCropDetection() {
+        main.removeCallbacks(cropTicker)
+        cropRuns = 0
+        if (autoCrop && player != null) main.postDelayed(cropTicker, 2_000)
     }
 
     private fun liftSubtitles() {
@@ -338,6 +411,11 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private fun close() {
         main.removeCallbacks(ticker)
+        main.removeCallbacks(cropTicker)
+        layer?.removeOnLayoutChangeListener(screenListener)
+        cropBox = null
+        detector = null
+        videoAspect = 0f
         player?.let {
             it.removeListener(this)
             it.release()
@@ -367,6 +445,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         pendingSub = sub ?: 0
         pendingExternalId = null
         announceLoaded = true
+        detector?.reset()
+        applyCrop(0f)
+        restartCropDetection()
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
             .clearOverrides()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
@@ -559,7 +640,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     override fun onVideoSizeChanged(videoSize: VideoSize) {
         if (videoSize.width == 0 || videoSize.height == 0) return
-        frame?.setAspectRatio(videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height)
+        videoAspect = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
+        updateAspect()
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) = emitState()

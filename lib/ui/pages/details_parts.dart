@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_services.dart';
 import '../../core/emby/models/emby_item.dart';
@@ -420,4 +421,86 @@ class _CollectionHighlightState extends State<CollectionHighlight> {
       ),
     );
   }
+}
+
+bool overviewIsLong(String? text) => text != null && text.length > 260;
+
+class OverviewText extends StatelessWidget {
+  const OverviewText({super.key, required this.title, required this.text, this.maxLines = 4});
+
+  final String title;
+  final String text;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: overviewIsLong(text) ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          onTap: overviewIsLong(text) ? () => showSynopsis(context, title: title, text: text) : null,
+          child: Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: Zt.body),
+        ),
+      );
+}
+
+class SynopsisButton extends StatelessWidget {
+  const SynopsisButton({super.key, required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => TvButton(
+        label: context.l10n.fullSynopsis,
+        icon: Icons.notes_rounded,
+        collapsed: true,
+        onSelect: () => showSynopsis(context, title: title, text: text),
+      );
+}
+
+Future<void> showSynopsis(BuildContext context, {required String title, required String text}) {
+  final scroll = ScrollController();
+  KeyEventResult onKey(FocusNode _, KeyEvent e) {
+    if (e is KeyUpEvent || !scroll.hasClients) return KeyEventResult.ignored;
+    final down = e.logicalKey == LogicalKeyboardKey.arrowDown || e.logicalKey == LogicalKeyboardKey.pageDown;
+    final up = e.logicalKey == LogicalKeyboardKey.arrowUp || e.logicalKey == LogicalKeyboardKey.pageUp;
+    if (!down && !up) return KeyEventResult.ignored;
+    final target = (scroll.offset + (down ? 160 : -160)).clamp(0.0, scroll.position.maxScrollExtent);
+    scroll.animateTo(target, duration: Zm.fast, curve: Curves.easeOut);
+    return KeyEventResult.handled;
+  }
+
+  return showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Zc.surfaceHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Zs.radiusLarge)),
+      child: SizedBox(
+        width: 1100,
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: FocusZone(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Zt.headline),
+              const SizedBox(height: 24),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 560),
+                child: SingleChildScrollView(controller: scroll, child: Text(text, style: Zt.body.copyWith(color: Zc.text))),
+              ),
+              const SizedBox(height: 36),
+              Focus(
+                onKeyEvent: onKey,
+                child: TvButton(
+                  label: context.l10n.done,
+                  icon: Icons.check_rounded,
+                  primary: true,
+                  autofocus: true,
+                  onSelect: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    ),
+  ).whenComplete(scroll.dispose);
 }

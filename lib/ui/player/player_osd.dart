@@ -17,6 +17,24 @@ import '../widgets/net_image.dart';
 import '../widgets/side_panel.dart';
 import 'player_loading.dart';
 
+class _ScreenBand extends StatelessWidget {
+  const _ScreenBand({required this.model, required this.child});
+
+  final OsdModel model;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: model,
+        child: child,
+        builder: (context, child) => LayoutBuilder(builder: (context, box) {
+          final scope = model.scope;
+          if (scope <= 0 || !box.hasBoundedHeight || box.maxHeight == 0 || scope <= box.maxWidth / box.maxHeight + 0.01) return child!;
+          return Center(child: SizedBox(width: box.maxWidth, height: box.maxWidth / scope, child: child));
+        }),
+      );
+}
+
 class PlayerOsdRoute extends PageRoute<void> {
   PlayerOsdRoute({required this.model, this.controls = true, this.background});
 
@@ -48,8 +66,8 @@ class PlayerOsdRoute extends PageRoute<void> {
         child: Material(
           type: MaterialType.transparency,
           child: background == null
-              ? PlayerOsd(model: model, controls: controls)
-              : Stack(fit: StackFit.expand, children: [background!, PlayerOsd(model: model, controls: controls)]),
+              ? _ScreenBand(model: model, child: PlayerOsd(model: model, controls: controls))
+              : Stack(fit: StackFit.expand, children: [background!, _ScreenBand(model: model, child: PlayerOsd(model: model, controls: controls))]),
         ),
       );
 
@@ -472,7 +490,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaFastForward || key == LogicalKeyboardKey.mediaRewind) {
-      _seekBy(key == LogicalKeyboardKey.mediaFastForward ? model.seekStep : -model.seekStep);
+      _seekBy(key == LogicalKeyboardKey.mediaFastForward ? model.seekForward : -model.seekBack);
       return KeyEventResult.handled;
     }
     if (model.zap && widget.controls) {
@@ -504,7 +522,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
-      _seekBy(key == LogicalKeyboardKey.arrowRight ? model.seekStep : -model.seekStep);
+      _seekBy(key == LogicalKeyboardKey.arrowRight ? model.seekForward : -model.seekBack);
       return KeyEventResult.handled;
     }
     if (repeat) return KeyEventResult.handled;
@@ -764,7 +782,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
               onSeek: (secs) => _seekBy(secs),
               onScrub: _scrubTo,
               onScrubEnd: _commitScrub,
-              step: model.seekStep,
+              forwardStep: model.seekForward,
+              backStep: model.seekBack,
               marks: [for (final c in model.chapters) c.start],
             ),
           ),
@@ -781,9 +800,9 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 onSelect: model.togglePause,
               ),
               const SizedBox(width: 18),
-              TvButton(label: l10n.seekBack('${model.seekStep}'), icon: Icons.replay_rounded, compact: true, onSelect: () => _seekBy(-model.seekStep)),
+              TvButton(label: l10n.seekBack('${model.seekBack}'), icon: Icons.replay_rounded, compact: true, onSelect: () => _seekBy(-model.seekBack)),
               const SizedBox(width: 18),
-              TvButton(label: l10n.seekForward('${model.seekStep}'), icon: Icons.forward_rounded, compact: true, onSelect: () => _seekBy(model.seekStep)),
+              TvButton(label: l10n.seekForward('${model.seekForward}'), icon: Icons.forward_rounded, compact: true, onSelect: () => _seekBy(model.seekForward)),
               const Spacer(),
               if (model.setVolume != null) ...[
                 _VolumeControl(
@@ -940,7 +959,8 @@ class _SeekBar extends StatefulWidget {
     required this.onSeek,
     required this.onScrub,
     required this.onScrubEnd,
-    required this.step,
+    required this.forwardStep,
+    required this.backStep,
     this.marks = const [],
   });
 
@@ -949,7 +969,8 @@ class _SeekBar extends StatefulWidget {
   final void Function(int seconds) onSeek;
   final void Function(Duration target) onScrub;
   final VoidCallback onScrubEnd;
-  final int step;
+  final int forwardStep;
+  final int backStep;
   final List<Duration> marks;
 
   @override
@@ -982,11 +1003,11 @@ class _SeekBarState extends State<_SeekBar> {
       onKeyEvent: (node, e) {
         if (e is KeyUpEvent) return KeyEventResult.ignored;
         if (e.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          widget.onSeek(-widget.step);
+          widget.onSeek(-widget.backStep);
           return KeyEventResult.handled;
         }
         if (e.logicalKey == LogicalKeyboardKey.arrowRight) {
-          widget.onSeek(widget.step);
+          widget.onSeek(widget.forwardStep);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;

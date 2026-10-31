@@ -233,7 +233,7 @@ class _SeriesPageState extends State<SeriesPage> {
           if (series.overview != null)
             Padding(
               padding: const EdgeInsets.only(left: pageLeft, right: 760, top: 22),
-              child: Text(series.overview!, maxLines: 3, overflow: TextOverflow.ellipsis, style: Zt.body),
+              child: OverviewText(title: series.name, text: series.overview!, maxLines: 3),
             ),
           if (next != null)
             Padding(
@@ -251,6 +251,7 @@ class _SeriesPageState extends State<SeriesPage> {
                 if (next?.resumePosition != null)
                   TvButton(label: l10n.fromBeginning, icon: Icons.replay_rounded, onSelect: () => _playEpisode(next!, fromStart: true)),
                 TrailerButtons(controller: _trailer, title: series.name, focusNode: _trailerNode, collapsed: true),
+                if (overviewIsLong(series.overview)) SynopsisButton(title: series.name, text: series.overview!),
                 TvButton(
                   label: series.isPlayed ? l10n.watched : l10n.markWatched,
                   icon: series.isPlayed ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,

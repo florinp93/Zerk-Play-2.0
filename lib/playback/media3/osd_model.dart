@@ -96,7 +96,10 @@ final class OsdModel extends ChangeNotifier {
   Duration? creditsStart;
   List<OsdChapter> chapters = const [];
   NextUp? next;
-  int seekStep = 10;
+  double scope = 0;
+
+  int seekForward = 10;
+  int seekBack = 10;
 
   String? versionsTitle;
 
@@ -163,7 +166,14 @@ final class OsdModel extends ChangeNotifier {
               )
             : null;
       case 'config':
-        seekStep = (m['seekStep'] as num?)?.toInt() ?? seekStep;
+        seekForward = (m['seekForward'] as num?)?.toInt() ?? seekForward;
+        seekBack = (m['seekBack'] as num?)?.toInt() ?? seekBack;
+        scope = (m['scope'] as num?)?.toDouble() ?? 0;
+        final aspectMode = switch (m['defaultAspect']) { 'zoom' => 'zoom', 'stretch' => 'fill', _ => 'fit' };
+        if (aspectMode != aspect) {
+          aspect = aspectMode;
+          setAspect?.call(aspectMode);
+        }
         versionsTitle = m['versionsTitle'] as String?;
         autoSkipIntro = m['autoSkipIntro'] == true;
         zap = m['zap'] == true;

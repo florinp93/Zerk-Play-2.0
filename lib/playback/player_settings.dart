@@ -42,7 +42,8 @@ final class PlayerSettings {
     this.volume = 100,
     this.skipIntroAutomatically = false,
     this.autoPlayNextEpisode = true,
-    this.seekStepSeconds = 10,
+    this.seekForwardSeconds = 10,
+    this.seekBackSeconds = 10,
     this.keepRefreshRate = false,
     this.keepHdr = false,
     this.hwdec = 'auto-safe',
@@ -51,6 +52,15 @@ final class PlayerSettings {
     this.deband = false,
     this.videoOutput = 'gpu-next',
     this.detailedLog = true,
+    this.scopeScreen = 0,
+    this.autoCrop = false,
+    this.defaultAspect = 'auto',
+    this.anamorphic = 1.0,
+    this.targetPrim = 'auto',
+    this.targetTrc = 'auto',
+    this.targetPeak = 0,
+    this.webhookUrl = '',
+    this.mpvConfOnly = false,
   });
 
   final String preferredAudioLanguage;
@@ -80,7 +90,8 @@ final class PlayerSettings {
   final double volume;
   final bool skipIntroAutomatically;
   final bool autoPlayNextEpisode;
-  final int seekStepSeconds;
+  final int seekForwardSeconds;
+  final int seekBackSeconds;
 
   final bool keepRefreshRate;
 
@@ -95,6 +106,22 @@ final class PlayerSettings {
   final String videoOutput;
 
   final bool detailedLog;
+
+  final double scopeScreen;
+
+  final bool autoCrop;
+
+  final String defaultAspect;
+
+  final double anamorphic;
+
+  final String targetPrim;
+  final String targetTrc;
+  final int targetPeak;
+
+  final String webhookUrl;
+
+  final bool mpvConfOnly;
 
   String get mpvSpdif => [
         if (passthrough.contains(PassthroughCodec.ac3)) 'ac3',
@@ -123,7 +150,8 @@ final class PlayerSettings {
     double? volume,
     bool? skipIntroAutomatically,
     bool? autoPlayNextEpisode,
-    int? seekStepSeconds,
+    int? seekForwardSeconds,
+    int? seekBackSeconds,
     bool? keepRefreshRate,
     bool? keepHdr,
     String? hwdec,
@@ -132,6 +160,15 @@ final class PlayerSettings {
     bool? deband,
     String? videoOutput,
     bool? detailedLog,
+    double? scopeScreen,
+    bool? autoCrop,
+    String? defaultAspect,
+    double? anamorphic,
+    String? targetPrim,
+    String? targetTrc,
+    int? targetPeak,
+    String? webhookUrl,
+    bool? mpvConfOnly,
   }) {
     return PlayerSettings(
       preferredAudioLanguage: preferredAudioLanguage ?? this.preferredAudioLanguage,
@@ -152,7 +189,8 @@ final class PlayerSettings {
       volume: volume ?? this.volume,
       skipIntroAutomatically: skipIntroAutomatically ?? this.skipIntroAutomatically,
       autoPlayNextEpisode: autoPlayNextEpisode ?? this.autoPlayNextEpisode,
-      seekStepSeconds: seekStepSeconds ?? this.seekStepSeconds,
+      seekForwardSeconds: seekForwardSeconds ?? this.seekForwardSeconds,
+      seekBackSeconds: seekBackSeconds ?? this.seekBackSeconds,
       keepRefreshRate: keepRefreshRate ?? this.keepRefreshRate,
       keepHdr: keepHdr ?? this.keepHdr,
       hwdec: hwdec ?? this.hwdec,
@@ -161,6 +199,15 @@ final class PlayerSettings {
       deband: deband ?? this.deband,
       videoOutput: videoOutput ?? this.videoOutput,
       detailedLog: detailedLog ?? this.detailedLog,
+      scopeScreen: scopeScreen ?? this.scopeScreen,
+      autoCrop: autoCrop ?? this.autoCrop,
+      defaultAspect: defaultAspect ?? this.defaultAspect,
+      anamorphic: anamorphic ?? this.anamorphic,
+      targetPrim: targetPrim ?? this.targetPrim,
+      targetTrc: targetTrc ?? this.targetTrc,
+      targetPeak: targetPeak ?? this.targetPeak,
+      webhookUrl: webhookUrl ?? this.webhookUrl,
+      mpvConfOnly: mpvConfOnly ?? this.mpvConfOnly,
     );
   }
 
@@ -183,7 +230,8 @@ final class PlayerSettings {
         'volume': volume,
         'autoSkipIntro': skipIntroAutomatically,
         'autoNext': autoPlayNextEpisode,
-        'seekStep': seekStepSeconds,
+        'seekForward': seekForwardSeconds,
+        'seekBack': seekBackSeconds,
         'keepHz': keepRefreshRate,
         'keepHdr': keepHdr,
         'hwdec': hwdec,
@@ -192,6 +240,15 @@ final class PlayerSettings {
         'deband': deband,
         'vo': videoOutput,
         'detailedLog': detailedLog,
+        'scope': scopeScreen,
+        'autoCrop': autoCrop,
+        'aspect': defaultAspect,
+        'anamorphic': anamorphic,
+        'targetPrim': targetPrim,
+        'targetTrc': targetTrc,
+        'targetPeak': targetPeak,
+        'webhook': webhookUrl,
+        'mpvConfOnly': mpvConfOnly,
       };
 
   factory PlayerSettings.fromJson(Map<String, dynamic> j) {
@@ -226,7 +283,8 @@ final class PlayerSettings {
       volume: pick('volume', d.volume),
       skipIntroAutomatically: pick('autoSkipIntro', d.skipIntroAutomatically),
       autoPlayNextEpisode: pick('autoNext', d.autoPlayNextEpisode),
-      seekStepSeconds: pick('seekStep', d.seekStepSeconds),
+      seekForwardSeconds: pick('seekForward', pick('seekStep', d.seekForwardSeconds)),
+      seekBackSeconds: pick('seekBack', pick('seekStep', d.seekBackSeconds)),
       keepRefreshRate: pick('keepHz', d.keepRefreshRate),
       keepHdr: pick('keepHdr', d.keepHdr),
       hwdec: pick('hwdec', d.hwdec),
@@ -235,6 +293,15 @@ final class PlayerSettings {
       deband: pick('deband', d.deband),
       videoOutput: pick('vo', d.videoOutput),
       detailedLog: pick('detailedLog', d.detailedLog),
+      scopeScreen: pick('scope', d.scopeScreen),
+      autoCrop: pick('autoCrop', d.autoCrop),
+      defaultAspect: pick('aspect', d.defaultAspect),
+      anamorphic: pick('anamorphic', d.anamorphic),
+      targetPrim: pick('targetPrim', d.targetPrim),
+      targetTrc: pick('targetTrc', d.targetTrc),
+      targetPeak: pick('targetPeak', d.targetPeak),
+      webhookUrl: pick('webhook', d.webhookUrl),
+      mpvConfOnly: pick('mpvConfOnly', d.mpvConfOnly),
     );
   }
 

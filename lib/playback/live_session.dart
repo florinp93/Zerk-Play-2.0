@@ -70,7 +70,10 @@ final class LiveSession {
     _player.state.addListener(_onState);
     await _player.open();
     _player.osd('config', {
-      'seekStep': settings.seekStepSeconds,
+      'seekForward': settings.seekForwardSeconds,
+      'seekBack': settings.seekBackSeconds,
+      'scope': settings.scopeScreen,
+      'anamorphic': settings.anamorphic,
       'autoSkipIntro': false,
       'versionsTitle': l10n.liveChannels,
       'zap': zap != null,

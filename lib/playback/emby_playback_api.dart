@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/emby/models/emby_item.dart';
@@ -298,6 +299,19 @@ final class EmbyPlaybackApi {
   Future<void> downloadSubtitle(String itemId, String mediaSourceId, String subtitleId) => _janus.client.postNoContent(
       '/Items/$itemId/RemoteSearch/Subtitles/${Uri.encodeComponent(subtitleId)}',
       queryParameters: {'MediaSourceId': mediaSourceId});
+
+  Future<void> refreshItem(String itemId) async {
+    try {
+      await _janus.client.postNoContent('/Items/$itemId/Refresh', queryParameters: {
+        'MetadataRefreshMode': 'Default',
+        'ImageRefreshMode': 'None',
+        'ReplaceAllMetadata': 'false',
+        'ReplaceAllImages': 'false',
+      });
+    } catch (e) {
+      debugPrint('[playback] item refresh after a subtitle download: $e');
+    }
+  }
 
   Future<List<MediaStream>?> currentStreams(String itemId, String mediaSourceId) async {
     final json = await _janus.client.getJson('/Users/${_janus.session.userId}/Items/$itemId',

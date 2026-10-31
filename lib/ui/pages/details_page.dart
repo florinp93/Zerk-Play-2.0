@@ -318,7 +318,7 @@ class _DetailsPageState extends State<DetailsPage> {
           if (item.overview != null)
             Padding(
               padding: const EdgeInsets.only(left: pageLeft, right: 760),
-              child: Text(item.overview!, maxLines: 4, overflow: TextOverflow.ellipsis, style: Zt.body),
+              child: OverviewText(title: item.name, text: item.overview!),
             ),
           const SizedBox(height: 34),
           Padding(
@@ -355,6 +355,7 @@ class _DetailsPageState extends State<DetailsPage> {
                     onSelect: _pickSubtitle,
                   ),
                 TrailerButtons(controller: _trailer, title: item.name, focusNode: _trailerNode, collapsed: true),
+                if (overviewIsLong(item.overview)) SynopsisButton(title: item.name, text: item.overview!),
                 if ((_source?.audioStreams.length ?? 0) > 1)
                   TvButton(
                     label: audio == null ? l10n.audio : '${TrackLabels.title(audio, l10n)} · ${TrackLabels.audioCodec(audio)}',

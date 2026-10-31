@@ -302,5 +302,5 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   static String _languageName(L10n l10n, AppSettings app) =>
-      app.resolvedUiLanguage == 'ro' ? l10n.langRomanian : l10n.langEnglish;
+      uiLanguages[app.resolvedUiLanguage] ?? l10n.langEnglish;
 }

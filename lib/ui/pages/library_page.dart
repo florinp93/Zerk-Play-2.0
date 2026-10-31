@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/app_services.dart';
+import '../../app/app_settings.dart';
 import '../../core/emby/models/emby_item.dart';
 import '../../l10n/l10n.dart';
+import '../core/artwork.dart';
 import '../focus/focus_zone.dart';
+import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/net_image.dart';
 import '../widgets/side_panel.dart';
+import 'details_parts.dart';
 import 'routes.dart';
 
 enum LibraryKind { movies, shows }
@@ -130,11 +135,73 @@ class _LibraryPageState extends State<LibraryPage> {
     }
   }
 
+  Future<void> _pickView(AppServices services) async {
+    final l10n = context.l10n;
+    final current = services.settings.libraryView;
+    final chosen = await showSidePanel<LibraryView>(context, title: l10n.libraryViewSetting, options: [
+      for (final v in LibraryView.values) PanelOption(value: v, title: _viewLabel(l10n, v), icon: _viewIcon(v), selected: v == current),
+    ]);
+    if (chosen != null && chosen != current) await services.updateSettings(services.settings.copyWith(libraryView: chosen));
+  }
+
+  static String _viewLabel(L10n l10n, LibraryView v) => switch (v) {
+        LibraryView.posters => l10n.viewPosters,
+        LibraryView.cards => l10n.viewCards,
+        LibraryView.list => l10n.viewList,
+      };
+
+  static IconData _viewIcon(LibraryView v) => switch (v) {
+        LibraryView.posters => Icons.grid_view_rounded,
+        LibraryView.cards => Icons.view_module_rounded,
+        LibraryView.list => Icons.view_list_rounded,
+      };
+
+  Widget _tile(BuildContext context, LibraryView view, int i, double cardW) {
+    if (i >= _items.length) {
+      return switch (view) {
+        LibraryView.posters => SkeletonBox(width: cardW, height: cardW * 1.5),
+        LibraryView.cards => SkeletonBox(width: cardW, height: cardW * 9 / 16),
+        LibraryView.list => SkeletonBox(width: cardW, height: _ListRow.height - 24),
+      };
+    }
+    if (i > _items.length - 40) _loadMore();
+    final item = _items[i];
+    void open() => openItem(context, item);
+    return switch (view) {
+      LibraryView.posters => Align(
+          alignment: Alignment.topLeft,
+          child: LayoutBuilder(
+            builder: (context, box) => PosterCard(item: item, width: box.maxWidth, autofocus: i == 0, onSelect: open),
+          ),
+        ),
+      LibraryView.cards => Align(
+          alignment: Alignment.topLeft,
+          child: LayoutBuilder(
+            builder: (context, box) => LandscapeCard(
+              item: item,
+              width: box.maxWidth,
+              autofocus: i == 0,
+              preferEpisodeStill: false,
+              subtitle: [?item.productionYear?.toString(), ?item.officialRating].join('  ·  '),
+              onSelect: open,
+            ),
+          ),
+        ),
+      LibraryView.list => _ListRow(item: item, autofocus: i == 0, onSelect: open),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final title = widget.kind == LibraryKind.movies ? l10n.movies : l10n.shows;
-    final columns = AppServicesScope.of(context).settings.posterSize.columns;
+    final services = AppServicesScope.of(context);
+    final view = services.settings.libraryView;
+    final columns = switch (view) {
+      LibraryView.posters => services.settings.posterSize.columns,
+      LibraryView.cards => (services.settings.posterSize.columns / 2).ceil(),
+      LibraryView.list => 1,
+    };
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.only(left: contentLeft, top: 70, right: 120, bottom: 26),
@@ -174,6 +241,13 @@ class _LibraryPageState extends State<LibraryPage> {
                   _Watched.favorites: l10n.favorites,
                 }, _watched, (v) => _watched = v),
               ),
+              const SizedBox(width: 14),
+              TvButton(
+                label: _viewLabel(l10n, view),
+                icon: _viewIcon(view),
+                collapsed: true,
+                onSelect: () => _pickView(services),
+              ),
             ]),
           ),
         ]),
@@ -185,11 +259,11 @@ class _LibraryPageState extends State<LibraryPage> {
                 child: Text(l10n.nothingWithFilters, style: Zt.body),
               )
             : LayoutBuilder(builder: (context, box) {
-                final cardW = posterGridCardWidth(box.maxWidth, columns);
+                final cardW = view == LibraryView.list ? box.maxWidth - contentLeft - 120 : posterGridCardWidth(box.maxWidth, columns);
                 return FocusZone(
                   debugLabel: 'library-grid',
                   child: GridView.builder(
-                    key: ValueKey(_generation),
+                    key: ValueKey('$_generation:${view.name}'),
                     controller: _grid,
                     clipBehavior: Clip.none,
                     scrollCacheExtent: const ScrollCacheExtent.pixels(900),
@@ -198,29 +272,72 @@ class _LibraryPageState extends State<LibraryPage> {
                       crossAxisCount: columns,
                       mainAxisSpacing: 26,
                       crossAxisSpacing: Zs.cardGap,
-                      childAspectRatio: cardW / (cardW * 1.5 + 70),
+                      childAspectRatio: switch (view) {
+                        LibraryView.posters => cardW / (cardW * 1.5 + 70),
+                        LibraryView.cards => cardW / (cardW * 9 / 16 + 76),
+                        LibraryView.list => cardW / _ListRow.height,
+                      },
                     ),
                     itemCount: _total < 0 ? 14 : _items.length,
-                    itemBuilder: (context, i) {
-                      if (i >= _items.length) return SkeletonBox(width: cardW, height: cardW * 1.5);
-                      if (i > _items.length - 40) _loadMore();
-                      final item = _items[i];
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: LayoutBuilder(
-                          builder: (context, box) => PosterCard(
-                            item: item,
-                            width: box.maxWidth,
-                            autofocus: i == 0,
-                            onSelect: () => openItem(context, item),
-                          ),
-                        ),
-                      );
-                    },
+                    itemBuilder: (context, i) => _tile(context, view, i, cardW),
                   ),
                 );
               }),
       ),
     ]);
+  }
+}
+
+class _ListRow extends StatelessWidget {
+  const _ListRow({required this.item, required this.onSelect, this.autofocus = false});
+
+  static const double height = 200;
+
+  final EmbyItem item;
+  final VoidCallback onSelect;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = AppServicesScope.read(context).catalog;
+    final meta = standardMeta(context.l10n, item).whereType<String>().where((s) => s.isNotEmpty).join('  ·  ');
+    return TvFocusable(
+      autofocus: autofocus,
+      onSelect: onSelect,
+      builder: (context, focused) => AnimatedContainer(
+        duration: Zm.fast,
+        height: height - 24,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: focused ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(Zs.radius),
+          border: Border.all(color: focused ? Colors.white : Colors.transparent, width: 3),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(Zs.radius - 4),
+            child: SizedBox(
+              width: (height - 54) / 1.5,
+              height: height - 54,
+              child: NetImage(url: catalog.poster(item, width: 160), width: 160, fallback: TitleArt(title: item.name)),
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Zt.title.copyWith(fontSize: 26)),
+              if (meta.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: Zt.meta),
+              ],
+              if (item.overview != null) ...[
+                const SizedBox(height: 10),
+                Text(item.overview!, maxLines: 2, overflow: TextOverflow.ellipsis, style: Zt.body.copyWith(fontSize: 20)),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+    );
   }
 }

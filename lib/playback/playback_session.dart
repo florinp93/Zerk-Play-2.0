@@ -17,6 +17,7 @@ import 'subtitle_style.dart';
 import 'track_labels.dart';
 import 'track_policy.dart';
 import 'versions.dart';
+import 'webhook.dart';
 
 final class PlaybackRequest {
   const PlaybackRequest(this.item, {this.start, this.audioIndex, this.subtitleIndex, this.mediaSourceId});
@@ -79,6 +80,7 @@ final class PlaybackSession {
   final EmbyPlaybackApi _api;
   final PlayerSettings _settings;
   final bool acceptInvalidCertificates;
+  late final _webhook = PlaybackWebhook(_settings.webhookUrl);
 
   final L10n l10n;
 
@@ -106,7 +108,12 @@ final class PlaybackSession {
     _player.state.addListener(_onState);
     await _player.open();
     _osd('config', {
-      'seekStep': _settings.seekStepSeconds,
+      'seekForward': _settings.seekForwardSeconds,
+      'seekBack': _settings.seekBackSeconds,
+      'scope': _settings.scopeScreen,
+      'autoCrop': _settings.autoCrop,
+      'defaultAspect': _settings.defaultAspect,
+      'anamorphic': _settings.anamorphic,
       'autoSkipIntro': _settings.skipIntroAutomatically,
       'subtitleSearch': true,
       'subLanguages': _searchLanguages(),
@@ -254,12 +261,13 @@ final class PlaybackSession {
     _sendVersions();
     unawaited(_sendSegments(cur));
     unawaited(_sendChapters(cur));
-    final hz = _settings.matchRefreshRate ? _matchRefreshRate(cur) : null;
+    final hz = _settings.matchRefreshRate ? await _matchRefreshRate(cur) : null;
     if (_settings.matchRefreshRate) debugPrint('[session] refresh rate match: ${hz == null ? 'no change' : '$hz Hz'}');
     unawaited(_sendVideo(cur, announce: true, refreshHz: hz));
 
     if (!cur.reportedStart) {
       cur.reportedStart = true;
+      _webhook.send('play', cur.item, position: ps.position, extra: {'method': cur.stream.method.wire, 'hdr': ps.videoTransfer == 'pq' || ps.videoTransfer == 'hlg'});
       unawaited(_report(_api.reportStart, eventName: null));
       _progressTimer?.cancel();
       _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -550,7 +558,12 @@ final class PlaybackSession {
     final code = searchLanguageCode(language);
     if (cur == null || code == null) return;
     try {
-      final results = await _api.searchSubtitles(cur.item.id, cur.source.id, code);
+      var results = await _api.searchSubtitles(cur.item.id, cur.source.id, code);
+      if (results.isEmpty && identical(_current, cur)) {
+        debugPrint('[session] subtitle search for $code came back empty, asking once more');
+        await Future<void>.delayed(const Duration(seconds: 2));
+        results = await _api.searchSubtitles(cur.item.id, cur.source.id, code);
+      }
       if (!identical(_current, cur)) return;
       _osd('subsearch', {
         'results': [
@@ -577,6 +590,11 @@ final class PlaybackSession {
     final cur = _current;
     if (cur == null) return;
     final known = {for (final s in cur.source.streams) s.index};
+    String signature(MediaStream s) => '${s.isExternal}|${s.codec}|${s.language}|${s.displayTitle ?? s.title}';
+    final knownSignatures = <String, int>{};
+    for (final s in cur.source.streams) {
+      if (s.type == MediaStreamType.subtitle) knownSignatures.update(signature(s), (n) => n + 1, ifAbsent: () => 1);
+    }
     _toast(l10n.subtitleDownloading);
     try {
       await _api.downloadSubtitle(cur.item.id, cur.source.id, id);
@@ -585,17 +603,25 @@ final class PlaybackSession {
       _toast(_subtitleError(e));
       return;
     }
-    for (var attempt = 0; attempt < 45; attempt++) {
+    for (var attempt = 0; attempt < 90; attempt++) {
       await Future<void>.delayed(const Duration(seconds: 2));
       if (!identical(_current, cur) || _finishing) return;
+      if (attempt == 10) unawaited(_api.refreshItem(cur.item.id));
       final streams = await _api.currentStreams(cur.item.id, cur.source.id).catchError((Object _) => null);
-      final added = [
-        for (final s in streams ?? const <MediaStream>[])
-          if (s.type == MediaStreamType.subtitle && !known.contains(s.index)) s,
-      ];
-      if (added.isEmpty) continue;
-      cur.stream = cur.stream.withSource(cur.source.withStreams([...cur.source.streams, ...added]));
-      await _switchSubtitle(added.first.index);
+      if (streams == null) continue;
+      final seen = <String, int>{};
+      final fresh = <MediaStream>[];
+      for (final s in streams) {
+        if (s.type != MediaStreamType.subtitle) continue;
+        final n = seen.update(signature(s), (n) => n + 1, ifAbsent: () => 1);
+        if (n > (knownSignatures[signature(s)] ?? 0)) fresh.add(s);
+      }
+      if (fresh.isEmpty) continue;
+      final shifted = fresh.any((s) => known.contains(s.index));
+      debugPrint('[session] downloaded subtitle showed up after ${(attempt + 1) * 2} s: '
+          '${fresh.map((s) => '#${s.index} ${s.language}').join(', ')}${shifted ? ' (stream indexes moved)' : ''}');
+      cur.stream = cur.stream.withSource(cur.source.withStreams(shifted ? streams : [...cur.source.streams, ...fresh]));
+      await _switchSubtitle(fresh.first.index);
       _toast(l10n.subtitleAdded);
       return;
     }
@@ -612,6 +638,7 @@ final class PlaybackSession {
     }
     if (s.paused != _lastPaused) {
       _lastPaused = s.paused;
+      _webhook.send(s.paused ? 'pause' : 'resume', _current?.item, position: s.position);
       unawaited(_report(_api.reportProgress, eventName: s.paused ? 'Pause' : 'Unpause'));
     }
     if (s.ended && !_finishing) {
@@ -702,7 +729,7 @@ final class PlaybackSession {
 
   void _toast(String text) => _player.osd('toast', text);
 
-  double? _matchRefreshRate(_Current cur) {
+  Future<double?> _matchRefreshRate(_Current cur) async {
     final fps = _player.state.value.fps ?? cur.source.video?.frameRate;
     if (fps == null) return null;
     return _player.matchRefreshRate(fps);
@@ -789,6 +816,7 @@ final class PlaybackSession {
     _progressTimer?.cancel();
     final cur = _current;
     final stopped = cur != null && cur.reportedStart ? _snapshot(null) : null;
+    if (cur != null && cur.reportedStart) _webhook.send('stop', cur.item, position: _player.state.value.position, extra: {'reason': reason.name});
     final volume = _player.state.value.volume;
     if (volume != _settings.volume) unawaited(PlayerSettings.load().then((p) => p.copyWith(volume: volume).save()));
 

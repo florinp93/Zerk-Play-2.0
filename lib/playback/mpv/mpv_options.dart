@@ -9,6 +9,7 @@ Map<String, String> buildMpvOptions({
 }) {
   final spdif = settings.mpvSpdif;
   final bitstream = spdif.isNotEmpty;
+  final own = !settings.mpvConfOnly;
   return {
     'wid': '$wid',
     'log-file': ?logFile,
@@ -36,20 +37,25 @@ Map<String, String> buildMpvOptions({
     'keep-open': 'yes',
     'idle': 'yes',
 
-    'vo': settings.videoOutput,
+    'vo': own ? settings.videoOutput : 'gpu-next',
     'gpu-api': 'd3d11',
-    'hwdec': settings.hwdec,
-    'target-colorspace-hint': settings.hdrPassthrough ? 'yes' : 'no',
-    'video-sync': !settings.smoothMotion ? 'audio' : (bitstream ? 'display-vdrop' : 'display-resample'),
-    'interpolation': settings.smoothMotion ? 'yes' : 'no',
-    'tscale': 'oversample',
-    ...switch (settings.videoQuality) {
-      VideoQuality.fast => {'scale': 'bilinear', 'dscale': 'bilinear', 'cscale': 'bilinear', 'dither-depth': 'no'},
-      VideoQuality.balanced => {'scale': 'spline36', 'dscale': 'mitchell'},
-      VideoQuality.high => {'profile': 'high-quality'},
+    if (own) ...{
+      'hwdec': settings.hwdec,
+      'target-colorspace-hint': settings.hdrPassthrough ? 'yes' : 'no',
+      'video-sync': !settings.smoothMotion ? 'audio' : (bitstream ? 'display-vdrop' : 'display-resample'),
+      'interpolation': settings.smoothMotion ? 'yes' : 'no',
+      'tscale': 'oversample',
+      ...switch (settings.videoQuality) {
+        VideoQuality.fast => {'scale': 'bilinear', 'dscale': 'bilinear', 'cscale': 'bilinear', 'dither-depth': 'no'},
+        VideoQuality.balanced => {'scale': 'spline36', 'dscale': 'mitchell'},
+        VideoQuality.high => {'profile': 'high-quality'},
+      },
+      'deband': settings.deband ? 'yes' : 'no',
+      'tone-mapping': settings.toneMapping,
+      if (settings.targetPrim != 'auto') 'target-prim': settings.targetPrim,
+      if (settings.targetTrc != 'auto') 'target-trc': settings.targetTrc,
+      if (settings.targetPeak > 0) 'target-peak': '${settings.targetPeak}',
     },
-    'deband': settings.deband ? 'yes' : 'no',
-    'tone-mapping': settings.toneMapping,
 
     'cache': 'yes',
     'demuxer-max-bytes': '512MiB',

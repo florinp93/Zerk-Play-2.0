@@ -84,8 +84,9 @@ local S = {
   toast = nil, toast_until = 0,
   vol_until = 0,
   flash_icon = nil, flash_until = 0,
-  seek_step = 10, auto_skip_intro = false,
-  video = nil, aspect = "auto",
+  seek_fwd = 10, seek_back = 10, auto_skip_intro = false,
+  video = nil, aspect = "auto", default_aspect = "auto",
+  scope = 0, anamorphic = 1, autocrop = false, crop = nil, margin = 0, crop_hits = 0,
   hits = {},
   pointer = false, hover = nil, mouse_x = 0,
 }
@@ -201,9 +202,9 @@ local function buttons()
   local paused = prop("pause", false)
   local muted = prop("mute", false)
   local list = {
-    { id = "rewind", glyph = ICON.rewind, label = tr("seek_back", S.seek_step) },
+    { id = "rewind", glyph = ICON.rewind, label = tr("seek_back", S.seek_back) },
     { id = "play", glyph = paused and ICON.play or ICON.pause, label = paused and tr("play") or tr("pause"), big = true },
-    { id = "forward", glyph = ICON.forward, label = tr("seek_forward", S.seek_step) },
+    { id = "forward", glyph = ICON.forward, label = tr("seek_forward", S.seek_fwd) },
     { id = "volume", glyph = muted and ICON.mute or ICON.volume, label = muted and tr("unmute") or tr("mute") },
   }
   local right = {
@@ -279,13 +280,124 @@ local function aspect_label(id)
   return id
 end
 
+local apply_crop
+
 local function set_aspect(id)
   S.aspect = id
   local override = "-1"
   if id ~= "auto" and id ~= "zoom" and id ~= "stretch" then override = id:gsub(":1$", "") end
+  if S.anamorphic > 1 and id ~= "stretch" then
+    local base = tonumber(override) or prop("video-params/aspect", nil)
+    if base then override = string.format("%.4f", base / S.anamorphic) end
+  end
   mp.set_property("video-aspect-override", override)
   mp.set_property_number("panscan", id == "zoom" and 1.0 or 0.0)
   mp.set_property("keepaspect", id == "stretch" and "no" or "yes")
+  apply_crop()
+end
+
+local band_f, band_oy = 1, 0
+
+local function update_band()
+  local ow, oh = mp.get_osd_size()
+  local f = 1
+  if S.scope > 0 and S.anamorphic <= 1 and ow and oh and oh > 0 then
+    local win = ow / oh
+    if S.scope > win + 0.01 then f = win / S.scope end
+  end
+  band_f = f
+  local m = (1 - f) / 2
+  if math.abs(m - S.margin) > 0.0005 then
+    S.margin = m
+    mp.set_property_number("video-margin-ratio-top", m)
+    mp.set_property_number("video-margin-ratio-bottom", m)
+    mp.set_property("sub-use-margins", m > 0 and "no" or "yes")
+    msg.info(string.format("screen area %.3f of the window height (scope %.2f)", f, S.scope))
+  end
+end
+
+local function shift_y(data, oy)
+  if oy == 0 then return data end
+  data = data:gsub("\\pos%(([%-%d%.]+),([%-%d%.]+)%)", function(x, y)
+    return string.format("\\pos(%s,%d)", x, R(tonumber(y) + oy))
+  end)
+  return (data:gsub("\\clip%(([%-%d%.]+),([%-%d%.]+),([%-%d%.]+),([%-%d%.]+)%)", function(a, b, c, d)
+    return string.format("\\clip(%s,%d,%s,%d)", a, R(tonumber(b) + oy), c, R(tonumber(d) + oy))
+  end))
+end
+
+local CROP = { threshold = 24, samples = 40 }
+
+apply_crop = function()
+  local c = S.crop
+  local vw, vh = prop("video-params/w", 0), prop("video-params/h", 0)
+  if not S.autocrop or not c or vw == 0 or (S.aspect ~= "auto" and S.aspect ~= "zoom") then
+    if S.crop_applied then mp.set_property("video-crop", ""); S.crop_applied = nil end
+    return
+  end
+  local y, h = R(c.top * vh), R((1 - c.top - c.bottom) * vh)
+  h = h - h % 2
+  local value = string.format("%dx%d+0+%d", vw, h, y)
+  if value ~= S.crop_applied then
+    S.crop_applied = value
+    mp.set_property("video-crop", value)
+    msg.info(string.format("black bars: cropping to %s (%.3f:1)", value, prop("video-params/aspect", 1.78) * vh / h))
+  end
+end
+
+local function row_black(data, stride, y, w)
+  local base = y * stride
+  local step = math.max(1, math.floor(w * 0.9 / CROP.samples))
+  local x0 = math.floor(w * 0.05)
+  for i = 0, CROP.samples - 1 do
+    local o = base + (x0 + i * step) * 4 + 1
+    local b, g, r = data:byte(o, o + 2)
+    if not r then return true end
+    if b > CROP.threshold or g > CROP.threshold or r > CROP.threshold then return false end
+  end
+  return true
+end
+
+local function detect_bars()
+  if not S.autocrop or S.phase ~= "playing" then return end
+  local shot = mp.command_native({ "screenshot-raw", "video", "bgr0" })
+  if not shot or not shot.data or not shot.w or shot.w == 0 then return end
+  local w, h, stride, data = shot.w, shot.h, shot.stride, shot.data
+  local limit = math.floor(h * 0.3)
+  local top = 0
+  while top < limit and row_black(data, stride, top, w) do top = top + 1 end
+  local bottom = 0
+  while bottom < limit and row_black(data, stride, h - 1 - bottom, w) do bottom = bottom + 1 end
+  if top >= limit or bottom >= limit then return end
+  local t, b = top / h, bottom / h
+  if t < 0.01 and b < 0.01 then t, b = 0, 0 end
+  if math.abs(t - b) > 0.02 then return end
+  local m = math.min(t, b)
+  if S.crop_seen and math.abs(S.crop_seen - m) < 0.004 then
+    S.crop_hits = S.crop_hits + 1
+  else
+    S.crop_seen, S.crop_hits = m, 1
+  end
+  local current = S.crop and S.crop.top or 0
+  if S.crop_hits >= 2 and (S.crop == nil and m > 0 or m < current - 0.003 or (S.crop_hits >= 4 and math.abs(m - current) > 0.003)) then
+    S.crop = m > 0 and { top = m, bottom = m } or nil
+    apply_crop()
+  end
+end
+
+local crop_timer = nil
+local function schedule_crop()
+  if crop_timer then crop_timer:kill(); crop_timer = nil end
+  if not S.autocrop then return end
+  local runs = 0
+  crop_timer = mp.add_periodic_timer(2, function()
+    runs = runs + 1
+    if not prop("pause", false) then detect_bars() end
+    if runs == 8 then
+      crop_timer:kill()
+      crop_timer = mp.add_periodic_timer(15, function() if not prop("pause", false) then detect_bars() end end)
+    end
+  end)
 end
 
 local function settings_items()
@@ -635,8 +747,8 @@ local function next_still(x, y, w, h, fill)
   if not img then return end
   local osd_w, osd_h = mp.get_osd_size()
   if not osd_h or osd_h == 0 then return end
-  local k = osd_h / H
-  local px, py, dw, dh = R(x * k), R(y * k), R(w * k), R(h * k)
+  local k = osd_h * band_f / H
+  local px, py, dw, dh = R(x * k), R((y + band_oy) * k), R(w * k), R(h * k)
   local cw = math.floor(img.w * fill)
   local key = table.concat({ img.grey, px, py, dw, dh, cw }, "|")
   if key == ov_key then return end
@@ -746,13 +858,15 @@ end
 
 render = function()
   local osd_w, osd_h = mp.get_osd_size()
-  if osd_w and osd_h and osd_w > 0 and osd_h > 0 then W = math.floor(H * osd_w / osd_h) end
+  update_band()
+  if osd_w and osd_h and osd_w > 0 and osd_h > 0 then W = math.floor(H * osd_w / (osd_h * band_f)) end
+  band_oy = R((H / band_f - H) / 2)
   local shown = S.phase .. (S.visible and "+controls" or "") .. (S.panel and ("+panel:" .. (S.panel.kind or "?")) or "")
   if shown ~= S.logged_shown then
     S.logged_shown = shown
     msg.info(string.format("osd %s (window %sx%s, layout %dx%d)", shown, tostring(osd_w), tostring(osd_h), W, H))
   end
-  overlay.res_x, overlay.res_y = W, H
+  overlay.res_x, overlay.res_y = W, R(H / band_f)
   S.hits = {}
   local out = {}
   local t = now()
@@ -770,7 +884,7 @@ render = function()
       out[#out + 1] = text(W / 2, H / 2 + 90, 5, 24, T.muted, tr("press_back"))
     end
     draw_digits(out)
-    overlay.data = table.concat(out, "\n")
+    overlay.data = shift_y(table.concat(out, "\n"), band_oy)
     overlay:update()
     return
   end
@@ -838,7 +952,7 @@ render = function()
 
   if S.panel then draw_panel(out) end
 
-  local data = table.concat(out,"\n")
+  local data = shift_y(table.concat(out, "\n"), band_oy)
   if data ~= overlay.data or W ~= S.drawn_w then
     overlay.data = data
     S.drawn_w = W
@@ -919,8 +1033,8 @@ end
 activate_button = function(id)
   touch()
   if id == "play" then toggle_pause()
-  elseif id == "rewind" then seek_relative(-S.seek_step)
-  elseif id == "forward" then seek_relative(S.seek_step)
+  elseif id == "rewind" then seek_relative(-S.seek_back)
+  elseif id == "forward" then seek_relative(S.seek_fwd)
   elseif id == "audio" or id == "subs" or id == "chapters" or id == "settings" then open_panel(id)
   elseif id == "versions" then open_panel("version")
   elseif id == "next" then send("next")
@@ -936,7 +1050,7 @@ local function scrub(dir)
   local t = now()
   if t - S.scrub_last < 0.35 then S.scrub_repeat = S.scrub_repeat + 1 else S.scrub_repeat = 0 end
   S.scrub_last = t
-  local step = S.seek_step
+  local step = dir > 0 and S.seek_fwd or S.seek_back
   if S.scrub_repeat > 24 then step = 120 elseif S.scrub_repeat > 12 then step = 60 elseif S.scrub_repeat > 5 then step = 30 end
   S.scrub = clamp((S.scrub or prop("time-pos", 0)) + dir * step, 0, dur - 1)
   S.scrub_commit_at = t + 0.9
@@ -981,8 +1095,8 @@ local function on_key(name)
     if not S.visible then
       local next_up = next_visible(pos) and not (in_intro(pos) and not S.intro_skipped)
       if next_up and (name == "left" or name == "right") then S.next_choice = name == "left" and 1 or 2
-      elseif name == "left" then seek_relative(-S.seek_step)
-      elseif name == "right" then seek_relative(S.seek_step)
+      elseif name == "left" then seek_relative(-S.seek_back)
+      elseif name == "right" then seek_relative(S.seek_fwd)
       elseif next_up and name == "ok" then
         if S.next_choice == 1 then send("next") else S.next_cancelled = true; send("next-cancel") end
       elseif name == "ok" and S.zap then
@@ -1099,7 +1213,7 @@ local function mouse_virtual()
   local mx, my = mp.get_mouse_pos()
   local osd_w, osd_h = mp.get_osd_size()
   if not osd_w or osd_w == 0 then return mx, my end
-  return mx * W / osd_w, my * H / osd_h
+  return mx * W / osd_w, my * (H / band_f) / osd_h - band_oy
 end
 
 local function update_hover()
@@ -1191,7 +1305,12 @@ mp.register_script_message("state", function(raw)
   S.title = s.title or S.title
   S.subtitle = s.subtitle or S.subtitle
   S.message = s.message or ""
+  if S.phase == "loading" and was ~= "loading" then
+    S.crop, S.crop_seen, S.crop_hits = nil, nil, 0
+    apply_crop()
+  end
   if S.phase == "playing" and was ~= "playing" then
+    schedule_crop()
     S.intro_skipped, S.next_cancelled, S.next_fired = false, false, false
     S.next_elapsed, S.next_last, S.next_choice = 0, nil, 1
     S.panel, S.scrub = nil, nil
@@ -1240,12 +1359,19 @@ end)
 
 mp.register_script_message("config", function(raw)
   local c = json(raw) or {}
-  S.seek_step = c.seekStep or S.seek_step
+  S.seek_fwd = c.seekForward or S.seek_fwd
+  S.seek_back = c.seekBack or S.seek_back
   S.auto_skip_intro = c.autoSkipIntro or false
   S.versions_title = c.versionsTitle
   S.zap = c.zap or false
   S.sub_search = c.subtitleSearch or false
   S.sub_languages = c.subLanguages or {}
+  S.scope = c.scope or 0
+  S.anamorphic = c.anamorphic or 1
+  S.autocrop = c.autoCrop or false
+  S.default_aspect = c.defaultAspect or "auto"
+  set_aspect(S.default_aspect)
+  render()
 end)
 
 mp.register_script_message("subsearch", function(raw)

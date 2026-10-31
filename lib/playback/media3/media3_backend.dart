@@ -101,7 +101,16 @@ final class Media3Backend implements PlayerBackend {
       _call('addSubtitle', {'url': url.toString(), 'format': format, 'title': title, 'language': language});
 
   @override
-  void osd(String command, Object? data) => _osd.handle(command, data);
+  void osd(String command, Object? data) {
+    if (command == 'config' && data is Map) {
+      _call('screen', {
+        'scope': data['scope'] ?? 0,
+        'anamorphic': data['anamorphic'] ?? 1,
+        'autoCrop': data['autoCrop'] == true,
+      });
+    }
+    _osd.handle(command, data);
+  }
 
   @override
   void setSubtitleScale(double scale) {
@@ -111,7 +120,14 @@ final class Media3Backend implements PlayerBackend {
   }
 
   @override
-  double? matchRefreshRate(double fps) => null;
+  Future<double?> matchRefreshRate(double fps) async {
+    try {
+      return (await _channel.invokeMethod<num>('matchRefresh', {'fps': fps}))?.toDouble();
+    } on PlatformException catch (e) {
+      debugPrint('[media3] refresh rate match failed: $e');
+      return null;
+    }
+  }
 
   @override
   Future<DisplayHdrStatus> displayHdr() async {
@@ -131,7 +147,7 @@ final class Media3Backend implements PlayerBackend {
     if (route != null && route.isActive) _navigator.removeRoute(route);
     TvScale.videoUnderlay.value = false;
     _osd.subtitleLift.removeListener(_liftSubtitles);
-    await _channel.invokeMethod('close');
+    await _channel.invokeMethod('close', {'keepRefresh': _settings.keepRefreshRate});
     _osd.dispose();
     await _events.close();
   }

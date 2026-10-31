@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/host.dart';
 
 
-const uiLanguages = {'en': 'English', 'ro': 'Română'};
+const uiLanguages = {'en': 'English', 'ro': 'Română', 'fr': 'Français', 'de': 'Deutsch', 'es': 'Español', 'pl': 'Polski'};
 
 const metadataLanguages = {
   '': 'From the server (Emby)',
@@ -18,6 +18,7 @@ const metadataLanguages = {
   'it-IT': 'Italiano',
   'pt-PT': 'Português',
   'pt-BR': 'Português (Brasil)',
+  'pl-PL': 'Polski',
   'hu-HU': 'Magyar',
   'ja-JP': '日本語',
   'ko-KR': '한국어',
@@ -39,6 +40,14 @@ enum PosterSize {
   const PosterSize(this.columns);
 
   final int columns;
+}
+
+enum LibraryView {
+  posters,
+
+  cards,
+
+  list,
 }
 
 enum CollectionsView {
@@ -70,6 +79,7 @@ final class AppSettings {
     this.startFullScreen = false,
     this.posterSize = PosterSize.medium,
     this.collectionsView = CollectionsView.covers,
+    this.libraryView = LibraryView.posters,
     this.homeCollections = const {},
     this.cardTrailers = true,
   });
@@ -108,6 +118,7 @@ final class AppSettings {
   final bool startFullScreen;
   final PosterSize posterSize;
   final CollectionsView collectionsView;
+  final LibraryView libraryView;
 
   final Map<String, List<(String, String)>> homeCollections;
 
@@ -124,7 +135,8 @@ final class AppSettings {
     return uiLanguages.containsKey(system) ? system : 'en';
   }
 
-  String get uiMetadataLanguage => resolvedUiLanguage == 'ro' ? 'ro-RO' : 'en-US';
+  String get uiMetadataLanguage =>
+      const {'ro': 'ro-RO', 'fr': 'fr-FR', 'de': 'de-DE', 'es': 'es-ES', 'pl': 'pl-PL'}[resolvedUiLanguage] ?? 'en-US';
 
   String get tmdbLanguage => metadataLanguage.isEmpty ? 'en-US' : metadataLanguage;
 
@@ -156,6 +168,7 @@ final class AppSettings {
     bool? startFullScreen,
     PosterSize? posterSize,
     CollectionsView? collectionsView,
+    LibraryView? libraryView,
     Map<String, List<(String, String)>>? homeCollections,
     bool? cardTrailers,
   }) =>
@@ -181,6 +194,7 @@ final class AppSettings {
         startFullScreen: startFullScreen ?? this.startFullScreen,
         posterSize: posterSize ?? this.posterSize,
         collectionsView: collectionsView ?? this.collectionsView,
+        libraryView: libraryView ?? this.libraryView,
         homeCollections: homeCollections ?? this.homeCollections,
         cardTrailers: cardTrailers ?? this.cardTrailers,
       );
@@ -225,6 +239,7 @@ final class AppSettings {
         startFullScreen: j['startFullScreen'] as bool? ?? false,
         posterSize: PosterSize.values.asNameMap()[j['posterSize']] ?? PosterSize.medium,
         collectionsView: CollectionsView.values.asNameMap()[j['collectionsView']] ?? CollectionsView.covers,
+        libraryView: LibraryView.values.asNameMap()[j['libraryView']] ?? LibraryView.posters,
         homeCollections: {
           for (final MapEntry(:key, :value) in ((j['homeCollections'] as Map?) ?? const {}).entries)
             '$key': [for (final c in value as List) (c[0] as String, c[1] as String)],
@@ -262,6 +277,7 @@ final class AppSettings {
         'startFullScreen': startFullScreen,
         'posterSize': posterSize.name,
         'collectionsView': collectionsView.name,
+        'libraryView': libraryView.name,
         'homeCollections': {
           for (final MapEntry(:key, :value) in homeCollections.entries) key: [for (final (id, name) in value) [id, name]],
         },

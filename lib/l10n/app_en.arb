@@ -1189,5 +1189,43 @@
   "onHome": "On Home",
   "moveUp": "Move up",
   "cardTrailers": "Trailers in cards",
-  "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Turn off to keep cards still while you browse. Trailer sound applies here too."
+  "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Turn off to keep cards still while you browse. Trailer sound applies here too.",
+  "seekForwardStep": "Skip forward",
+  "seekBackStep": "Skip back",
+  "automationHeader": "Automation",
+  "webhookIntro": "Zerk Play can tell another system when playback starts, pauses, resumes or stops, for example a Home Assistant webhook that dims the lights. It sends a JSON POST with the event, the title and the position.",
+  "webhookUrl": "Webhook address",
+  "settingsGroupPicture": "Picture",
+  "screenShape": "Screen shape",
+  "screenShapeHint": "For projectors with a 2.35, 2.37 or 2.40 scope screen. The picture and the player controls stay inside the scope area, so you don't need lens memory or a custom resolution.",
+  "screenShapeNormal": "Normal (fills the display)",
+  "screenShapeScope": "Scope {ratio}",
+  "@screenShapeScope": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "autoCrop": "Remove black bars",
+  "autoCropHint": "Looks at the picture while it plays and crops black bars burned into the video at the top and bottom, so wide films fill a scope screen or a zoomed picture.",
+  "defaultAspect": "Default picture size",
+  "defaultAspectHint": "What every video starts with. You can still change it from the player settings.",
+  "anamorphicLens": "Anamorphic lens",
+  "anamorphicLensHint": "Stretches the picture vertically for a projector with an anamorphic lens. Leave off unless you use one.",
+  "anamorphicNone": "None",
+  "displayTarget": "Display target",
+  "displayTargetHint": "For calibrated displays and projectors. Zerk Play converts and tone maps every video to the colour space, transfer curve and brightness you set here. Leave on Automatic to follow the display.",
+  "targetPrimaries": "Colour space",
+  "targetTransfer": "Transfer curve",
+  "targetPeak": "Peak brightness",
+  "targetPeakHint": "The measured peak brightness of the display. HDR is tone mapped to fit it.",
+  "targetAuto": "Automatic",
+  "mpvConfOnly": "Use only mpv.conf",
+  "mpvConfOnlyHint": "Ignores the picture and decoding options above and leaves them to your mpv.conf.",
+  "fullSynopsis": "Synopsis",
+  "libraryViewSetting": "Library layout",
+  "viewPosters": "Posters",
+  "viewCards": "Cards",
+  "viewList": "List"
 }

@@ -204,7 +204,7 @@ final class MpvBackend implements PlayerBackend {
   void setSubtitleScale(double scale) => _mpv.setProperty('sub-scale', scale.toStringAsFixed(2));
 
   @override
-  double? matchRefreshRate(double fps) => _refresh.matchFrameRate(fps);
+  Future<double?> matchRefreshRate(double fps) async => _refresh.matchFrameRate(fps);
 
   @override
   Future<DisplayHdrStatus> displayHdr() => NativeWindow.hdrStatus();

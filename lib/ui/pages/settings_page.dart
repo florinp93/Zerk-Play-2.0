@@ -181,10 +181,24 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingToggleRow(title: l10n.autoSkipIntro, value: p.skipIntroAutomatically,
               onChanged: (v) => _savePlayer(p.copyWith(skipIntroAutomatically: v))),
           SettingChoiceRow<int>(
-            title: l10n.seekStep,
-            value: p.seekStepSeconds,
-            options: {for (final s in const [5, 10, 15, 30]) s: l10n.secondsCount(s)},
-            onChanged: (v) => _savePlayer(p.copyWith(seekStepSeconds: v)),
+            title: l10n.seekForwardStep,
+            value: p.seekForwardSeconds,
+            options: {for (final s in const [5, 10, 15, 20, 30, 45, 60, 90, 120]) s: l10n.secondsCount(s)},
+            onChanged: (v) => _savePlayer(p.copyWith(seekForwardSeconds: v)),
+          ),
+          SettingChoiceRow<int>(
+            title: l10n.seekBackStep,
+            value: p.seekBackSeconds,
+            options: {for (final s in const [5, 10, 15, 20, 30, 45, 60, 90, 120]) s: l10n.secondsCount(s)},
+            onChanged: (v) => _savePlayer(p.copyWith(seekBackSeconds: v)),
+          ),
+          SettingHeader(l10n.automationHeader),
+          _intro(l10n.webhookIntro),
+          SettingTextRow(
+            title: l10n.webhookUrl,
+            value: p.webhookUrl,
+            hint: 'http://homeassistant.local:8123/api/webhook/zerk_play',
+            onChanged: (v) => _savePlayer(p.copyWith(webhookUrl: v.trim())),
           ),
         ];
       case _Section.video:
@@ -220,6 +234,30 @@ class _SettingsPageState extends State<SettingsPage> {
             value: p.keepRefreshRate,
             enabled: p.matchRefreshRate,
             onChanged: (v) => _savePlayer(p.copyWith(keepRefreshRate: v)),
+          ),
+          SettingHeader(l10n.settingsGroupPicture),
+          SettingChoiceRow<double>(
+            title: l10n.screenShape,
+            subtitle: l10n.screenShapeHint,
+            value: p.scopeScreen,
+            options: {0.0: l10n.screenShapeNormal, 2.35: l10n.screenShapeScope('2.35:1'), 2.37: l10n.screenShapeScope('2.37:1'), 2.40: l10n.screenShapeScope('2.40:1')},
+            onChanged: (v) => _savePlayer(p.copyWith(scopeScreen: v)),
+          ),
+          SettingToggleRow(title: l10n.autoCrop, subtitle: l10n.autoCropHint,
+              value: p.autoCrop, onChanged: (v) => _savePlayer(p.copyWith(autoCrop: v))),
+          SettingChoiceRow<String>(
+            title: l10n.defaultAspect,
+            subtitle: l10n.defaultAspectHint,
+            value: p.defaultAspect,
+            options: {'auto': l10n.aspectOriginal, 'zoom': l10n.aspectZoom, 'stretch': l10n.aspectStretch},
+            onChanged: (v) => _savePlayer(p.copyWith(defaultAspect: v)),
+          ),
+          SettingChoiceRow<double>(
+            title: l10n.anamorphicLens,
+            subtitle: l10n.anamorphicLensHint,
+            value: p.anamorphic,
+            options: {1.0: l10n.anamorphicNone, 1.25: '1.25×', 1.33: '1.33×', 1.5: '1.5×'},
+            onChanged: (v) => _savePlayer(p.copyWith(anamorphic: v)),
           ),
           SettingHeader(l10n.settingsGroupDecoding),
           SettingChoiceRow<VideoQuality>(
@@ -655,6 +693,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
+class _AdvancedIntro extends StatelessWidget {
+  const _AdvancedIntro(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 20), child: Text(text, style: Zt.body));
+}
+
 class _AdvancedVideoPage extends StatefulWidget {
   const _AdvancedVideoPage({required this.initial});
 
@@ -714,6 +761,44 @@ class _AdvancedVideoPageState extends State<_AdvancedVideoPage> {
               options: {'gpu-next': l10n.videoRendererNext, 'gpu': l10n.videoRendererOld},
               onChanged: (v) => _save(p.copyWith(videoOutput: v)),
             ),
+            if (Host.isWindows) ...[
+              SettingHeader(l10n.displayTarget),
+              _AdvancedIntro(l10n.displayTargetHint),
+              SettingChoiceRow<String>(
+                title: l10n.targetPrimaries,
+                value: p.targetPrim,
+                options: {
+                  'auto': l10n.targetAuto,
+                  'bt.709': 'BT.709 / sRGB',
+                  'dci-p3': 'DCI-P3',
+                  'display-p3': 'Display P3',
+                  'bt.2020': 'BT.2020',
+                  'adobe': 'Adobe RGB',
+                },
+                onChanged: (v) => _save(p.copyWith(targetPrim: v)),
+              ),
+              SettingChoiceRow<String>(
+                title: l10n.targetTransfer,
+                value: p.targetTrc,
+                options: {
+                  'auto': l10n.targetAuto,
+                  'bt.1886': 'BT.1886',
+                  'srgb': 'sRGB',
+                  'gamma2.2': 'Gamma 2.2',
+                  'gamma2.4': 'Gamma 2.4',
+                  'pq': 'PQ (HDR10)',
+                  'hlg': 'HLG',
+                },
+                onChanged: (v) => _save(p.copyWith(targetTrc: v)),
+              ),
+              SettingChoiceRow<int>(
+                title: l10n.targetPeak,
+                subtitle: l10n.targetPeakHint,
+                value: p.targetPeak,
+                options: {0: l10n.targetAuto, for (final n in const [48, 100, 120, 150, 200, 300, 400, 600, 800, 1000, 1500, 2000, 4000]) n: '$n nits'},
+                onChanged: (v) => _save(p.copyWith(targetPeak: v)),
+              ),
+            ],
             if (MpvConf.supported) ...[
               const SettingHeader('mpv.conf'),
               SettingActionRow(
@@ -725,6 +810,8 @@ class _AdvancedVideoPageState extends State<_AdvancedVideoPage> {
                 },
               ),
               SettingActionRow(title: l10n.openSettingsFolder, icon: Icons.folder_open_rounded, onSelect: MpvConf.openFolder),
+              SettingToggleRow(title: l10n.mpvConfOnly, subtitle: l10n.mpvConfOnlyHint,
+                  value: p.mpvConfOnly, onChanged: (v) => _save(p.copyWith(mpvConfOnly: v))),
             ],
           ]),
         ),

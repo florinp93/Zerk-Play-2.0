@@ -114,6 +114,11 @@ abstract final class Trailers {
       markers: ['espanol', 'castellano', 'subtitulado', 'latino', 'doblado'],
     ),
     'it': _TrailerLanguage(queries: ['trailer italiano'], markers: ['italiano', 'ita', 'sottotitoli']),
+    'pl': _TrailerLanguage(
+      queries: ['zwiastun pl', 'zwiastun napisy pl'],
+      markers: ['zwiastun', 'polski', 'napisy', 'dubbing', 'lektor'],
+      keywords: ['zwiastun'],
+    ),
     'pt': _TrailerLanguage(
       queries: ['trailer legendado', 'trailer dublado'],
       markers: ['legendado', 'dublado', 'portugues', 'brasil'],

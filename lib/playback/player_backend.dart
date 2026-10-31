@@ -109,7 +109,7 @@ abstract interface class PlayerBackend {
 
   void setSubtitleScale(double scale);
 
-  double? matchRefreshRate(double fps);
+  Future<double?> matchRefreshRate(double fps);
 
   Future<DisplayHdrStatus> displayHdr();
 
