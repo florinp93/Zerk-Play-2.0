@@ -317,7 +317,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: l10n.subtitles,
             subtitle: l10n.subtitleModeHint,
             value: p.subtitleMode,
-            options: {SubtitleMode.smart: l10n.subtitleSmart, SubtitleMode.always: l10n.subtitleAlways, SubtitleMode.off: l10n.subtitleOff},
+            options: {SubtitleMode.smart: l10n.subtitleSmart, SubtitleMode.forced: l10n.subtitleForcedOnly, SubtitleMode.always: l10n.subtitleAlways, SubtitleMode.off: l10n.subtitleOff},
             onChanged: (v) => _savePlayer(p.copyWith(subtitleMode: v)),
           ),
           SettingHeader(l10n.settingsGroupSubtitleLook),

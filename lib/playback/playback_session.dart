@@ -310,8 +310,10 @@ final class PlaybackSession {
       _sticky.subtitlesOff = true;
       _sticky.subtitle = null;
     } else {
+      final stream = cur.source.streamByIndex(target);
       _sticky.subtitlesOff = false;
-      _sticky.subtitle = cur.source.streamByIndex(target)?.language;
+      _sticky.subtitle = stream?.language;
+      _sticky.subtitleForced = stream?.isForced ?? false;
     }
     final ok = await _applySubtitle(cur, target);
     if (!ok) {

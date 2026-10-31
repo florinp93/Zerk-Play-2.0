@@ -9,6 +9,8 @@ enum SubtitleMode {
 
   smart,
 
+  forced,
+
   always,
 }
 

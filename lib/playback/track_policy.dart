@@ -11,10 +11,11 @@ final class TrackChoice {
 }
 
 final class StickyLanguages {
-  StickyLanguages({this.audio, this.subtitle, this.subtitlesOff = false});
+  StickyLanguages({this.audio, this.subtitle, this.subtitleForced = false, this.subtitlesOff = false});
 
   String? audio;
   String? subtitle;
+  bool subtitleForced;
   bool subtitlesOff;
 }
 
@@ -30,13 +31,15 @@ abstract final class TrackPolicy {
     if (sticky != null && (sticky.subtitle != null || sticky.subtitlesOff)) {
       final sub = sticky.subtitlesOff
           ? _forcedFor(source, audioLang)
-          : _firstInLanguage(source, sticky.subtitle!, preferForced: false) ??
-              _forcedFor(source, audioLang);
+          : sticky.subtitleForced
+              ? _forcedIn(source, sticky.subtitle!) ?? _forcedFor(source, audioLang)
+              : _firstInLanguage(source, sticky.subtitle!, preferForced: false) ?? _forcedFor(source, audioLang);
       return TrackChoice(audioIndex: audio?.index, subtitleIndex: sub?.index);
     }
 
     final sub = switch (settings.subtitleMode) {
       SubtitleMode.off => null,
+      SubtitleMode.forced => _forcedFor(source, audioLang),
       SubtitleMode.always => _preferredSubtitle(source, settings.preferredSubtitleLanguage) ??
           _byIndex(source, source.defaultSubtitleStreamIndex),
       SubtitleMode.smart => _preferredSubtitle(source, settings.preferredSubtitleLanguage) ??
@@ -83,6 +86,14 @@ abstract final class TrackPolicy {
       if (!s.isForced) continue;
       final lang = normalizeLanguage(s.language);
       if (lang.isEmpty || lang == audioLang) return s;
+    }
+    return null;
+  }
+
+  static MediaStream? _forcedIn(MediaSourceInfo source, String language) {
+    final want = normalizeLanguage(language);
+    for (final s in source.subtitleStreams) {
+      if (s.isForced && normalizeLanguage(s.language) == want) return s;
     }
     return null;
   }
