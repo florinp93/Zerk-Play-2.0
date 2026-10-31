@@ -578,5 +578,11 @@
   "libraryViewSetting": "Disposition de la bibliothèque",
   "viewPosters": "Affiches",
   "viewCards": "Cartes",
-  "viewList": "Liste"
+  "viewList": "Liste",
+  "subtitlePosition": "Position des sous-titres",
+  "subtitlePositionHint": "Bas de l'écran place les sous-titres texte tout en bas, dans les bandes noires sous les films larges, pour masquer le moins possible l'image.",
+  "subtitlePositionHigher": "Plus haut",
+  "subtitlePositionNormal": "Normale",
+  "subtitlePositionLow": "Basse",
+  "subtitlePositionBottom": "Bas de l'écran"
 }

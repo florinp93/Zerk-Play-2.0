@@ -578,5 +578,11 @@
   "libraryViewSetting": "Diseño de la biblioteca",
   "viewPosters": "Pósteres",
   "viewCards": "Tarjetas",
-  "viewList": "Lista"
+  "viewList": "Lista",
+  "subtitlePosition": "Posición de los subtítulos",
+  "subtitlePositionHint": "Borde inferior coloca los subtítulos de texto abajo del todo, en las bandas negras bajo las películas panorámicas, para tapar lo mínimo de la imagen.",
+  "subtitlePositionHigher": "Más alta",
+  "subtitlePositionNormal": "Normal",
+  "subtitlePositionLow": "Baja",
+  "subtitlePositionBottom": "Borde inferior"
 }

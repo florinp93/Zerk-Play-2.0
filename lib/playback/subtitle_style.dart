@@ -15,7 +15,7 @@ abstract final class SubtitleStyle {
 
   static const boxPadding = 4.0;
 
-  static const minScale = 0.5;
+  static const minScale = 0.25;
   static const maxScale = 1.5;
   static const scaleStep = 0.05;
 

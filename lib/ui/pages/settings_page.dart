@@ -350,6 +350,13 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           SubtitlePreview(settings: p),
+          SettingChoiceRow<int>(
+            title: l10n.subtitlePosition,
+            subtitle: l10n.subtitlePositionHint,
+            value: p.subtitleBottomMargin,
+            options: {60: l10n.subtitlePositionHigher, 40: l10n.subtitlePositionNormal, 20: l10n.subtitlePositionLow, 4: l10n.subtitlePositionBottom},
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleBottomMargin: v)),
+          ),
           SettingToggleRow(
             title: l10n.subtitleBackground,
             subtitle: l10n.subtitleBackgroundHint,

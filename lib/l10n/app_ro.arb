@@ -578,5 +578,11 @@
   "libraryViewSetting": "Aspectul bibliotecii",
   "viewPosters": "Postere",
   "viewCards": "Carduri",
-  "viewList": "Listă"
+  "viewList": "Listă",
+  "subtitlePosition": "Poziția subtitrărilor",
+  "subtitlePositionHint": "Jos pe ecran ține subtitrările text chiar la marginea de jos, în benzile negre de sub filmele late, ca să acopere cât mai puțin din imagine.",
+  "subtitlePositionHigher": "Mai sus",
+  "subtitlePositionNormal": "Normal",
+  "subtitlePositionLow": "Jos",
+  "subtitlePositionBottom": "Jos pe ecran"
 }

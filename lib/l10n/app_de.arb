@@ -578,5 +578,11 @@
   "libraryViewSetting": "Bibliothekslayout",
   "viewPosters": "Poster",
   "viewCards": "Karten",
-  "viewList": "Liste"
+  "viewList": "Liste",
+  "subtitlePosition": "Untertitelposition",
+  "subtitlePositionHint": "Unterer Bildschirmrand setzt Textuntertitel ganz nach unten, in die schwarzen Balken unter Breitbildfilmen, damit sie so wenig Bild wie möglich verdecken.",
+  "subtitlePositionHigher": "Höher",
+  "subtitlePositionNormal": "Normal",
+  "subtitlePositionLow": "Tief",
+  "subtitlePositionBottom": "Unterer Bildschirmrand"
 }

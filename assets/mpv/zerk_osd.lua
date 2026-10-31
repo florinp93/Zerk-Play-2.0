@@ -909,6 +909,8 @@ render = function()
     draw_buttons(out, H - 92)
   elseif t < S.mini_until or S.scrub then
     out[#out + 1] = scrim(H - 150, H + 200, 0x40, 70)
+    out[#out + 1] = scrim(-200, 90, 0x50, 70)
+    out[#out + 1] = text(W - 80, 70, 6, 34, T.white, os.date("%H:%M"), { font = T.font_semibold })
     draw_progress(out, H - 96, true, true)
   end
 

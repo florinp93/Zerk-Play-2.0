@@ -578,5 +578,11 @@
   "libraryViewSetting": "Układ biblioteki",
   "viewPosters": "Plakaty",
   "viewCards": "Karty",
-  "viewList": "Lista"
+  "viewList": "Lista",
+  "subtitlePosition": "Położenie napisów",
+  "subtitlePositionHint": "Dół ekranu umieszcza napisy tekstowe przy samej dolnej krawędzi, w czarnych pasach pod szerokimi filmami, aby zasłaniały jak najmniej obrazu.",
+  "subtitlePositionHigher": "Wyżej",
+  "subtitlePositionNormal": "Normalne",
+  "subtitlePositionLow": "Nisko",
+  "subtitlePositionBottom": "Dół ekranu"
 }

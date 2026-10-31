@@ -1227,5 +1227,11 @@
   "libraryViewSetting": "Library layout",
   "viewPosters": "Posters",
   "viewCards": "Cards",
-  "viewList": "List"
+  "viewList": "List",
+  "subtitlePosition": "Subtitle position",
+  "subtitlePositionHint": "Bottom of the screen keeps text subtitles at the very bottom edge, in the black bars below widescreen films, so they cover as little of the picture as possible.",
+  "subtitlePositionHigher": "Higher",
+  "subtitlePositionNormal": "Normal",
+  "subtitlePositionLow": "Low",
+  "subtitlePositionBottom": "Bottom of the screen"
 }

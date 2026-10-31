@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 import '../../l10n/l10n.dart';
 import '../../playback/media3/osd_model.dart';
@@ -652,8 +653,10 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
             ),
           if (DateTime.now().isBefore(_volumeUntil))
             Positioned(top: _visible ? 180 : 64, right: 96, child: _VolumeBadge(volume: s.muted ? 0 : s.volume)),
-          if (miniVisible)
+          if (miniVisible) ...[
+            const Positioned(top: 64, right: 96, child: _Clock(shadow: true)),
             Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position, duration: s.duration)),
+          ],
           if (!loading && !error && _introVisible(s))
             Positioned(
               right: 96,
@@ -764,6 +767,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
             ]),
           ),
           if (model.videoFormat != null) _Badge(text: model.videoFormat!),
+          const SizedBox(width: 28),
+          const _Clock(),
         ]),
       ),
       Positioned(
@@ -1024,6 +1029,45 @@ class _SeekBarState extends State<_SeekBar> {
       ),
     );
   }
+}
+
+class _Clock extends StatefulWidget {
+  const _Clock({this.shadow = false});
+
+  final bool shadow;
+
+  @override
+  State<_Clock> createState() => _ClockState();
+}
+
+class _ClockState extends State<_Clock> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _timer = Timer(Duration(seconds: 60 - now.second), () {
+      if (!mounted) return;
+      setState(() {});
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) => mounted ? setState(() {}) : null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(
+        DateFormat.Hm(context.l10n.localeName).format(DateTime.now()),
+        style: Zt.title.copyWith(
+          fontSize: 34,
+          shadows: widget.shadow ? const [Shadow(color: Colors.black87, blurRadius: 12, offset: Offset(0, 2))] : null,
+        ),
+      );
 }
 
 class _Badge extends StatelessWidget {
