@@ -32,7 +32,7 @@ local L = {
   aspect_zoom = "Zoom to fill", aspect_zoom_detail = "Crops the picture to fill the screen",
   aspect_stretch = "Stretch to fill", aspect_stretch_detail = "Distorts the picture",
   aspect_ratio = "Aspect ratio", aspect_toast = "Aspect ratio: {n}", playback_speed = "Playback speed",
-  subtitle_delay = "Subtitle delay", audio_delay = "Audio delay", subtitle_size = "Subtitle size",
+  subtitle_delay = "Subtitle delay", audio_delay = "Audio delay", subtitle_size = "Subtitle size", slider_hint = "Left and right change it. OK keeps it, Back cancels.",
   search_subtitles = "Search subtitles", searching = "Searching…", no_subtitles_found = "No subtitles found",
   playback_info = "Playback info", playback_info_detail = "Codecs, bitrate, dropped frames",
   hdr_on = "HDR ON", tone_mapped = "TONE-MAPPED", muted = "Muted", press_back = "Press Back to return",
@@ -458,12 +458,8 @@ open_panel = function(kind)
   elseif kind == "audiodelay" then p.title, p.items = tr("audio_delay"), delay_items("audio-delay", 0.05, "2")
   elseif kind == "subsize" then
     local cur = prop("sub-scale", 1)
-    p.title, p.items = tr("subtitle_size"), {}
-    for i = 0, 20 do
-      local v = 0.5 + i * 0.05
-      p.items[#p.items + 1] = { id = v, label = percent(v), selected = math.abs(v - cur) < 0.025 }
-    end
-    p.preview = function(it) mp.set_property_number("sub-scale", it.id) end
+    p.title, p.items = tr("subtitle_size"), { { id = "slider" } }
+    p.slider = { value = cur, min = 0.25, max = 1.5, step = 0.05, marks = { 0.25, 0.5, 0.75, 1.0, 1.25, 1.5 } }
     p.revert = function() mp.set_property_number("sub-scale", cur) end
   elseif kind == "sublang" then
     p.title, p.items = tr("search_subtitles"), {}
@@ -512,8 +508,7 @@ local function panel_activate(item)
     if not item.inert then send("subdownload", item.id); S.panel = nil end
   elseif p.kind == "subsize" then
     p.revert = nil
-    mp.set_property_number("sub-scale", item.id)
-    send("subscale", string.format("%.2f", item.id))
+    send("subscale", string.format("%.2f", p.slider.value))
     S.panel = nil
   end
 end
@@ -658,8 +653,52 @@ local function draw_buttons(out, y)
   end
 end
 
+local function slider_set(p, v)
+  local s = p.slider
+  v = clamp(math.floor((v - s.min) / s.step + 0.5) * s.step + s.min, s.min, s.max)
+  if math.abs(v - s.value) < 1e-6 then return end
+  s.value = v
+  mp.set_property_number("sub-scale", v)
+end
+
+local function draw_slider_panel(out, p)
+  local s = p.slider
+  local bw, bh = math.min(1100, W - 160), 250
+  local bx, by = R((W - bw) / 2), 60
+  out[#out + 1] = rrect(bx, by, bw, bh, 28, T.panel, "10")
+  out[#out + 1] = text(bx + 48, by + 56, 4, 40, T.white, esc(p.title), { font = T.font_semibold })
+  out[#out + 1] = text(bx + bw - 48, by + 56, 6, 40, T.accent_soft, percent(s.value), { font = T.font_semibold })
+  out[#out + 1] = text(bx + 48, by + 100, 4, 22, T.muted, esc(tr("slider_hint")))
+  local tx, tw, ty = bx + 64, bw - 128, by + 156
+  local function at(v) return tx + tw * (v - s.min) / (s.max - s.min) end
+  out[#out + 1] = rrect(tx, ty - 3, tw, 6, 3, T.white, "B0")
+  out[#out + 1] = rrect(tx, ty - 3, at(s.value) - tx, 6, 3, T.accent)
+  local n = R((s.max - s.min) / s.step)
+  for i = 0, n do
+    local v = s.min + i * s.step
+    local major = false
+    for _, m in ipairs(s.marks) do if math.abs(m - v) < 1e-6 then major = true end end
+    local h = major and 16 or 10
+    out[#out + 1] = rrect(at(v) - 1, ty - h / 2, 2, h, 1, v <= s.value + 1e-6 and T.accent or T.white, v <= s.value + 1e-6 and "00" or "B0")
+    if major then
+      local on = math.abs(v - s.value) < 1e-6
+      out[#out + 1] = text(at(v), ty + 34, 5, 20, on and T.white or T.muted, percent(v), on and { font = T.font_semibold } or nil)
+    end
+  end
+  out[#out + 1] = circle(at(s.value), ty, 15, T.accent)
+  out[#out + 1] = circle(at(s.value), ty, 11, T.white)
+  add_hit(tx - 20, ty - 30, tx + tw + 20, ty + 50, function(x)
+    slider_set(p, s.min + clamp((x - tx) / tw, 0, 1) * (s.max - s.min))
+  end, "slider")
+end
+
 local function draw_panel(out)
   local p = S.panel
+  if p.slider then
+    S.hits = {}
+    draw_slider_panel(out, p)
+    return
+  end
   local pw = 620
   local px = W - pw
   S.hits = {}
@@ -1082,6 +1121,15 @@ local function on_key(name)
     end
     S.pointer = false
 
+    if S.panel and S.panel.slider then
+      local p = S.panel
+      if name == "left" or name == "right" then slider_set(p, p.slider.value + (name == "left" and -1 or 1) * p.slider.step)
+      elseif name == "ok" then panel_activate(p.items[1])
+      elseif name == "back" then close_panel()
+      end
+      touch(); refresh()
+      return
+    end
     if S.panel then
       local p = S.panel
       p.free_scroll = false
@@ -1268,6 +1316,7 @@ mp.add_forced_key_binding("MBTN_LEFT", "zerk-click", function()
     touch(); render(); update_hover(); refresh()
     return
   end
+  if S.panel and S.panel.slider then panel_activate(S.panel.items[1]); refresh(); return end
   if S.panel then close_panel(); refresh(); return end
   toggle_pause()
 end)

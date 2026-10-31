@@ -16,6 +16,7 @@ import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/net_image.dart';
 import '../widgets/side_panel.dart';
+import '../widgets/value_slider.dart';
 import 'player_loading.dart';
 
 class _ScreenBand extends StatelessWidget {
@@ -335,17 +336,24 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
   Future<void> _chooseSubtitleSize() async {
     final original = model.subtitleScale;
     _panelOpen = true;
-    final chosen = await showSidePanel<double>(
+    final chosen = await showSliderPanel(
       context,
       title: context.l10n.subtitleSize,
-      options: [
-        for (final s in SubtitleStyle.scales)
-          PanelOption(value: s, title: SubtitleStyle.percent(s), selected: (s - original).abs() < 0.001),
-      ],
-      onFocus: (s) => model.send('subscale-preview', s.toStringAsFixed(2)),
+      hint: context.l10n.sliderHint,
+      value: original,
+      min: SubtitleStyle.minScale,
+      max: SubtitleStyle.maxScale,
+      step: SubtitleStyle.scaleStep,
+      marks: SubtitleStyle.marks,
+      format: SubtitleStyle.percent,
+      onChanged: (s) {
+        model.subtitleScale = s;
+        model.send('subscale-preview', s.toStringAsFixed(2));
+      },
     );
     _panelOpen = false;
     _armHide();
+    model.subtitleScale = chosen ?? original;
     model.send(chosen == null ? 'subscale-preview' : 'subscale', (chosen ?? original).toStringAsFixed(2));
   }
 

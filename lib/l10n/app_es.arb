@@ -584,5 +584,13 @@
   "subtitlePositionHigher": "Más alta",
   "subtitlePositionNormal": "Normal",
   "subtitlePositionLow": "Baja",
-  "subtitlePositionBottom": "Borde inferior"
+  "subtitlePositionBottom": "Borde inferior",
+  "sectionLanguagesOnly": "Idiomas",
+  "settingsGroupSeeking": "Saltos",
+  "settingsGroupScreen": "Tamaño de imagen y pantalla",
+  "settingsGroupSubtitleLook": "Aspecto",
+  "settingsGroupPlaybackLanguages": "Audio y subtítulos",
+  "settingsGroupContentLanguages": "Títulos y tráilers",
+  "settingsGroupLayout": "Diseño",
+  "sliderHint": "Izquierda y derecha lo cambian. OK lo guarda, Atrás cancela."
 }

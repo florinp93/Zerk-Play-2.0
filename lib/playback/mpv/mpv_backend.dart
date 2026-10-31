@@ -132,6 +132,7 @@ final class MpvBackend implements PlayerBackend {
         'subtitle_delay': l.subtitleDelay,
         'audio_delay': l.audioDelay,
         'subtitle_size': l.subtitleSize,
+        'slider_hint': l.sliderHint,
         'search_subtitles': l.searchSubtitles,
         'searching': l.subtitleSearching,
         'no_subtitles_found': l.subtitleSearchEmpty,

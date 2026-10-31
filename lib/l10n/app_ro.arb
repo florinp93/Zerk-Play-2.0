@@ -584,5 +584,13 @@
   "subtitlePositionHigher": "Mai sus",
   "subtitlePositionNormal": "Normal",
   "subtitlePositionLow": "Jos",
-  "subtitlePositionBottom": "Jos pe ecran"
+  "subtitlePositionBottom": "Jos pe ecran",
+  "sectionLanguagesOnly": "Limbi",
+  "settingsGroupSeeking": "Derulare",
+  "settingsGroupScreen": "Dimensiunea imaginii și ecranul",
+  "settingsGroupSubtitleLook": "Aspect",
+  "settingsGroupPlaybackLanguages": "Audio și subtitrări",
+  "settingsGroupContentLanguages": "Titluri și trailere",
+  "settingsGroupLayout": "Așezare",
+  "sliderHint": "Stânga și dreapta o schimbă. OK o păstrează, Înapoi anulează."
 }

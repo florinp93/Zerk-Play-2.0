@@ -19,6 +19,8 @@ abstract final class SubtitleStyle {
   static const maxScale = 1.5;
   static const scaleStep = 0.05;
 
+  static const marks = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5];
+
   static List<double> get scales => [for (var i = 0; minScale + i * scaleStep <= maxScale + 1e-9; i++) step(minScale, i)];
 
   static double step(double scale, int steps) =>

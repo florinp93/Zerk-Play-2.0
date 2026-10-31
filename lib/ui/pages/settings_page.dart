@@ -28,16 +28,17 @@ import '../widgets/exit_app.dart';
 import '../widgets/media_row.dart';
 import '../widgets/remote_setup_panel.dart';
 import '../widgets/setting_rows.dart';
-import '../widgets/side_panel.dart';
 import '../widgets/subtitle_preview.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/value_slider.dart';
 import 'home_collections_page.dart';
 
 enum _Section {
   playback(Icons.play_circle_outline_rounded),
-  video(Icons.hd_outlined),
+  picture(Icons.hd_outlined),
   audio(Icons.graphic_eq_rounded),
   subtitles(Icons.subtitles_outlined),
+  languages(Icons.translate_rounded),
   interface(Icons.tune_rounded),
   content(Icons.movie_filter_outlined),
   services(Icons.hub_outlined),
@@ -49,16 +50,14 @@ enum _Section {
 
   final IconData icon;
 
-  bool get shown => switch (this) {
-        video => Host.isWindows,
-        _ => true,
-      };
+  bool get shown => true;
 
   String label(L10n l10n) => switch (this) {
         playback => l10n.sectionPlayback,
-        video => l10n.sectionVideo,
+        picture => l10n.settingsGroupPicture,
         audio => l10n.audio,
-        subtitles => l10n.sectionLanguages,
+        subtitles => l10n.subtitles,
+        languages => l10n.sectionLanguagesOnly,
         interface => l10n.sectionInterface,
         content => l10n.sectionContent,
         services => l10n.sectionServices,
@@ -180,6 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _savePlayer(p.copyWith(autoPlayNextEpisode: v))),
           SettingToggleRow(title: l10n.autoSkipIntro, value: p.skipIntroAutomatically,
               onChanged: (v) => _savePlayer(p.copyWith(skipIntroAutomatically: v))),
+          SettingHeader(l10n.settingsGroupSeeking),
           SettingChoiceRow<int>(
             title: l10n.seekForwardStep,
             value: p.seekForwardSeconds,
@@ -192,40 +192,34 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {for (final s in const [5, 10, 15, 20, 30, 45, 60, 90, 120]) s: l10n.secondsCount(s)},
             onChanged: (v) => _savePlayer(p.copyWith(seekBackSeconds: v)),
           ),
-          SettingHeader(l10n.automationHeader),
-          _intro(l10n.webhookIntro),
-          SettingTextRow(
-            title: l10n.webhookUrl,
-            value: p.webhookUrl,
-            hint: 'http://homeassistant.local:8123/api/webhook/zerk_play',
-            onChanged: (v) => _savePlayer(p.copyWith(webhookUrl: v.trim())),
-          ),
         ];
-      case _Section.video:
+      case _Section.picture:
         return [
           _intro(l10n.videoIntro),
           SettingHeader(l10n.settingsGroupDisplay, first: true),
-          SettingToggleRow(title: l10n.hdrPassthrough, subtitle: l10n.hdrPassthroughHint,
-              value: p.hdrPassthrough, onChanged: (v) => _savePlayer(p.copyWith(hdrPassthrough: v))),
-          SettingToggleRow(
-            title: l10n.autoHdr,
-            subtitle: switch (_display) {
-              null => l10n.autoHdrChecking,
-              DisplayHdrStatus(supported: false) => l10n.autoHdrUnsupported,
-              DisplayHdrStatus(enabled: true) => l10n.autoHdrAlreadyOn,
-              _ => l10n.autoHdrSupported,
-            },
-            value: p.autoHdr && (_display?.supported ?? false),
-            enabled: (_display?.supported ?? false) && p.hdrPassthrough,
-            onChanged: (v) => _savePlayer(p.copyWith(autoHdr: v)),
-          ),
-          SettingToggleRow(
-            title: l10n.keepHdr,
-            subtitle: l10n.keepHdrHint,
-            value: p.keepHdr,
-            enabled: p.autoHdr && (_display?.supported ?? false),
-            onChanged: (v) => _savePlayer(p.copyWith(keepHdr: v)),
-          ),
+          if (Host.isWindows) ...[
+            SettingToggleRow(title: l10n.hdrPassthrough, subtitle: l10n.hdrPassthroughHint,
+                value: p.hdrPassthrough, onChanged: (v) => _savePlayer(p.copyWith(hdrPassthrough: v))),
+            SettingToggleRow(
+              title: l10n.autoHdr,
+              subtitle: switch (_display) {
+                null => l10n.autoHdrChecking,
+                DisplayHdrStatus(supported: false) => l10n.autoHdrUnsupported,
+                DisplayHdrStatus(enabled: true) => l10n.autoHdrAlreadyOn,
+                _ => l10n.autoHdrSupported,
+              },
+              value: p.autoHdr && (_display?.supported ?? false),
+              enabled: (_display?.supported ?? false) && p.hdrPassthrough,
+              onChanged: (v) => _savePlayer(p.copyWith(autoHdr: v)),
+            ),
+            SettingToggleRow(
+              title: l10n.keepHdr,
+              subtitle: l10n.keepHdrHint,
+              value: p.keepHdr,
+              enabled: p.autoHdr && (_display?.supported ?? false),
+              onChanged: (v) => _savePlayer(p.copyWith(keepHdr: v)),
+            ),
+          ],
           SettingToggleRow(title: l10n.matchRefreshRate, subtitle: l10n.matchRefreshRateHint,
               value: p.matchRefreshRate, onChanged: (v) => _savePlayer(p.copyWith(matchRefreshRate: v))),
           SettingToggleRow(
@@ -235,22 +229,22 @@ class _SettingsPageState extends State<SettingsPage> {
             enabled: p.matchRefreshRate,
             onChanged: (v) => _savePlayer(p.copyWith(keepRefreshRate: v)),
           ),
-          SettingHeader(l10n.settingsGroupPicture),
-          SettingChoiceRow<double>(
-            title: l10n.screenShape,
-            subtitle: l10n.screenShapeHint,
-            value: p.scopeScreen,
-            options: {0.0: l10n.screenShapeNormal, 2.35: l10n.screenShapeScope('2.35:1'), 2.37: l10n.screenShapeScope('2.37:1'), 2.40: l10n.screenShapeScope('2.40:1')},
-            onChanged: (v) => _savePlayer(p.copyWith(scopeScreen: v)),
-          ),
-          SettingToggleRow(title: l10n.autoCrop, subtitle: l10n.autoCropHint,
-              value: p.autoCrop, onChanged: (v) => _savePlayer(p.copyWith(autoCrop: v))),
+          SettingHeader(l10n.settingsGroupScreen),
           SettingChoiceRow<String>(
             title: l10n.defaultAspect,
             subtitle: l10n.defaultAspectHint,
             value: p.defaultAspect,
             options: {'auto': l10n.aspectOriginal, 'zoom': l10n.aspectZoom, 'stretch': l10n.aspectStretch},
             onChanged: (v) => _savePlayer(p.copyWith(defaultAspect: v)),
+          ),
+          SettingToggleRow(title: l10n.autoCrop, subtitle: l10n.autoCropHint,
+              value: p.autoCrop, onChanged: (v) => _savePlayer(p.copyWith(autoCrop: v))),
+          SettingChoiceRow<double>(
+            title: l10n.screenShape,
+            subtitle: l10n.screenShapeHint,
+            value: p.scopeScreen,
+            options: {0.0: l10n.screenShapeNormal, 2.35: l10n.screenShapeScope('2.35:1'), 2.37: l10n.screenShapeScope('2.37:1'), 2.40: l10n.screenShapeScope('2.40:1')},
+            onChanged: (v) => _savePlayer(p.copyWith(scopeScreen: v)),
           ),
           SettingChoiceRow<double>(
             title: l10n.anamorphicLens,
@@ -259,42 +253,44 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {1.0: l10n.anamorphicNone, 1.25: '1.25×', 1.33: '1.33×', 1.5: '1.5×'},
             onChanged: (v) => _savePlayer(p.copyWith(anamorphic: v)),
           ),
-          SettingHeader(l10n.settingsGroupDecoding),
-          SettingChoiceRow<VideoQuality>(
-            title: l10n.videoQuality,
-            subtitle: l10n.videoQualityHint,
-            value: p.videoQuality,
-            options: {
-              VideoQuality.fast: l10n.videoQualityFast,
-              VideoQuality.balanced: l10n.videoQualityBalanced,
-              VideoQuality.high: l10n.videoQualityHigh,
-            },
-            onChanged: (v) => _savePlayer(p.copyWith(videoQuality: v)),
-          ),
-          SettingChoiceRow<String>(
-            title: l10n.hardwareDecoding,
-            subtitle: l10n.hardwareDecodingHint,
-            value: p.hwdec,
-            options: {
-              'auto-safe': l10n.hwdecAuto,
-              'd3d11va': l10n.hwdecD3d11,
-              'nvdec': l10n.hwdecNvdec,
-              'd3d11va-copy': l10n.hwdecCopy,
-              'no': l10n.hwdecOff,
-            },
-            onChanged: (v) => _savePlayer(p.copyWith(hwdec: v)),
-          ),
-          const SizedBox(height: 16),
-          SettingActionRow(
-            title: l10n.advancedVideo,
-            subtitle: l10n.advancedVideoHint,
-            icon: Icons.chevron_right_rounded,
-            onSelect: () async {
-              await Navigator.of(context).push(tvRoute<void>(_AdvancedVideoPage(initial: p), name: 'settings/advanced-video'));
-              final fresh = await PlayerSettings.load();
-              if (mounted) setState(() => _player = fresh);
-            },
-          ),
+          if (Host.isWindows) ...[
+            SettingHeader(l10n.settingsGroupDecoding),
+            SettingChoiceRow<VideoQuality>(
+              title: l10n.videoQuality,
+              subtitle: l10n.videoQualityHint,
+              value: p.videoQuality,
+              options: {
+                VideoQuality.fast: l10n.videoQualityFast,
+                VideoQuality.balanced: l10n.videoQualityBalanced,
+                VideoQuality.high: l10n.videoQualityHigh,
+              },
+              onChanged: (v) => _savePlayer(p.copyWith(videoQuality: v)),
+            ),
+            SettingChoiceRow<String>(
+              title: l10n.hardwareDecoding,
+              subtitle: l10n.hardwareDecodingHint,
+              value: p.hwdec,
+              options: {
+                'auto-safe': l10n.hwdecAuto,
+                'd3d11va': l10n.hwdecD3d11,
+                'nvdec': l10n.hwdecNvdec,
+                'd3d11va-copy': l10n.hwdecCopy,
+                'no': l10n.hwdecOff,
+              },
+              onChanged: (v) => _savePlayer(p.copyWith(hwdec: v)),
+            ),
+            const SizedBox(height: 16),
+            SettingActionRow(
+              title: l10n.advancedVideo,
+              subtitle: l10n.advancedVideoHint,
+              icon: Icons.chevron_right_rounded,
+              onSelect: () async {
+                await Navigator.of(context).push(tvRoute<void>(_AdvancedVideoPage(initial: p), name: 'settings/advanced-video'));
+                final fresh = await PlayerSettings.load();
+                if (mounted) setState(() => _player = fresh);
+              },
+            ),
+          ],
         ];
       case _Section.audio:
         return [
@@ -317,12 +313,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ];
       case _Section.subtitles:
         return [
-          SettingChoiceRow<String>(
-            title: l10n.preferredAudioLanguage,
-            value: p.preferredAudioLanguage,
-            options: languages,
-            onChanged: (v) => _savePlayer(p.copyWith(preferredAudioLanguage: v)),
-          ),
           SettingChoiceRow<SubtitleMode>(
             title: l10n.subtitles,
             subtitle: l10n.subtitleModeHint,
@@ -330,24 +320,17 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {SubtitleMode.smart: l10n.subtitleSmart, SubtitleMode.always: l10n.subtitleAlways, SubtitleMode.off: l10n.subtitleOff},
             onChanged: (v) => _savePlayer(p.copyWith(subtitleMode: v)),
           ),
-          SettingChoiceRow<String>(
-            title: l10n.preferredSubtitleLanguage,
-            value: p.preferredSubtitleLanguage,
-            options: languages,
-            onChanged: (v) => _savePlayer(p.copyWith(preferredSubtitleLanguage: v)),
-          ),
-          SettingStepperRow(
+          SettingHeader(l10n.settingsGroupSubtitleLook),
+          SettingSliderRow(
             title: l10n.subtitleSize,
             subtitle: l10n.subtitleSizeHint,
-            value: SubtitleStyle.percent(p.subtitleScale),
-            onStep: (step) => _savePlayer(p.copyWith(subtitleScale: SubtitleStyle.step(p.subtitleScale, step))),
-            onSelect: () async {
-              final chosen = await showSidePanel<double>(context, title: l10n.subtitleSize, options: [
-                for (final s in SubtitleStyle.scales)
-                  PanelOption(value: s, title: SubtitleStyle.percent(s), selected: (s - p.subtitleScale).abs() < 0.001),
-              ]);
-              if (chosen != null) await _savePlayer(p.copyWith(subtitleScale: chosen));
-            },
+            value: p.subtitleScale,
+            min: SubtitleStyle.minScale,
+            max: SubtitleStyle.maxScale,
+            step: SubtitleStyle.scaleStep,
+            marks: SubtitleStyle.marks,
+            format: SubtitleStyle.percent,
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleScale: v)),
           ),
           SubtitlePreview(settings: p),
           SettingChoiceRow<int>(
@@ -373,7 +356,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingToggleRow(title: l10n.restyleAss, subtitle: l10n.restyleAssHint,
               value: p.overrideAssStyles, onChanged: (v) => _savePlayer(p.copyWith(overrideAssStyles: v))),
         ];
-      case _Section.interface:
+      case _Section.languages:
         return [
           SettingChoiceRow<String>(
             title: l10n.appLanguage,
@@ -381,6 +364,44 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {'': l10n.systemLanguage, ...uiLanguages},
             onChanged: (v) => services.updateSettings(app.copyWith(uiLanguage: v)),
           ),
+          SettingHeader(l10n.settingsGroupPlaybackLanguages),
+          SettingChoiceRow<String>(
+            title: l10n.preferredAudioLanguage,
+            value: p.preferredAudioLanguage,
+            options: languages,
+            onChanged: (v) => _savePlayer(p.copyWith(preferredAudioLanguage: v)),
+          ),
+          SettingChoiceRow<String>(
+            title: l10n.preferredSubtitleLanguage,
+            value: p.preferredSubtitleLanguage,
+            options: languages,
+            onChanged: (v) => _savePlayer(p.copyWith(preferredSubtitleLanguage: v)),
+          ),
+          SettingHeader(l10n.settingsGroupContentLanguages),
+          SettingChoiceRow<String>(
+            title: l10n.metadataLanguage,
+            subtitle: services.tmdb == null && app.metadataLanguage.isNotEmpty
+                ? l10n.metadataLanguageNeedsKey
+                : l10n.metadataLanguageHint,
+            value: app.metadataLanguage,
+            options: {...metadataLanguages, '': l10n.metadataFromServer},
+            onChanged: (v) => services.updateSettings(app.copyWith(metadataLanguage: v)),
+          ),
+          if (TrailerPlayer.supported)
+            SettingChoiceRow<String>(
+              title: l10n.trailerLanguage,
+              subtitle: l10n.trailerLanguageHint,
+              value: app.trailerLanguage,
+              options: {
+                '': l10n.trailerLanguageOriginal,
+                for (final e in metadataLanguages.entries)
+                  if (e.key.isNotEmpty && e.key != 'en-US') e.key: e.value,
+              },
+              onChanged: (v) => services.updateSettings(app.copyWith(trailerLanguage: v)),
+            ),
+        ];
+      case _Section.interface:
+        return [
           if (Host.isWindows)
             SettingToggleRow(
               title: l10n.startFullScreen,
@@ -388,6 +409,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => services.updateSettings(app.copyWith(startFullScreen: v)),
             ),
           SettingToggleRow(title: l10n.navigationSounds, value: app.sounds, onChanged: (v) => services.updateSettings(app.copyWith(sounds: v))),
+          SettingHeader(l10n.settingsGroupLayout),
+          SettingChoiceRow<LibraryView>(
+            title: l10n.libraryViewSetting,
+            value: app.libraryView,
+            options: {LibraryView.posters: l10n.viewPosters, LibraryView.cards: l10n.viewCards, LibraryView.list: l10n.viewList},
+            onChanged: (v) => services.updateSettings(app.copyWith(libraryView: v)),
+          ),
           SettingChoiceRow<PosterSize>(
             title: l10n.posterSize,
             subtitle: l10n.posterSizeHint,
@@ -425,30 +453,11 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.chevron_right_rounded,
               onSelect: () => Navigator.of(context).push(tvRoute<void>(const HomeCollectionsPage(), name: 'settings/home-collections')),
             ),
-          SettingHeader(l10n.sectionMetadata),
-          SettingChoiceRow<String>(
-            title: l10n.metadataLanguage,
-            subtitle: services.tmdb == null && app.metadataLanguage.isNotEmpty
-                ? l10n.metadataLanguageNeedsKey
-                : l10n.metadataLanguageHint,
-            value: app.metadataLanguage,
-            options: {...metadataLanguages, '': l10n.metadataFromServer},
-            onChanged: (v) => services.updateSettings(app.copyWith(metadataLanguage: v)),
-          ),
           SettingToggleRow(
             title: l10n.hideAnimation,
             subtitle: l10n.hideAnimationHint,
             value: app.hideAnimation,
             onChanged: (v) => services.updateSettings(app.copyWith(hideAnimation: v)),
-          ),
-          SettingActionRow(
-            title: l10n.refreshMetadata,
-            icon: Icons.refresh_rounded,
-            onSelect: () async {
-              await MetadataLocalizer.clearCache();
-              services.markLibraryChanged();
-              if (mounted) _toast(l10n.metadataCleared);
-            },
           ),
           if (TrailerPlayer.supported) ...[
             SettingHeader(l10n.trailers),
@@ -475,18 +484,17 @@ class _SettingsPageState extends State<SettingsPage> {
               value: app.cardTrailers,
               onChanged: (v) => services.updateSettings(app.copyWith(cardTrailers: v)),
             ),
-            SettingChoiceRow<String>(
-              title: l10n.trailerLanguage,
-              subtitle: l10n.trailerLanguageHint,
-              value: app.trailerLanguage,
-              options: {
-                '': l10n.trailerLanguageOriginal,
-                for (final e in metadataLanguages.entries)
-                  if (e.key.isNotEmpty && e.key != 'en-US') e.key: e.value,
-              },
-              onChanged: (v) => services.updateSettings(app.copyWith(trailerLanguage: v)),
-            ),
           ],
+          SettingHeader(l10n.sectionMetadata),
+          SettingActionRow(
+            title: l10n.refreshMetadata,
+            icon: Icons.refresh_rounded,
+            onSelect: () async {
+              await MetadataLocalizer.clearCache();
+              services.markLibraryChanged();
+              if (mounted) _toast(l10n.metadataCleared);
+            },
+          ),
         ];
       case _Section.services:
         return [
@@ -560,6 +568,14 @@ class _SettingsPageState extends State<SettingsPage> {
               UiSounds.play(problem == null ? UiSound.select : UiSound.error);
               _toast(problem == null ? l10n.connected : l10n.seerrProblem(problem));
             },
+          ),
+          SettingHeader(l10n.automationHeader),
+          _intro(l10n.webhookIntro),
+          SettingTextRow(
+            title: l10n.webhookUrl,
+            value: p.webhookUrl,
+            hint: 'http://homeassistant.local:8123/api/webhook/zerk_play',
+            onChanged: (v) => _savePlayer(p.copyWith(webhookUrl: v.trim())),
           ),
         ];
       case _Section.liveTv:

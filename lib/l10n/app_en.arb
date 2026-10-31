@@ -1233,5 +1233,13 @@
   "subtitlePositionHigher": "Higher",
   "subtitlePositionNormal": "Normal",
   "subtitlePositionLow": "Low",
-  "subtitlePositionBottom": "Bottom of the screen"
+  "subtitlePositionBottom": "Bottom of the screen",
+  "sectionLanguagesOnly": "Languages",
+  "settingsGroupSeeking": "Skipping",
+  "settingsGroupScreen": "Picture size & screen",
+  "settingsGroupSubtitleLook": "Look",
+  "settingsGroupPlaybackLanguages": "Audio & subtitles",
+  "settingsGroupContentLanguages": "Titles & trailers",
+  "settingsGroupLayout": "Layout",
+  "sliderHint": "Left and right change it. OK keeps it, Back cancels."
 }

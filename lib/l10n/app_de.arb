@@ -584,5 +584,13 @@
   "subtitlePositionHigher": "Höher",
   "subtitlePositionNormal": "Normal",
   "subtitlePositionLow": "Tief",
-  "subtitlePositionBottom": "Unterer Bildschirmrand"
+  "subtitlePositionBottom": "Unterer Bildschirmrand",
+  "sectionLanguagesOnly": "Sprachen",
+  "settingsGroupSeeking": "Springen",
+  "settingsGroupScreen": "Bildgröße & Leinwand",
+  "settingsGroupSubtitleLook": "Aussehen",
+  "settingsGroupPlaybackLanguages": "Audio & Untertitel",
+  "settingsGroupContentLanguages": "Titel & Trailer",
+  "settingsGroupLayout": "Layout",
+  "sliderHint": "Links und rechts ändern den Wert. OK übernimmt, Zurück bricht ab."
 }
