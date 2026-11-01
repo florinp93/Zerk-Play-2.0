@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/host.dart';
 import '../core/http/trust_all_certs.dart';
+import '../core/log/app_log.dart';
 import '../core/storage/shared_preferences_store.dart';
 import '../core/emby/server_kind.dart';
 import '../data/catalog_api.dart';
@@ -81,8 +82,8 @@ final class AppServices extends ChangeNotifier {
 
     final janus = JanusService(
       store: store,
-      deviceName: Host.isAndroid ? 'Android TV' : 'Windows',
-      appVersion: '2.0.0',
+      deviceName: Host.isAndroid ? 'Android TV' : Host.isLinux ? 'Linux' : 'Windows',
+      appVersion: AppLog.appVersion.split('+').first,
     );
     await janus.init();
     await janus.restoreSession();

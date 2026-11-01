@@ -9,6 +9,9 @@ import 'device_profile.dart';
 import 'media3/device_caps.dart';
 import 'player_settings.dart';
 
+const _iconUrl =
+    'https://raw.githubusercontent.com/florinp93/Zerk-Play-2.0/main/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png';
+
 enum PlayMethod { directPlay, directStream, transcode }
 
 extension PlayMethodWire on PlayMethod {
@@ -139,6 +142,7 @@ final class EmbyPlaybackApi {
             ? ['Play', 'PlayState', 'SetAudioStreamIndex', 'SetSubtitleStreamIndex', 'DisplayMessage']
             : ['Play', 'Pause', 'Unpause', 'Stop', 'Seek', 'SetAudioStreamIndex', 'SetSubtitleStreamIndex', 'DisplayMessage'],
         'SupportsMediaControl': false,
+        'IconUrl': _iconUrl,
         'DeviceProfile': profile,
       },
     );
