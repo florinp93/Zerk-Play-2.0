@@ -71,7 +71,7 @@
   "tmdbApiKey": "TMDB API key",
   "tmdbApiKeyHint": "API key or read access token from themoviedb.org → Settings → API",
   "ratingsHeader": "Ratings",
-  "ratingsIntro": "Rotten Tomatoes critic and audience scores on title pages. With an MDBList key they come from MDBList, otherwise from *seerr when it has them.",
+  "ratingsIntro": "Rotten Tomatoes critic and audience scores on title pages. With an MDBList key they come from MDBList, otherwise from Seerr when it has them.",
   "mdblistApiKey": "MDBList API key",
   "mdblistApiKeyHint": "Free key from mdblist.com → Preferences → API",
   "testMdblistKey": "Test MDBList key",
@@ -79,11 +79,11 @@
   "mdblistKeyWorks": "MDBList key works",
   "tmdbKeyMissing": "Enter a TMDB API key, or choose the media server.",
   "obRequestsTitle": "Requests",
-  "obRequestsBody": "Connect Jellyseerr or Overseerr to discover and request titles that aren't in your library yet. This is optional.",
+  "obRequestsBody": "Connect Seerr to discover and request titles that aren't in your library yet. This is optional.",
   "seerrAddress": "Server address",
   "seerrAddressHint": "https://requests.example.com",
   "seerrApiKey": "API key",
-  "seerrApiKeyHint": "Settings → General → API Key in *seerr",
+  "seerrApiKeyHint": "Settings → General → API Key in Seerr",
   "seerrIncomplete": "Enter both the address and the API key, or skip this step.",
   "settings": "Settings",
   "exitApp": "Exit Zerk Play",
@@ -92,7 +92,7 @@
   "exitConfirm": "Exit",
   "sectionContent": "Content & trailers",
   "sectionServices": "Connected services",
-  "servicesIntro": "Optional services on top of your library: TMDB for titles and artwork in your language, Jellyseerr or Overseerr to request what isn't there yet.",
+  "servicesIntro": "Optional services on top of your library: TMDB for titles and artwork in your language, Seerr to request what isn't there yet.",
   "settingsGroupDisplay": "Display",
   "settingsGroupDecoding": "Picture and decoding",
   "advancedVideo": "Advanced video settings",
@@ -206,7 +206,7 @@
   "tmdbKeyWorks": "TMDB key works.",
   "refreshMetadata": "Refresh metadata",
   "metadataCleared": "Cached TMDB metadata cleared.",
-  "requestsIntro": "Connect Jellyseerr or Overseerr to discover and request titles that aren't in your library yet.",
+  "requestsIntro": "Connect Seerr to discover and request titles that aren't in your library yet.",
   "testConnection": "Test connection",
   "connected": "Connected.",
   "trailer": "Trailer",
@@ -244,8 +244,8 @@
   },
   "tmdbUnreachable": "Could not reach TMDB.",
   "tmdbKeyRejected": "TMDB rejected the API key, so the server's metadata is shown. Check the key under Settings → Metadata.",
-  "seerrNotConfigured": "Enter the *seerr address and API key first.",
-  "seerrNotSeerr": "{url} answered {status}. Is that the *seerr address?",
+  "seerrNotConfigured": "Enter the Seerr address and API key first.",
+  "seerrNotSeerr": "{url} answered {status}. Is that the Seerr address?",
   "@seerrNotSeerr": {
     "placeholders": {
       "url": {
@@ -256,7 +256,7 @@
       }
     }
   },
-  "seerrUnreachable": "Could not reach *seerr at {url}.",
+  "seerrUnreachable": "Could not reach Seerr at {url}.",
   "@seerrUnreachable": {
     "placeholders": {
       "url": {
@@ -264,8 +264,8 @@
       }
     }
   },
-  "seerrKeyRejected": "*seerr rejected the API key (Settings → General → API Key).",
-  "seerrKeyCheckFailed": "*seerr answered {status} when checking the API key.",
+  "seerrKeyRejected": "Seerr rejected the API key (Settings → General → API Key).",
+  "seerrKeyCheckFailed": "Seerr answered {status} when checking the API key.",
   "@seerrKeyCheckFailed": {
     "placeholders": {
       "status": {
@@ -532,7 +532,7 @@
       }
     }
   },
-  "requestWithSeerr": "Request with *seerr",
+  "requestWithSeerr": "Request with Seerr",
   "couldNotLoadDetails": "Could not load details: {error}",
   "@couldNotLoadDetails": {
     "placeholders": {
@@ -543,7 +543,7 @@
   },
   "pickSeason": "Pick at least one season.",
   "requestedMessage": "Requested. It will show up in your library once it's ready.",
-  "requestNotAllowed": "Your *seerr account isn't allowed to request this.",
+  "requestNotAllowed": "Your Seerr account isn't allowed to request this.",
   "qualityProfile": "Quality profile",
   "qualityDefault": "Default",
   "requestQuality": "Quality: {name}",

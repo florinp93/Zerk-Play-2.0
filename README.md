@@ -4,7 +4,7 @@
 
 <p align="center">
   A free, open-source Emby and Jellyfin client for <b>Windows</b>, <b>Linux</b> and <b>Android TV / Google TV</b>,<br>
-  built around discovery and *Seerr (Jellyseerr / Overseerr) requests.
+  built around discovery and Seerr requests.
 </p>
 
 <p align="center">
@@ -50,9 +50,9 @@ There's also a **Discover** tab (trending, popular, coming soon), a **Calendar**
 
 ![Discover](screenshots/13-discover.png)
 
-## Requests built in (\*Seerr)
+## Requests built in (Seerr)
 
-Connect \*Seerr and titles you don't have show up right next to the ones you do:
+Connect Seerr and titles you don't have show up right next to the ones you do:
 
 - A **Request** badge on anything not in your library, in every row: home, Discover, search, More like this
 - One **Request** page: pick the seasons, watch the trailer, done
@@ -89,7 +89,7 @@ Add your own Xtream Codes IPTV account to get a proper **TV guide**: channel gro
 
 The whole UI is driven by **D-pad / remote / keyboard** first. It works on Windows and Linux too: plug in a gamepad or use the arrow keys, and the mouse cursor hides itself until you move it again. The mouse still works everywhere, with hover and wheel scrolling.
 
-Setup on a TV is painless: **scan a QR code with your phone** and fill in the server, TMDB key and \*Seerr details there instead of typing with a remote.
+Setup on a TV is painless: **scan a QR code with your phone** and fill in the server, TMDB key and Seerr details there instead of typing with a remote.
 
 ![Library](screenshots/20-library-movies.png)
 
@@ -98,9 +98,9 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 1. Open the [latest release](https://github.com/florinp93/Zerk-Play-2.0/releases) (the newest is at the top) and download `ZerkPlay-Public-Windows-setup.exe` for Windows, `ZerkPlay-Public-Android.apk` for Android TV, or `ZerkPlay-Public-Linux-x64.tar.gz` for Linux (install mpv, extract it and run `zerk-play/zerk_play`; on Arch, [`linux/packaging/PKGBUILD`](linux/packaging/PKGBUILD) builds a package).
 2. On first start, choose **Emby or Jellyfin** and sign in.
 3. *(Optional)* Add a free **TMDB API key** for metadata in your language, tags and collections.
-4. *(Optional)* Add your **\*Seerr** address and API key for requests.
+4. *(Optional)* Add your **Seerr** address and API key for requests.
 
-> The \*Seerr address has to be reachable from the device running Zerk Play. Don't use `localhost` unless \*Seerr runs on that same machine.
+> The Seerr address has to be reachable from the device running Zerk Play. Don't use `localhost` unless Seerr runs on that same machine.
 
 ## Good to know
 
@@ -108,7 +108,7 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 - The APK isn't on the Play Store: install it with Downloader, Send Files to TV, or adb.
 - Tested on Windows 11, Arch Linux and a Chromecast with Google TV 4K. Other distros and Android TV boxes should work; reports are welcome.
 - You bring your own servers and API keys. Nothing is hardcoded in the public build.
-- Zerk Play is not affiliated with Emby, Jellyfin, \*Seerr or TMDB.
+- Zerk Play is not affiliated with Emby, Jellyfin, Seerr or TMDB.
 - The player's icons on Linux (`assets/mpv/fonts/MaterialIcons-Player.otf`) are a subset of Google's [Material Icons](https://github.com/google/material-design-icons), used under the Apache License 2.0.
 
 Feedback, bug reports and feature ideas are very welcome: open an issue or join the Discord.
