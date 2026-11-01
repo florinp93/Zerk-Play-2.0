@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  An Emby / Jellyfin client for <b>Windows</b> and <b>Android TV / Google TV</b>,<br>
-  built around discovery and *Seerr requests.
+  A free, open-source Emby and Jellyfin client for <b>Windows</b>, <b>Linux</b> and <b>Android TV / Google TV</b>,<br>
+  built around discovery and *Seerr (Jellyseerr / Overseerr) requests.
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases"><b>Download the latest release</b></a> for Windows and Android TV
+  <a href="https://github.com/florinp93/Zerk-Play-2.0/releases"><b>Download the latest release</b></a> for Windows, Linux and Android TV
 </p>
 
 ![Home](screenshots/01-home-hero.png)
@@ -70,6 +70,7 @@ Connect \*Seerr and titles you don't have show up right next to the ones you do:
 ## Playback
 
 - **Windows:** mpv (libmpv, gpu-next on D3D11) with real **HDR** output. It can switch Windows HDR on for HDR videos and back off afterwards. Audio passthrough to your receiver (TrueHD, DTS-HD MA, EAC3…).
+- **Linux:** the same mpv player through libmpv, with VA-API (Intel / AMD) or NVDEC (NVIDIA) hardware decoding, on Wayland and X11.
 - **Android TV:** a native Media3 player with an FFmpeg audio decoder, plus passthrough settings for your TV / soundbar / receiver.
 - **Versions:** if a movie has several files (1080p, 2160p Dolby Vision…), you can pick one and the app remembers your choice.
 - **Skip intro**, manually or automatically.
@@ -86,7 +87,7 @@ Add your own Xtream Codes IPTV account to get a proper **TV guide**: channel gro
 
 ## Made for the couch
 
-The whole UI is driven by **D-pad / remote / keyboard** first. It works on Windows too: plug in a gamepad or use the arrow keys, and the mouse cursor hides itself until you move it again. The mouse still works everywhere, with hover and wheel scrolling.
+The whole UI is driven by **D-pad / remote / keyboard** first. It works on Windows and Linux too: plug in a gamepad or use the arrow keys, and the mouse cursor hides itself until you move it again. The mouse still works everywhere, with hover and wheel scrolling.
 
 Setup on a TV is painless: **scan a QR code with your phone** and fill in the server, TMDB key and \*Seerr details there instead of typing with a remote.
 
@@ -94,7 +95,7 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 
 ## Getting started
 
-1. Open the [latest release](https://github.com/florinp93/Zerk-Play-2.0/releases) (the newest is at the top) and download `ZerkPlay-Public-Windows-setup.exe` for Windows or `ZerkPlay-Public-Android.apk` for Android TV.
+1. Open the [latest release](https://github.com/florinp93/Zerk-Play-2.0/releases) (the newest is at the top) and download `ZerkPlay-Public-Windows-setup.exe` for Windows, `ZerkPlay-Public-Android.apk` for Android TV, or `ZerkPlay-Public-Linux-x64.tar.gz` for Linux (install mpv, extract it and run `zerk-play/zerk_play`; on Arch, [`linux/packaging/PKGBUILD`](linux/packaging/PKGBUILD) builds a package).
 2. On first start, choose **Emby or Jellyfin** and sign in.
 3. *(Optional)* Add a free **TMDB API key** for metadata in your language, tags and collections.
 4. *(Optional)* Add your **\*Seerr** address and API key for requests.
@@ -105,7 +106,7 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 
 - **Jellyfin support is brand new.** It was developed against Emby and has only been tested lightly with Jellyfin. Please report anything that breaks.
 - The APK isn't on the Play Store: install it with Downloader, Send Files to TV, or adb.
-- Tested on Windows 11 and a Chromecast with Google TV 4K. Other Android TV boxes should work; reports are welcome.
+- Tested on Windows 11, Arch Linux and a Chromecast with Google TV 4K. Other distros and Android TV boxes should work; reports are welcome.
 - You bring your own servers and API keys. Nothing is hardcoded in the public build.
 - Zerk Play is not affiliated with Emby, Jellyfin, \*Seerr or TMDB.
 - The player's icons on Linux (`assets/mpv/fonts/MaterialIcons-Player.otf`) are a subset of Google's [Material Icons](https://github.com/google/material-design-icons), used under the Apache License 2.0.
