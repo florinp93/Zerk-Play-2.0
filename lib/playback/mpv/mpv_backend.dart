@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/host.dart';
 import '../../core/log/app_log.dart';
 import '../../core/windows/native_window.dart';
 import '../../l10n/app_localizations.dart';
@@ -71,17 +72,19 @@ final class MpvBackend implements PlayerBackend {
 
   @override
   Future<void> open() async {
-    final wid = await VideoHost.create();
+    final wid = Host.isLinux ? null : await VideoHost.create();
     final logFile = _settings.detailedLog ? AppLog.sidePath('mpv') : null;
     final options = buildMpvOptions(
       wid: wid,
       settings: _settings,
       acceptInvalidCertificates: acceptInvalidCertificates,
       logFile: logFile,
+      osdFontsDir: Host.isLinux ? p.join(p.dirname(_osdScriptPath()), 'fonts') : null,
     );
     debugPrint('[mpv] options: ${[for (final e in options.entries) if (e.key != 'wid') '${e.key}=${e.value}'].join(' ')}');
     if (logFile != null) debugPrint('[mpv] detailed log: $logFile');
     _mpv = MpvPlayer.create(options: options, logLevel: _settings.detailedLog ? 'info' : 'warn');
+    if (Host.isLinux) await VideoHost.attach(_mpv.address);
     _sub = _mpv.events.listen(_onEvent);
     VideoHost.onInput = _mpv.commandAsync;
     _mpv.state.addListener(_onState);
@@ -222,6 +225,7 @@ final class MpvBackend implements PlayerBackend {
     VideoHost.onInput = null;
     Gamepad.playerSink = null;
     await VideoHost.hide();
+    if (Host.isLinux) await VideoHost.detach();
     _mpv.dispose();
     final route = _route;
     _route = null;

@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:win32/win32.dart';
 
 import 'ui_sounds.dart';
+import 'ui_sounds_linux.dart';
 
 final _buffers = <UiSound, Pointer<Uint8>>{};
 
 Future<void> load() async {
+  if (Platform.isLinux) return loadLinux();
   if (!Platform.isWindows) return;
   for (final s in UiSound.values) {
     try {
@@ -26,6 +28,7 @@ Future<void> load() async {
 }
 
 void play(UiSound sound) {
+  if (Platform.isLinux) return playLinux(sound);
   final buf = _buffers[sound];
   if (buf == null) return;
   PlaySound(buf.cast(), NULL, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);

@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
@@ -181,7 +182,8 @@ final class LibMpv {
 
   static LibMpv? _instance;
 
-  static LibMpv get instance => _instance ??= LibMpv._(DynamicLibrary.open('libmpv-2.dll'));
+  static LibMpv get instance =>
+      _instance ??= LibMpv._(DynamicLibrary.open(Platform.isLinux ? 'libmpv.so.2' : 'libmpv-2.dll'));
 
   final MpvHandle Function() create;
   final int Function(MpvHandle) initialize;

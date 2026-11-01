@@ -1,0 +1,22 @@
+pkgname=zerk-play-bin
+_tag=v2-beta.7
+pkgver=2.beta.7
+pkgrel=1
+pkgdesc='Emby and Jellyfin client with Seerr requests'
+arch=('x86_64')
+url='https://github.com/florinp93/Zerk-Play-2.0'
+license=('GPL-3.0-only')
+depends=('mpv' 'gtk3' 'libepoxy' 'noto-fonts')
+provides=('zerk-play')
+conflicts=('zerk-play')
+source=("ZerkPlay-Public-Linux-x64-${_tag}.tar.gz::${url}/releases/download/${_tag}/ZerkPlay-Public-Linux-x64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  install -d "$pkgdir/opt/zerk-play" "$pkgdir/usr/bin"
+  cp -r "$srcdir/zerk-play/." "$pkgdir/opt/zerk-play/"
+  rm "$pkgdir/opt/zerk-play/cloud.zerk.play.desktop" "$pkgdir/opt/zerk-play/cloud.zerk.play.png"
+  ln -s /opt/zerk-play/zerk_play "$pkgdir/usr/bin/zerk-play"
+  install -Dm644 "$srcdir/zerk-play/cloud.zerk.play.desktop" "$pkgdir/usr/share/applications/cloud.zerk.play.desktop"
+  install -Dm644 "$srcdir/zerk-play/cloud.zerk.play.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/cloud.zerk.play.png"
+}

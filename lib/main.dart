@@ -11,6 +11,9 @@ import 'core/log/app_log.dart';
 import 'core/log/perf_bench.dart';
 import 'playback/kept_display.dart';
 import 'playback/media3/media3_smoke.dart';
+import 'playback/mpv/mpv_backend.dart';
+import 'playback/player_settings.dart';
+import 'playback/player_smoke.dart';
 import 'core/windows/native_window.dart';
 import 'l10n/l10n.dart';
 import 'ui/core/gamepad.dart';
@@ -32,7 +35,7 @@ Future<void> main(List<String> args) async {
   WidgetsBinding.instance.addPostFrameCallback((_) => AppLog.mark('first frame'));
   if (Host.isWindows) await _initWindow();
   final services = await AppServices.create();
-  if (Host.isWindows && services.settings.startFullScreen) {
+  if (Host.isDesktop && services.settings.startFullScreen) {
     debugPrint('[app] starting in full screen');
     await NativeWindow.setFullScreen(true);
   }
@@ -43,7 +46,15 @@ Future<void> main(List<String> args) async {
   final tabArg = args.where((a) => a.startsWith('--tab=')).map((a) => a.substring(6)).firstOrNull;
   final initialTab = ShellTab.values.where((t) => t.name == tabArg).firstOrNull ?? ShellTab.home;
   AppLog.mark('services ready');
-  runApp(AppServicesScope(services: services, child: ZerkApp(initialTab: initialTab, bench: args.contains('--bench'))));
+  runApp(AppServicesScope(
+    services: services,
+    child: ZerkApp(
+      initialTab: initialTab,
+      bench: args.contains('--bench'),
+      playerSmoke: args.contains('--player-smoke'),
+      trailerSmoke: args.contains('--trailer-smoke'),
+    ),
+  ));
 }
 
 Future<void> _initWindow() async {
@@ -64,11 +75,21 @@ Future<void> _initWindow() async {
 }
 
 class ZerkApp extends StatefulWidget {
-  const ZerkApp({super.key, this.initialTab = ShellTab.home, this.bench = false});
+  const ZerkApp({
+    super.key,
+    this.initialTab = ShellTab.home,
+    this.bench = false,
+    this.playerSmoke = false,
+    this.trailerSmoke = false,
+  });
 
   final ShellTab initialTab;
 
   final bool bench;
+
+  final bool playerSmoke;
+
+  final bool trailerSmoke;
 
   @override
   State<ZerkApp> createState() => _ZerkAppState();
@@ -96,6 +117,16 @@ class _ZerkAppState extends State<ZerkApp> {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => runMedia3Smoke(_navigator.currentState!, subtitleBackground: route == '/dev-player-box'),
       );
+    }
+    if (Host.isDesktop && widget.playerSmoke) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => runPlayerSmoke(MpvBackend(
+            navigator: _navigator.currentState!,
+            settings: const PlayerSettings(),
+            l10n: lookupL10n(const Locale('en')),
+          )));
+    }
+    if (widget.trailerSmoke) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => runTrailerSmoke(_navigator.currentState!));
     }
     if (widget.bench || route == '/dev-bench') unawaited(PerfBench.run(_navigator));
   }

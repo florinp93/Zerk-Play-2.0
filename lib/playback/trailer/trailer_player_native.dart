@@ -5,7 +5,7 @@ import 'trailer_player.dart';
 import 'trailer_player_android.dart';
 import 'trailer_player_mpv.dart';
 
-bool get trailersSupported => Host.isWindows || Host.isAndroid;
+bool get trailersSupported => Host.isDesktop || Host.isAndroid;
 
 Future<TrailerPlayer?> createTrailerPlayer({required Size renderSize, required bool acceptInvalidCertificates}) async {
   try {

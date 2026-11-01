@@ -1,7 +1,10 @@
 local utils = require("mp.utils")
 local msg = require("mp.msg")
 
+local WINDOWS = package.config:sub(1, 1) == "\\"
+
 local function icon_font()
+  if not WINDOWS then return "Material Icons" end
   local fonts = (os.getenv("WINDIR") or "C:\\Windows") .. "\\Fonts\\"
   for _, f in ipairs({ { "SegoeIcons.ttf", "Segoe Fluent Icons" }, { "segmdl2.ttf", "Segoe MDL2 Assets" } }) do
     local h = io.open(fonts .. f[1], "rb")
@@ -11,8 +14,8 @@ local function icon_font()
 end
 
 local T = {
-  font = "Segoe UI",
-  font_semibold = "Segoe UI Semibold",
+  font = WINDOWS and "Segoe UI" or "Noto Sans",
+  font_semibold = WINDOWS and "Segoe UI Semibold" or "Noto Sans Medium",
   icons = icon_font(),
   white = "FFFFFF",
   dim = "C8C8C8",
@@ -47,7 +50,7 @@ local function tr(key, n)
   return s
 end
 
-local ICON = {
+local ICON = WINDOWS and {
   play = "\238\157\168",
   pause = "\238\157\169",
   rewind = "\238\174\158",
@@ -66,6 +69,25 @@ local ICON = {
   mute = "\238\157\143",
   channels = "\238\159\180",
   swap = "\238\163\171",
+} or {
+  play = "\238\147\139",
+  pause = "\238\145\188",
+  rewind = "\238\137\153",
+  forward = "\238\137\152",
+  audio = "\238\130\182",
+  subs = "\238\133\172",
+  next = "\238\150\189",
+  info = "\238\140\188",
+  fullscreen = "\238\139\139",
+  unfullscreen = "\238\139\140",
+  check = "\238\133\150",
+  back = "\238\130\146",
+  settings = "\238\149\191",
+  chapters = "\238\142\132",
+  volume = "\238\155\133",
+  mute = "\238\155\132",
+  channels = "\238\154\165",
+  swap = "\238\152\165",
 }
 
 local S = {

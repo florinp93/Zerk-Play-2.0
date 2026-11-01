@@ -253,7 +253,7 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {1.0: l10n.anamorphicNone, 1.25: '1.25×', 1.33: '1.33×', 1.5: '1.5×'},
             onChanged: (v) => _savePlayer(p.copyWith(anamorphic: v)),
           ),
-          if (Host.isWindows) ...[
+          if (Host.isDesktop) ...[
             SettingHeader(l10n.settingsGroupDecoding),
             SettingChoiceRow<VideoQuality>(
               title: l10n.videoQuality,
@@ -272,9 +272,10 @@ class _SettingsPageState extends State<SettingsPage> {
               value: p.hwdec,
               options: {
                 'auto-safe': l10n.hwdecAuto,
-                'd3d11va': l10n.hwdecD3d11,
+                if (Host.isWindows) 'd3d11va': l10n.hwdecD3d11,
+                if (Host.isLinux) 'vaapi': 'VA-API',
                 'nvdec': l10n.hwdecNvdec,
-                'd3d11va-copy': l10n.hwdecCopy,
+                if (Host.isWindows) 'd3d11va-copy': l10n.hwdecCopy,
                 'no': l10n.hwdecOff,
               },
               onChanged: (v) => _savePlayer(p.copyWith(hwdec: v)),
@@ -402,7 +403,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ];
       case _Section.interface:
         return [
-          if (Host.isWindows)
+          if (Host.isDesktop)
             SettingToggleRow(
               title: l10n.startFullScreen,
               value: app.startFullScreen,
@@ -659,7 +660,7 @@ class _SettingsPageState extends State<SettingsPage> {
       case _Section.diagnostics:
         return [
           _intro(l10n.logsIntro),
-          if (Host.isWindows)
+          if (Host.isDesktop)
             SettingToggleRow(
               title: l10n.detailedLog,
               subtitle: l10n.detailedLogHint,
@@ -778,13 +779,14 @@ class _AdvancedVideoPageState extends State<_AdvancedVideoPage> {
                 value: p.deband, onChanged: (v) => _save(p.copyWith(deband: v))),
             SettingToggleRow(title: l10n.smoothMotion, subtitle: l10n.smoothMotionHint,
                 value: p.smoothMotion, onChanged: (v) => _save(p.copyWith(smoothMotion: v))),
-            SettingChoiceRow<String>(
-              title: l10n.videoRenderer,
-              value: p.videoOutput,
-              options: {'gpu-next': l10n.videoRendererNext, 'gpu': l10n.videoRendererOld},
-              onChanged: (v) => _save(p.copyWith(videoOutput: v)),
-            ),
-            if (Host.isWindows) ...[
+            if (Host.isWindows)
+              SettingChoiceRow<String>(
+                title: l10n.videoRenderer,
+                value: p.videoOutput,
+                options: {'gpu-next': l10n.videoRendererNext, 'gpu': l10n.videoRendererOld},
+                onChanged: (v) => _save(p.copyWith(videoOutput: v)),
+              ),
+            if (Host.isDesktop) ...[
               SettingHeader(l10n.displayTarget),
               _AdvancedIntro(l10n.displayTargetHint),
               SettingChoiceRow<String>(

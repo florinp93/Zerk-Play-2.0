@@ -14,11 +14,11 @@ abstract final class NativeWindow {
   static const _channel = MethodChannel('zerk/window');
 
   static Future<bool> isFullScreen() async {
-    return Host.isWindows && (await _channel.invokeMethod<bool>('isFullScreen') ?? false);
+    return Host.isDesktop && (await _channel.invokeMethod<bool>('isFullScreen') ?? false);
   }
 
   static Future<void> setFullScreen(bool fullscreen) async {
-    if (Host.isWindows) await _channel.invokeMethod('setFullScreen', fullscreen);
+    if (Host.isDesktop) await _channel.invokeMethod('setFullScreen', fullscreen);
   }
 
   static Future<bool> toggleFullScreen() async {

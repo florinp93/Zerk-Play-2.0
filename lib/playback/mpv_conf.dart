@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 abstract final class MpvConf {
-  static bool get supported => Platform.isWindows;
+  static bool get supported => Platform.isWindows || Platform.isLinux;
 
   static Future<String> _path() async => p.join((await getApplicationSupportDirectory()).path, 'mpv.conf');
 
@@ -16,12 +16,12 @@ abstract final class MpvConf {
       await file.writeAsString(_template);
     }
     debugPrint('[mpv] editing ${file.path}');
-    await Process.start('notepad.exe', [file.path]);
+    await Process.start(Platform.isLinux ? 'xdg-open' : 'notepad.exe', [file.path]);
   }
 
   static Future<void> openFolder() async {
     final dir = p.dirname(await _path());
-    await Process.start('explorer.exe', [dir]);
+    await Process.start(Platform.isLinux ? 'xdg-open' : 'explorer.exe', [dir]);
   }
 
   static const _template = '''# Zerk Play: your own mpv options (https://mpv.io/manual/stable/)

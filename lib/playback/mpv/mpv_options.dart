@@ -1,18 +1,22 @@
+import '../../core/host.dart';
 import '../player_settings.dart';
 import '../subtitle_style.dart';
 
 Map<String, String> buildMpvOptions({
-  required int wid,
+  int? wid,
   required PlayerSettings settings,
   bool acceptInvalidCertificates = false,
   String? logFile,
+  String? osdFontsDir,
 }) {
   final spdif = settings.mpvSpdif;
   final bitstream = spdif.isNotEmpty;
   final own = !settings.mpvConfOnly;
+  final linux = Host.isLinux;
   return {
-    'wid': '$wid',
+    if (wid != null) 'wid': '$wid',
     'log-file': ?logFile,
+    'osd-fonts-dir': ?osdFontsDir,
     'config': 'no',
     'load-scripts': 'no',
     'osc': 'no',
@@ -32,16 +36,16 @@ Map<String, String> buildMpvOptions({
     'osd-bar': 'no',
     'osd-on-seek': 'no',
     'osd-level': '1',
-    'force-window': 'yes',
+    if (!linux) 'force-window': 'yes',
     'msg-level': 'ffmpeg=error',
     'keep-open': 'yes',
     'idle': 'yes',
 
-    'vo': own ? settings.videoOutput : 'gpu-next',
-    'gpu-api': 'd3d11',
+    'vo': linux ? 'libmpv' : (own ? settings.videoOutput : 'gpu-next'),
+    if (!linux) 'gpu-api': 'd3d11',
     if (own) ...{
-      'hwdec': settings.hwdec,
-      'target-colorspace-hint': settings.hdrPassthrough ? 'yes' : 'no',
+      'hwdec': linux && settings.hwdec.startsWith('d3d11') ? 'auto-safe' : settings.hwdec,
+      if (!linux) 'target-colorspace-hint': settings.hdrPassthrough ? 'yes' : 'no',
       'video-sync': !settings.smoothMotion ? 'audio' : (bitstream ? 'display-vdrop' : 'display-resample'),
       'interpolation': settings.smoothMotion ? 'yes' : 'no',
       'tscale': 'oversample',
@@ -63,12 +67,12 @@ Map<String, String> buildMpvOptions({
     'demuxer-readahead-secs': '60',
     'stream-buffer-size': '4MiB',
     'network-timeout': '30',
-    'user-agent': 'ZerkPlay/2.0 (Windows; libmpv)',
+    'user-agent': 'ZerkPlay/2.0 (${linux ? 'Linux' : 'Windows'}; libmpv)',
     'tls-verify': acceptInvalidCertificates ? 'no' : 'yes',
 
     'audio-spdif': spdif,
     if (bitstream) ...{'audio-stream-silence': 'yes', 'audio-buffer': '0.5'},
-    'audio-exclusive': settings.audioExclusive ? 'yes' : 'no',
+    if (!linux) 'audio-exclusive': settings.audioExclusive ? 'yes' : 'no',
     'audio-channels': 'auto',
     'audio-pitch-correction': 'yes',
     'volume': settings.volume.round().toString(),

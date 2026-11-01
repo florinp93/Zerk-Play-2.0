@@ -6,10 +6,11 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 import 'gamepad.dart';
+import 'gamepad_source_linux.dart';
 
 void startPolling(void Function(int pad, int? buttons) onButtons) {
-  if (!Platform.isWindows) return;
-  _XInput(onButtons).start();
+  if (Platform.isLinux) return startLinuxPolling(onButtons);
+  if (Platform.isWindows) _XInput(onButtons).start();
 }
 
 final class _XInput {

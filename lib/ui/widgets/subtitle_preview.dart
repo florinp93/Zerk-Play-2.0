@@ -67,7 +67,7 @@ class _Caption extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = settings.subtitleScale;
     final style = TextStyle(
-      fontFamily: Host.isWindows ? 'Arial' : null,
+      fontFamily: Host.isDesktop ? 'Arial' : null,
       fontWeight: FontWeight.w400,
       fontSize: SubtitleStyle.fontSize * unit * scale * _em,
       height: 1.15,

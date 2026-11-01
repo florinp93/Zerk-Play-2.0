@@ -15,6 +15,10 @@ abstract final class VideoHost {
 
   static Future<int> create() async => (await _channel.invokeMethod<int>('create'))!;
 
+  static Future<void> attach(int mpvHandle) => _channel.invokeMethod('attach', mpvHandle);
+
+  static Future<void> detach() => _channel.invokeMethod('detach');
+
   static Future<void> show() => _channel.invokeMethod('show');
 
   static Future<void> hide() => _channel.invokeMethod('hide');

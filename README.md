@@ -108,5 +108,6 @@ Setup on a TV is painless: **scan a QR code with your phone** and fill in the se
 - Tested on Windows 11 and a Chromecast with Google TV 4K. Other Android TV boxes should work; reports are welcome.
 - You bring your own servers and API keys. Nothing is hardcoded in the public build.
 - Zerk Play is not affiliated with Emby, Jellyfin, \*Seerr or TMDB.
+- The player's icons on Linux (`assets/mpv/fonts/MaterialIcons-Player.otf`) are a subset of Google's [Material Icons](https://github.com/google/material-design-icons), used under the Apache License 2.0.
 
 Feedback, bug reports and feature ideas are very welcome: open an issue or join the Discord.

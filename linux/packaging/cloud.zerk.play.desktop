@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Zerk Play
+GenericName=Media player
+Comment=Emby and Jellyfin client with Seerr requests
+Exec=zerk-play %U
+Icon=cloud.zerk.play
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=emby;jellyfin;seerr;movies;tv;
+StartupWMClass=cloud.zerk.play

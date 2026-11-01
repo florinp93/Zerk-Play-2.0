@@ -75,6 +75,7 @@ final class LogSink {
   Future<void> reveal() async {
     await flush();
     if (Platform.isWindows) await Process.start('explorer.exe', [directory]);
+    if (Platform.isLinux) await Process.start('xdg-open', [directory]);
   }
 
   String sidePath(String prefix) {
