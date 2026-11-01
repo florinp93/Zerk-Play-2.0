@@ -10,7 +10,7 @@ depends=('mpv' 'gtk3' 'libepoxy' 'noto-fonts')
 provides=('zerk-play')
 conflicts=('zerk-play')
 source=("ZerkPlay-Public-Linux-x64-${_tag}.tar.gz::${url}/releases/download/${_tag}/ZerkPlay-Public-Linux-x64.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('ccb416a4c68edc187c0ddb8ca24597fc81c1ac674a57e6e55f9e6f2c4f8f4d86')
 
 package() {
   install -d "$pkgdir/opt/zerk-play" "$pkgdir/usr/bin"
