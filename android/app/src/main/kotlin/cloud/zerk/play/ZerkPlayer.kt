@@ -666,6 +666,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             mapOf(
                 "event" to "state",
                 "position" to exo.currentPosition,
+                "buffered" to exo.bufferedPosition,
                 "duration" to exo.duration.takeIf { it != C.TIME_UNSET },
                 "paused" to !exo.playWhenReady,
                 "buffering" to (exo.playbackState == Player.STATE_BUFFERING),

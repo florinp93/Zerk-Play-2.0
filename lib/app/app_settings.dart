@@ -65,6 +65,8 @@ final class AppSettings {
     this.metadataLanguage = '',
     this.sounds = true,
     this.hideAnimation = true,
+    this.groupCollections = false,
+    this.homeClock = false,
     this.acceptInvalidCertificates = false,
     this.versionPreferences = const {},
     this.uiLanguage = '',
@@ -95,6 +97,8 @@ final class AppSettings {
   final bool sounds;
 
   final bool hideAnimation;
+  final bool groupCollections;
+  final bool homeClock;
   final bool acceptInvalidCertificates;
 
   final Map<String, String> versionPreferences;
@@ -154,6 +158,8 @@ final class AppSettings {
     String? metadataLanguage,
     bool? sounds,
     bool? hideAnimation,
+    bool? groupCollections,
+    bool? homeClock,
     bool? acceptInvalidCertificates,
     Map<String, String>? versionPreferences,
     String? uiLanguage,
@@ -180,6 +186,8 @@ final class AppSettings {
         metadataLanguage: metadataLanguage ?? this.metadataLanguage,
         sounds: sounds ?? this.sounds,
         hideAnimation: hideAnimation ?? this.hideAnimation,
+        groupCollections: groupCollections ?? this.groupCollections,
+        homeClock: homeClock ?? this.homeClock,
         acceptInvalidCertificates: acceptInvalidCertificates ?? this.acceptInvalidCertificates,
         versionPreferences: versionPreferences ?? this.versionPreferences,
         uiLanguage: uiLanguage ?? this.uiLanguage,
@@ -217,6 +225,8 @@ final class AppSettings {
         metadataLanguage: j['metadataLanguage'] as String? ?? '',
         sounds: j['sounds'] as bool? ?? true,
         hideAnimation: j['hideAnimation'] as bool? ?? true,
+        groupCollections: j['groupCollections'] as bool? ?? false,
+        homeClock: j['homeClock'] as bool? ?? false,
         acceptInvalidCertificates: j['badCerts'] as bool? ?? false,
         versionPreferences: (j['versions'] as Map?)?.cast<String, String>() ?? const {},
         uiLanguage: j['uiLanguage'] as String? ?? '',
@@ -263,6 +273,8 @@ final class AppSettings {
         'metadataLanguage': metadataLanguage,
         'sounds': sounds,
         'hideAnimation': hideAnimation,
+        'groupCollections': groupCollections,
+        'homeClock': homeClock,
         'badCerts': acceptInvalidCertificates,
         'versions': versionPreferences,
         'uiLanguage': uiLanguage,

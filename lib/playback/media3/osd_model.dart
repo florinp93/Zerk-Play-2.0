@@ -110,9 +110,9 @@ final class OsdModel extends ChangeNotifier {
 
   bool subtitleSearch = false;
   List<OsdChoice> subtitleLanguages = const [];
-  Completer<({List<OsdChoice> results, String? error})>? _search;
+  Completer<({List<OsdChoice> results, String? error, String? file})>? _search;
 
-  Future<({List<OsdChoice> results, String? error})> searchSubtitles(String language) {
+  Future<({List<OsdChoice> results, String? error, String? file})> searchSubtitles(String language) {
     _search = Completer();
     send('subsearch', language);
     return _search!.future;
@@ -121,7 +121,7 @@ final class OsdModel extends ChangeNotifier {
   String? videoFormat;
   String? videoOutput;
 
-  void Function(String text)? onToast;
+  void Function(String text, {Uri? image, String? name})? onToast;
 
   final subtitleLift = ValueNotifier<double>(0);
 
@@ -185,10 +185,16 @@ final class OsdModel extends ChangeNotifier {
       case 'subsearch':
         final search = _search;
         _search = null;
-        if (search != null && !search.isCompleted) search.complete((results: OsdChoice.list(m['results']), error: m['error'] as String?));
+        if (search != null && !search.isCompleted) {
+          search.complete((results: OsdChoice.list(m['results']), error: m['error'] as String?, file: m['file'] as String?));
+        }
         return;
       case 'toast':
         if (data is String) onToast?.call(data);
+        if (data is Map && data['text'] is String) {
+          onToast?.call(data['text'] as String,
+              image: Uri.tryParse(data['image'] as String? ?? ''), name: data['name'] as String?);
+        }
         return;
       default:
         return;

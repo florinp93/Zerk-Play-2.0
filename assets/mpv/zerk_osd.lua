@@ -103,7 +103,7 @@ local S = {
   next_up = nil, next_elapsed = 0, next_last = nil, next_cancelled = false, next_choice = 1, next_img = nil,
   scrub = nil, scrub_commit_at = 0, scrub_repeat = 0, scrub_last = 0,
   mini_until = 0,
-  toast = nil, toast_until = 0,
+  toast = nil, toast_until = 0, toast_img = nil,
   vol_until = 0,
   flash_icon = nil, flash_until = 0,
   seek_fwd = 10, seek_back = 10, auto_skip_intro = false,
@@ -489,6 +489,7 @@ open_panel = function(kind)
   elseif kind == "subresults" then
     local r = S.sub_results
     p.title = tr("search_subtitles")
+    p.subhead = r and r.file
     if not r then p.items = { { label = tr("searching"), inert = true } }
     elseif r.error then p.items = { { label = r.error, inert = true } }
     elseif #(r.results or {}) == 0 then p.items = { { label = tr("no_subtitles_found"), inert = true } }
@@ -519,7 +520,7 @@ local function panel_activate(item)
   elseif p.kind == "speed" then mp.set_property_number("speed", item.id); S.panel = nil
   elseif p.kind == "aspect" then
     set_aspect(item.id); S.panel = nil
-    S.toast, S.toast_until = tr("aspect_toast", item.label), now() + 2
+    S.toast, S.toast_until, S.toast_img = tr("aspect_toast", item.label), now() + 2, nil
   elseif p.kind == "subdelay" then mp.set_property_number("sub-delay", item.id); S.panel = nil
   elseif p.kind == "audiodelay" then mp.set_property_number("audio-delay", item.id); S.panel = nil
   elseif p.kind == "sublang" then
@@ -580,8 +581,8 @@ local function draw_progress(out, y, focused, mini)
   local cfrac = dur > 0 and clamp(cache / dur, 0, 1) or 0
   local h = focused and 10 or 6
 
-  out[#out + 1] = rrect(x1, y - h / 2, width, h, h / 2, T.white, "C0")
-  if cfrac > frac then out[#out + 1] = rrect(x1, y - h / 2, width * cfrac, h, h / 2, T.white, "90") end
+  out[#out + 1] = rrect(x1, y - h / 2, width, h, h / 2, T.white, "C8")
+  if cfrac > frac then out[#out + 1] = rrect(x1, y - h / 2, width * cfrac, h, h / 2, T.white, "70") end
   if frac > 0 then out[#out + 1] = rrect(x1, y - h / 2, math.max(h, width * frac), h, h / 2, T.accent, "00") end
 
   for _, c in ipairs(chapter_list()) do
@@ -727,8 +728,18 @@ local function draw_panel(out)
   out[#out + 1] = ev(string.format("\\pos(0,0)\\1c&H000000&\\1a&H70&\\p1"), string.format("m 0 0 l %d 0 l %d %d l 0 %d", W, W, H, H))
   out[#out + 1] = ev(string.format("\\pos(0,0)\\1c&H%s&\\1a&H08&\\p1", T.panel), string.format("m %d 0 l %d 0 l %d %d l %d %d", px, W, W, H, px, H))
   out[#out + 1] = text(px + 56, 90, 4, 40, T.white, esc(p.title), { font = T.font_semibold })
+  if p.subhead and p.subhead ~= "" then
+    local name = p.subhead
+    if #name > 46 then
+      local a, b = 22, #name - 21
+      while a > 1 and name:byte(a + 1) and name:byte(a + 1) >= 0x80 and name:byte(a + 1) < 0xC0 do a = a - 1 end
+      while b < #name and name:byte(b) >= 0x80 and name:byte(b) < 0xC0 do b = b + 1 end
+      name = name:sub(1, a) .. "…" .. name:sub(b)
+    end
+    out[#out + 1] = text(px + 56, 136, 4, 22, T.muted, esc(name))
+  end
 
-  local row_h, top = 84, 160
+  local row_h, top = 84, (p.subhead and p.subhead ~= "") and 176 or 160
   local max_rows = math.floor((H - top - 40) / row_h)
   if not p.free_scroll then
     if p.cursor < p.scroll then p.scroll = p.cursor end
@@ -827,6 +838,26 @@ local function hide_still()
   ov_key = nil
   mp.commandv("overlay-remove", OV_GREY)
   mp.commandv("overlay-remove", OV_COLOUR)
+end
+
+local OV_TOAST = 63
+local toast_key = nil
+local function toast_picture(x, y, size)
+  local img = S.toast_img
+  local osd_w, osd_h = mp.get_osd_size()
+  if not img or not osd_h or osd_h == 0 then return end
+  local k = osd_h * band_f / H
+  local px, py, d = R(x * k), R((y + band_oy) * k), R(size * k)
+  local key = table.concat({ img.image, px, py, d }, "|")
+  if key == toast_key then return end
+  toast_key = key
+  mp.commandv("overlay-add", OV_TOAST, px, py, img.image, 0, "bgra", img.size, img.size, img.size * 4, d, d)
+end
+
+local function hide_toast_picture()
+  if not toast_key then return end
+  toast_key = nil
+  mp.commandv("overlay-remove", OV_TOAST)
 end
 
 label_w = function(s, size)
@@ -1010,8 +1041,14 @@ render = function()
     draw_volume(out)
   elseif S.toast and t < S.toast_until then
     out[#out + 1] = rrect(W / 2 - 360, 60, 720, 64, 32, T.panel, "18")
-    out[#out + 1] = text(W / 2, 92, 5, 26, T.white, esc(S.toast))
+    if S.toast_img then
+      toast_picture(W / 2 - 360 + 10, 68, 48)
+      out[#out + 1] = text(W / 2 + 24, 92, 5, 26, T.white, esc(S.toast))
+    else
+      out[#out + 1] = text(W / 2, 92, 5, 26, T.white, esc(S.toast))
+    end
   end
+  if not (S.toast_img and S.toast and t < S.toast_until and t >= S.vol_until) then hide_toast_picture() end
 
   if S.panel then draw_panel(out) end
 
@@ -1464,7 +1501,14 @@ mp.register_script_message("strings", function(raw)
 end)
 
 mp.register_script_message("toast", function(msg)
-  S.toast, S.toast_until = msg, now() + 2.5
+  S.toast, S.toast_until, S.toast_img = msg, now() + 2.5, nil
+  refresh()
+end)
+
+mp.register_script_message("toast-image", function(raw)
+  local m = json(raw)
+  if not m then return end
+  S.toast, S.toast_until, S.toast_img = m.text, now() + 3, m.image and m or nil
   refresh()
 end)
 

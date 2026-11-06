@@ -8,6 +8,7 @@ import '../../playback/platform_player.dart';
 import '../../playback/playback_session.dart';
 import '../../playback/player_settings.dart';
 import '../../playback/trailer/trailer_player.dart';
+import '../widgets/profile_widgets.dart';
 import '../widgets/trailer.dart';
 import 'artwork.dart';
 
@@ -22,7 +23,15 @@ bool _playing = false;
 
 bool get playbackActive => _playing;
 
-void _setPlaying(bool v) => _playing = v;
+final playbackActiveNotifier = ValueNotifier(false);
+
+bool get liveActive => _live;
+bool _live = false;
+
+void _setPlaying(bool v) {
+  _playing = v;
+  playbackActiveNotifier.value = v;
+}
 
 Future<PlaybackOutcome?> playItem(
   BuildContext context,
@@ -59,6 +68,9 @@ Future<PlaybackOutcome?> playItem(
         still: services.catalog.landscape(item, width: 640),
       ),
       localize: services.catalog.localize,
+      together: services.together,
+      avatarOf: (member) => memberAvatar(services, member),
+      fetchItem: services.catalog.item,
       settings: settings,
       l10n: l10n,
       acceptInvalidCertificates: acceptBadCerts,
@@ -86,8 +98,14 @@ Future<void> playChannel(BuildContext context, ZapList zap, int index) async {
   final c = zap.channels[index];
   final sources = ZapList.sourcesOf(c);
   if (sources.isEmpty) return;
+  await playShared(context, LiveShare(key: LiveShare.keyOf(sources.first), title: c.name, sources: sources),
+      zap: zap, channel: index);
+}
+
+Future<void> playShared(BuildContext context, LiveShare share, {ZapList? zap, int channel = 0}) async {
   if (_playing) return;
   _setPlaying(true);
+  _live = true;
   try {
     final services = AppServicesScope.read(context);
     final l10n = context.l10n;
@@ -103,15 +121,18 @@ Future<void> playChannel(BuildContext context, ZapList zap, int index) async {
         l10n: l10n,
       ),
       server: services.xtream,
-      title: c.name,
-      sources: sources,
+      title: share.title,
+      sources: share.sources,
       settings: settings,
       l10n: l10n,
+      together: services.together,
+      share: share,
       zap: zap,
-      channel: index,
+      channel: channel,
     );
-    await session.run(0);
+    await session.run(share.first);
   } finally {
+    _live = false;
     _setPlaying(false);
   }
 }

@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import 'player_backend.dart';
 import 'player_settings.dart';
 import 'subtitle_style.dart';
+import 'sync/watch_together.dart';
 
 final class LiveSource {
   const LiveSource(this.label, this.streamId, [this.url]);
@@ -31,6 +32,41 @@ final class ZapList {
       ];
 }
 
+final class LiveShare {
+  const LiveShare({required this.key, required this.title, required this.sources, this.first = 0});
+
+  final String key;
+  final String title;
+  final List<LiveSource> sources;
+
+  final int first;
+
+  static String keyOf(LiveSource s) => 'live:channel:${s.url == null ? s.streamId : s.url!.hashCode.toUnsigned(32)}';
+
+  Map<String, Object?> toJson() => {
+        'title': title,
+        'first': first,
+        'sources': [for (final s in sources) [s.label, s.streamId, ?s.url]],
+      };
+
+  static LiveShare? fromRoom(RoomState r) {
+    final j = r.live;
+    final key = r.itemId;
+    if (j == null || key == null) return null;
+    final sources = [
+      for (final s in (j['sources'] as List? ?? const []).whereType<List>())
+        if (s.length >= 2 && s[1] is num) LiveSource('${s[0]}', (s[1] as num).toInt(), s.length > 2 && s[2] is String ? s[2] as String : null),
+    ];
+    if (sources.isEmpty) return null;
+    return LiveShare(
+      key: key,
+      title: j['title'] as String? ?? r.itemTitle ?? '',
+      sources: sources,
+      first: ((j['first'] as num?)?.toInt() ?? 0).clamp(0, sources.length - 1),
+    );
+  }
+}
+
 final class LiveSession {
   LiveSession({
     required this._player,
@@ -39,6 +75,8 @@ final class LiveSession {
     required this.sources,
     required this.settings,
     required this.l10n,
+    this.together,
+    this.share,
     this.zap,
     this._channel = 0,
   });
@@ -51,9 +89,14 @@ final class LiveSession {
   final PlayerSettings settings;
   final L10n l10n;
 
+  final WatchTogether? together;
+  LiveShare? share;
+
   final ZapList? zap;
   int _channel;
   Timer? _lineupRefresh;
+  Timer? _zapTimer;
+  int? _pending;
 
   final _done = Completer<void>();
   StreamSubscription<PlayerEvent>? _events;
@@ -64,6 +107,9 @@ final class LiveSession {
   bool _recovering = false;
   bool _finishing = false;
   String? _trackSignature;
+  StreamSubscription<RoomState>? _roomSub;
+  bool _userExit = false;
+  bool _closedByRoom = false;
 
   Future<void> run(int index) async {
     _events = _player.events.listen(_onEvent);
@@ -81,6 +127,11 @@ final class LiveSession {
     if (zap != null) _lineupRefresh = Timer.periodic(const Duration(minutes: 2), (_) => _sendLinks());
     _player.osd('next', null);
     _player.osd('segments', <String, Object?>{});
+    final room = together, item = share;
+    if (room != null && room.room != null && item != null) {
+      room.watch(item.key, title: title, position: Duration.zero, live: item.toJson());
+      _roomSub = room.updates.listen(_onRoom);
+    }
     unawaited(_play(index));
     return _done.future;
   }
@@ -117,11 +168,13 @@ final class LiveSession {
         _loading = false;
         _failures = 0;
         _state('playing');
+        together?.ready(true);
       case PlayerLoadError(:final message):
         unawaited(_recover(message));
       case PlayerOsdEvent(:final name, :final arg):
         switch (name) {
           case 'back':
+            _userExit = true;
             unawaited(_finish());
           case 'version' when zap != null:
             final i = int.tryParse(arg ?? '');
@@ -132,6 +185,7 @@ final class LiveSession {
             final i = int.tryParse(arg ?? '');
             if (i != null && i >= 0 && i < sources.length) {
               _failures = 0;
+              if (share != null) together?.liveSource(i);
               unawaited(_play(i));
             }
           case 'audio':
@@ -252,24 +306,69 @@ final class LiveSession {
       return;
     }
     final step = int.tryParse(arg.replaceFirst('+', '')) ?? 0;
-    if (step != 0) _zapTo((_channel + step) % channels.length);
+    if (step == 0) return;
+    final target = ((_pending ?? _channel) + step) % channels.length;
+    _pending = target;
+    final c = channels[target];
+    _player.osd('toast', [
+      c.number == null ? c.name : '${c.number}   ${c.name}',
+      ?zap!.onNow(c),
+    ].join('  ·  '));
+    _zapTimer?.cancel();
+    _zapTimer = Timer(const Duration(milliseconds: 900), () {
+      final i = _pending;
+      _pending = null;
+      if (i != null && i != _channel && !_finishing) _zapTo(i);
+    });
   }
 
   void _zapTo(int i) {
     final channels = zap!.channels;
     if (i < 0 || i >= channels.length) return;
+    _zapTimer?.cancel();
+    _pending = null;
     final c = channels[i];
     _channel = i;
     title = c.name;
     sources = ZapList.sourcesOf(c);
     _failures = 0;
+    final room = together;
+    if (room != null && room.room != null && share != null) {
+      final item = share = LiveShare(key: LiveShare.keyOf(sources.first), title: title, sources: sources);
+      room.watch(item.key, title: title, position: Duration.zero, live: item.toJson());
+    }
     unawaited(_play(0));
+  }
+
+  void _onRoom(RoomState r) {
+    final room = together, item = share;
+    if (room == null || item == null || r.by == null || r.by == room.me || _finishing) return;
+    String name() => r.member(r.by)?.name ?? l10n.togetherSomeone;
+    final stopped = r.action == 'stop' && r.itemId == null;
+    final switched = r.action == 'item' && r.itemId != null && r.itemId != item.key;
+    if (r.action == 'source' && r.itemId == item.key) {
+      final i = (r.live?['first'] as num?)?.toInt();
+      if (i == null || i < 0 || i >= sources.length || i == _index) return;
+      _player.osd('toast', l10n.togetherSwitched(name(), sources[i].label));
+      _failures = 0;
+      unawaited(_play(i));
+      return;
+    }
+    if (!stopped && !switched) return;
+    _player.osd('toast', stopped ? l10n.togetherStopped(name()) : l10n.togetherStarted(name(), r.itemTitle ?? ''));
+    _closedByRoom = true;
+    Timer(const Duration(milliseconds: 1500), () => unawaited(_finish()));
   }
 
   Future<void> _finish() async {
     if (_finishing) return;
     _finishing = true;
     _lineupRefresh?.cancel();
+    _zapTimer?.cancel();
+    await _roomSub?.cancel();
+    if (share != null) {
+      _userExit && !_closedByRoom ? together?.stop() : together?.unwatch();
+    }
     await _events?.cancel();
     _player.state.removeListener(_onState);
     await _player.close();

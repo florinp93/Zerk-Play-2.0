@@ -105,6 +105,9 @@ class _ZerkAppState extends State<ZerkApp> {
     DoubleBack.navigator = _navigator;
     _lifecycle = AppLifecycleListener(
       onStateChange: (s) => debugPrint('[app] lifecycle ${s.name}'),
+      onResume: () {
+        if (mounted) AppServicesScope.read(context).checkHub();
+      },
       onExitRequested: () async {
         debugPrint('[app] exit requested');
         await KeptDisplay.restore();

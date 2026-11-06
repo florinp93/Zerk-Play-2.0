@@ -281,6 +281,8 @@ final class SeerrQuality {
     required this.profileId,
     required this.profileName,
     required this.isDefault,
+    this.rootFolders = const [],
+    this.defaultFolder,
   });
 
   final int serverId;
@@ -289,6 +291,8 @@ final class SeerrQuality {
   final int profileId;
   final String profileName;
   final bool isDefault;
+  final List<String> rootFolders;
+  final String? defaultFolder;
 }
 
 final class SeerrException implements Exception {
@@ -321,6 +325,7 @@ final class SeerrApi {
     required this.apiKey,
     this.language,
     this.embyUserId,
+    this.embyToken,
     http.Client? client,
   }) : _http = client ?? LoggingHttpClient(tag: 'seerr');
 
@@ -328,6 +333,10 @@ final class SeerrApi {
   final String apiKey;
 
   final String? Function()? embyUserId;
+
+  final String? Function()? embyToken;
+
+  bool get viaRelay => baseUrl.path.endsWith('/seerr-proxy');
 
   final String? language;
   final http.Client _http;
@@ -529,9 +538,13 @@ final class SeerrApi {
   Future<List<SeerrQuality>> qualities(SeerrMediaType type) async {
     final int permissions;
     try {
-      final user = await linkedUserId();
-      final json = await _get(user == null ? '/api/v1/auth/me' : '/api/v1/user/$user');
-      permissions = (json['permissions'] as num?)?.toInt() ?? 0;
+      if (viaRelay) {
+        permissions = ((await _get('/zerk/me'))['permissions'] as num?)?.toInt() ?? 0;
+      } else {
+        final user = await linkedUserId();
+        final json = await _get(user == null ? '/api/v1/auth/me' : '/api/v1/user/$user');
+        permissions = (json['permissions'] as num?)?.toInt() ?? 0;
+      }
     } on SeerrException {
       return const [];
     }
@@ -545,6 +558,12 @@ final class SeerrApi {
       final is4k = s['is4k'] == true;
       if (id == null || is4k && !has(_admin | _request4k | (tv ? _request4kTv : _request4kMovie))) continue;
       final detail = await _get('/api/v1/service/$kind/$id');
+      final folders = [
+        for (final f in (detail['rootFolders'] as List? ?? const []).whereType<Map>())
+          if (f['path'] is String && (f['path'] as String).isNotEmpty) f['path'] as String,
+      ];
+      final server = detail['server'] is Map ? detail['server'] as Map : s;
+      final active = server['activeDirectory'] as String? ?? s['activeDirectory'] as String?;
       for (final p in (detail['profiles'] as List? ?? const []).whereType<Map>()) {
         final profileId = (p['id'] as num?)?.toInt();
         if (profileId == null) continue;
@@ -555,6 +574,8 @@ final class SeerrApi {
           profileId: profileId,
           profileName: p['name'] as String? ?? '$profileId',
           isDefault: s['isDefault'] == true && !is4k && profileId == (s['activeProfileId'] as num?)?.toInt(),
+          rootFolders: folders,
+          defaultFolder: active != null && folders.contains(active) ? active : folders.firstOrNull,
         ));
       }
     }
@@ -626,12 +647,14 @@ final class SeerrApi {
     return out;
   }
 
-  Future<void> request(SeerrMedia media, {List<int>? seasons, SeerrQuality? quality}) async {
+  Future<void> request(SeerrMedia media, {List<int>? seasons, SeerrQuality? quality, String? rootFolder}) async {
+    final folder = quality != null && rootFolder != null && rootFolder != quality.defaultFolder ? rootFolder : null;
     final body = <String, Object?>{
       'mediaType': media.isTv ? 'tv' : 'movie',
       'mediaId': media.tmdbId,
       'is4k': quality?.is4k ?? false,
-      if (quality != null && !quality.isDefault) ...{'serverId': quality.serverId, 'profileId': quality.profileId},
+      if (quality != null && (!quality.isDefault || folder != null)) ...{'serverId': quality.serverId, 'profileId': quality.profileId},
+      'rootFolder': ?folder,
       if (media.isTv)
         'seasons': seasons ??
             [for (final s in media.seasons) if (s.number > 0 && s.availability == Availability.none) s.number],
@@ -649,6 +672,19 @@ final class SeerrApi {
     if (res.statusCode >= 300) throw SeerrException(res.statusCode, _message(res.body));
   }
 
+  bool get canRedownload => viaRelay;
+
+  Future<void> redownload(int tmdbId, SeerrMediaType type, {int? season, int? tvdbId}) async {
+    final res = await _http
+        .post(
+          _uri('/zerk/redownload'),
+          headers: _headers,
+          body: jsonEncode({'type': type.name, 'tmdbId': tmdbId, 'season': ?season, 'tvdbId': ?tvdbId}),
+        )
+        .timeout(const Duration(seconds: 90));
+    if (res.statusCode >= 300) throw SeerrException(res.statusCode, _message(res.body));
+  }
+
   Uri _uri(String path) {
     final base = baseUrl.path.endsWith('/') ? baseUrl.path.substring(0, baseUrl.path.length - 1) : baseUrl.path;
     return baseUrl.replace(path: '$base$path', query: null);
@@ -658,6 +694,10 @@ final class SeerrApi {
         'X-Api-Key': apiKey,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (viaRelay) ...{
+          'X-Emby-Token': ?embyToken?.call(),
+          'X-Emby-User-Id': ?embyUserId?.call(),
+        },
       };
 
   Future<List<SeerrMedia>> _results(String path, Map<String, String> query,

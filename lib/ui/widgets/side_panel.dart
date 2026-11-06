@@ -17,14 +17,14 @@ class PanelOption<T> {
 }
 
 Future<T?> showSidePanel<T>(BuildContext context,
-    {required String title, required List<PanelOption<T>> options, ValueChanged<T>? onFocus}) {
+    {required String title, required List<PanelOption<T>> options, ValueChanged<T>? onFocus, String? header}) {
   return Navigator.of(context).push<T>(PageRouteBuilder<T>(
     opaque: false,
     barrierColor: Colors.black54,
     barrierDismissible: true,
     transitionDuration: Zm.normal,
     reverseTransitionDuration: Zm.fast,
-    pageBuilder: (_, _, _) => _SidePanel<T>(title: title, options: options, onFocus: onFocus),
+    pageBuilder: (_, _, _) => _SidePanel<T>(title: title, options: options, onFocus: onFocus, header: header),
     transitionsBuilder: (_, anim, _, child) => SlideTransition(
       position: Tween(begin: const Offset(0.15, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Zm.curve)),
       child: FadeTransition(opacity: anim, child: child),
@@ -33,9 +33,10 @@ Future<T?> showSidePanel<T>(BuildContext context,
 }
 
 class _SidePanel<T> extends StatelessWidget {
-  const _SidePanel({required this.title, required this.options, this.onFocus});
+  const _SidePanel({required this.title, required this.options, this.onFocus, this.header});
 
   final String title;
+  final String? header;
   final List<PanelOption<T>> options;
   final ValueChanged<T>? onFocus;
 
@@ -51,9 +52,21 @@ class _SidePanel<T> extends StatelessWidget {
           height: double.infinity,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(56, 72, 56, 28),
+              padding: EdgeInsets.fromLTRB(56, 72, 56, header == null ? 28 : 10),
               child: Text(title, style: Zt.headline),
             ),
+            if (header != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(56, 0, 56, 28),
+                child: Row(children: [
+                  const Icon(Icons.movie_outlined, color: Zc.textFaint, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(header!,
+                        style: Zt.caption.copyWith(fontSize: 20, color: Zc.textMuted), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ),
+                ]),
+              ),
             Expanded(
               child: FocusZone(
                 child: ListView.builder(

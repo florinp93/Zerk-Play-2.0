@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
 import '../../core/log/app_log.dart';
+import '../../data/user_profile.dart';
 import '../../l10n/l10n.dart';
+import '../../playback/live_session.dart' show LiveShare;
+import '../../playback/sync/watch_together.dart';
 import '../../services/updater/updater.dart';
 import '../core/input_mode.dart';
 import '../core/navigation.dart';
+import '../core/playback_launcher.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
@@ -17,22 +23,31 @@ import '../pages/emby_live_tv_page.dart';
 import '../pages/home_page.dart';
 import '../pages/library_page.dart';
 import '../pages/live_tv_page.dart';
+import '../pages/my_list_page.dart';
+import '../pages/profile_page.dart';
 import '../pages/search_page.dart';
 import '../pages/settings_page.dart';
+import '../pages/together_page.dart';
 import '../theme/tokens.dart';
 import '../widgets/exit_app.dart';
+import '../widgets/profile_widgets.dart';
+import '../widgets/wall_clock.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/zerk_logo.dart';
 
 enum ShellTab {
   search(Icons.search_rounded),
   home(Icons.home_rounded),
+  favorites(Icons.favorite_rounded),
+  myList(Icons.bookmarks_rounded),
   movies(Icons.movie_rounded),
   shows(Icons.tv_rounded),
   collections(Icons.collections_bookmark_rounded),
   discover(Icons.explore_rounded),
   calendar(Icons.calendar_month_rounded),
   liveTv(Icons.live_tv_rounded),
+  together(Icons.groups_rounded),
+  profile(Icons.account_circle_rounded),
   settings(Icons.settings_rounded);
 
   const ShellTab(this.icon);
@@ -42,12 +57,16 @@ enum ShellTab {
   String label(L10n l10n) => switch (this) {
         search => l10n.search,
         home => l10n.home,
+        favorites => l10n.favorites,
+        myList => l10n.myList,
         movies => l10n.movies,
         shows => l10n.shows,
         collections => l10n.collections,
         discover => l10n.discover,
         calendar => l10n.calendar,
         liveTv => l10n.liveTv,
+        together => l10n.watchTogether,
+        profile => l10n.profile,
         settings => l10n.settings,
       };
 }
@@ -70,6 +89,8 @@ class _ShellState extends State<Shell> {
 
   bool _railHovered = false;
   final _railNodes = {for (final t in ShellTab.values) t: FocusNode(debugLabel: 'rail:${t.name}')};
+  StreamSubscription<RoomState>? _roomSub;
+  String? _roomCode;
 
   @override
   void initState() {
@@ -80,7 +101,62 @@ class _ShellState extends State<Shell> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_roomSub == null) {
+      _roomSub = AppServicesScope.read(context).together.updates.listen(_onRoom);
+      playbackActiveNotifier.addListener(_onPlayback);
+    }
+  }
+
+  Future<void> _onRoom(RoomState room) async {
+    final joined = room.code != _roomCode;
+    _roomCode = room.code;
+    if (!joined && room.rev == _roomRev) return;
+    _roomRev = room.rev;
+    final together = AppServicesScope.read(context).together;
+    final itemId = room.itemId;
+    if (itemId == null || room.by == together.me) return;
+    final started = room.action == 'item' || (joined && room.members.any((m) => m.watching == itemId));
+    if (!started) return;
+    if (playbackActive) {
+      if (room.live != null || liveActive) _followWhenClosed = true;
+      return;
+    }
+    await _open(room);
+  }
+
+  int _roomRev = -1;
+
+  bool _followWhenClosed = false;
+
+  void _onPlayback() {
+    if (playbackActiveNotifier.value || !_followWhenClosed) return;
+    _followWhenClosed = false;
+    final together = AppServicesScope.read(context).together;
+    final room = together.room;
+    if (room?.itemId == null || !room!.members.any((m) => m.id != together.me && m.watching == room.itemId)) return;
+    unawaited(_open(room));
+  }
+
+  Future<void> _open(RoomState room) async {
+    final live = LiveShare.fromRoom(room);
+    if (live != null) {
+      await playShared(context, live);
+      return;
+    }
+    try {
+      final item = await AppServicesScope.read(context).catalog.item(room.itemId!);
+      if (mounted && !playbackActive) await playItem(context, item);
+    } catch (e) {
+      debugPrint("[together] could not open the room's item: $e");
+    }
+  }
+
+  @override
   void dispose() {
+    unawaited(_roomSub?.cancel());
+    playbackActiveNotifier.removeListener(_onPlayback);
     for (final n in _railNodes.values) {
       n.dispose();
     }
@@ -90,7 +166,9 @@ class _ShellState extends State<Shell> {
   List<ShellTab> _tabs(AppServices s) => [
     for (final t in ShellTab.values)
       if ((t != ShellTab.discover || s.seerr != null) && (t != ShellTab.calendar || s.tmdb != null || s.seerr != null) &&
-          (t != ShellTab.liveTv || s.liveTvAvailable || s.embyTvAvailable)) t,
+          (t != ShellTab.liveTv || s.liveTvAvailable || s.embyTvAvailable) &&
+          (t != ShellTab.together || s.together.available) &&
+          ((t != ShellTab.myList && t != ShellTab.profile) || s.profiles.profile != null)) t,
   ];
 
   void _select(ShellTab tab) {
@@ -151,6 +229,8 @@ class _ShellState extends State<Shell> {
                     child: ExcludeFocus(excluding: t != _tab, child: _page(t)),
                   ),
                 ),
+            if (services.settings.homeClock && _tab == ShellTab.home)
+              const Positioned(top: 44, right: 72, child: IgnorePointer(child: WallClock(shadow: true))),
             Positioned(
               left: 0,
               top: 0,
@@ -182,6 +262,7 @@ class _ShellState extends State<Shell> {
                         valueListenable: InputMode.pointer,
                         builder: (context, pointer, _) => _Rail(
                           tabs: tabs,
+                          profile: services.profiles.profile,
                           current: _tab,
                           expanded: _railFocused && (!pointer || _railHovered),
                           onSelect: _select,
@@ -204,10 +285,14 @@ class _ShellState extends State<Shell> {
     ShellTab.search => const SearchPage(),
     ShellTab.movies => const LibraryPage(kind: LibraryKind.movies),
     ShellTab.shows => const LibraryPage(kind: LibraryKind.shows),
+    ShellTab.favorites => const LibraryPage(kind: LibraryKind.favorites),
     ShellTab.collections => const CollectionsPage(),
     ShellTab.discover => const DiscoverPage(),
     ShellTab.calendar => const CalendarPage(),
     ShellTab.liveTv => AppServicesScope.read(context).liveTvAvailable ? const LiveTvPage() : const EmbyLiveTvPage(),
+    ShellTab.together => const TogetherPage(),
+    ShellTab.myList => const MyListPage(),
+    ShellTab.profile => const ProfilePage(),
     ShellTab.settings => const SettingsPage(),
   };
 }
@@ -230,14 +315,18 @@ enum _Group {
 const List<Object> _railOrder = [
   ShellTab.search,
   ShellTab.home,
+  ShellTab.myList,
+  ShellTab.favorites,
   _Group.library,
   _Group.explore,
   ShellTab.liveTv,
+  ShellTab.together,
 ];
 
 class _Rail extends StatefulWidget {
   const _Rail({
     required this.tabs,
+    required this.profile,
     required this.current,
     required this.expanded,
     required this.onSelect,
@@ -246,6 +335,8 @@ class _Rail extends StatefulWidget {
 
   final Map<ShellTab, FocusNode> nodes;
   final List<ShellTab> tabs;
+
+  final UserProfile? profile;
   final ShellTab current;
   final bool expanded;
   final ValueChanged<ShellTab> onSelect;
@@ -276,6 +367,7 @@ class _RailState extends State<_Rail> {
         selected: t == widget.current,
         expanded: widget.expanded,
         child: child,
+        profile: t == ShellTab.profile ? widget.profile : null,
         onSelect: () => widget.onSelect(t),
       );
 
@@ -355,6 +447,7 @@ class _RailState extends State<_Rail> {
                 final some => _group(entry, some),
               },
           const Spacer(),
+          if (tabs.contains(ShellTab.profile)) _item(ShellTab.profile),
           _item(ShellTab.settings),
         ],
       ),
@@ -406,6 +499,7 @@ class _RailItem extends StatelessWidget {
     required this.onSelect,
     this.child = false,
     this.open,
+    this.profile,
   });
 
   final ShellTab? tab;
@@ -415,6 +509,8 @@ class _RailItem extends StatelessWidget {
   final bool child;
 
   final bool? open;
+
+  final UserProfile? profile;
   final FocusNode node;
   final bool selected;
   final bool expanded;
@@ -454,13 +550,24 @@ class _RailItem extends StatelessWidget {
               maxWidth: Zs.railExpanded - 56 - (child ? 26 : 0),
               child: Row(
                 children: [
-                  Icon(icon ?? tab!.icon, size: child ? 24 : 28, color: fg),
+                  if (profile != null)
+                    SizedBox(
+                      width: 28,
+                      height: 40,
+                      child: OverflowBox(
+                        maxWidth: 40,
+                        child: UserAvatar(
+                            url: profile!.avatarUrl, name: profile!.name, size: 40, ring: focused ? Zc.accent : null),
+                      ),
+                    )
+                  else
+                    Icon(icon ?? tab!.icon, size: child ? 24 : 28, color: fg),
                   if (expanded)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 18),
                         child: Text(
-                          label ?? tab!.label(context.l10n),
+                          profile?.name ?? label ?? tab!.label(context.l10n),
                           maxLines: 1,
                           overflow: TextOverflow.clip,
                           style: Zt.label.copyWith(color: fg, fontSize: child ? 20 : 22),

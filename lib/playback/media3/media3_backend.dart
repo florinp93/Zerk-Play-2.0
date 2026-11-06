@@ -177,6 +177,7 @@ final class Media3Backend implements PlayerBackend {
     Duration ms(Object? v) => Duration(milliseconds: (v as num?)?.toInt() ?? 0);
     return PlayerState(
       position: ms(m['position']),
+      buffered: ms(m['buffered']),
       duration: ms(m['duration']),
       paused: m['paused'] == true,
       buffering: m['buffering'] == true,

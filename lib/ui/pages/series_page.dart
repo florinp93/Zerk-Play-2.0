@@ -19,6 +19,8 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/profile_widgets.dart';
+import '../widgets/report_problem.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/trailer.dart';
 import 'details_parts.dart';
@@ -191,6 +193,17 @@ class _SeriesPageState extends State<SeriesPage> {
     }
   }
 
+  int? get _reportSeason => _seasons.where((s) => s.id == _seasonId).firstOrNull?.indexNumber;
+
+  Future<void> _reportProblem() async {
+    final series = _series!;
+    final tmdb = series.tmdbId;
+    final season = _reportSeason;
+    if (tmdb == null || season == null) return;
+    final tvdb = int.tryParse(series.providerIds['Tvdb'] ?? series.providerIds['tvdb'] ?? '');
+    await reportProblem(context, title: series.name, tmdbId: tmdb, season: season, tvdbId: tvdb);
+  }
+
   @override
   Widget build(BuildContext context) {
     final series = _series;
@@ -250,6 +263,8 @@ class _SeriesPageState extends State<SeriesPage> {
                 TvButton(focusNode: _playNode, label: playLabel, icon: Icons.play_arrow_rounded, primary: true, onSelect: _playMain),
                 if (next?.resumePosition != null)
                   TvButton(label: l10n.fromBeginning, icon: Icons.replay_rounded, onSelect: () => _playEpisode(next!, fromStart: true)),
+                if (s.together.available) const TogetherButton(collapsed: true),
+                if (s.profiles.profile != null) MyListButton(item: series, collapsed: true),
                 TrailerButtons(controller: _trailer, title: series.name, focusNode: _trailerNode, collapsed: true),
                 if (overviewIsLong(series.overview)) SynopsisButton(title: series.name, text: series.overview!),
                 TvButton(
@@ -258,6 +273,8 @@ class _SeriesPageState extends State<SeriesPage> {
                   collapsed: true,
                   onSelect: _toggleWatched,
                 ),
+                if (canReportProblem(s) && series.tmdbId != null && _reportSeason != null)
+                  TvButton(label: l10n.reportProblem, icon: Icons.report_problem_outlined, collapsed: true, onSelect: _reportProblem),
               ]),
             ),
           ),

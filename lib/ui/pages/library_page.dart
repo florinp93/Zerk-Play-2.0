@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import '../../app/app_services.dart';
 import '../../app/app_settings.dart';
 import '../../core/emby/models/emby_item.dart';
+import '../../data/catalog_api.dart' show CatalogApi;
+import '../../data/collection_index.dart';
 import '../../l10n/l10n.dart';
 import '../core/artwork.dart';
 import '../focus/focus_zone.dart';
@@ -17,7 +19,7 @@ import '../widgets/side_panel.dart';
 import 'details_parts.dart';
 import 'routes.dart';
 
-enum LibraryKind { movies, shows }
+enum LibraryKind { movies, shows, favorites }
 
 enum _Sort {
   name('SortName', false),
@@ -57,7 +59,7 @@ class _LibraryPageState extends State<LibraryPage> {
   static const _pageSize = 120;
 
   _Sort _sort = _Sort.added;
-  _Watched _watched = _Watched.all;
+  late _Watched _watched = widget.kind == LibraryKind.favorites ? _Watched.favorites : _Watched.all;
   String? _genre;
   List<String> _genres = const [];
 
@@ -67,13 +69,17 @@ class _LibraryPageState extends State<LibraryPage> {
   int _generation = 0;
   final _grid = RevealController(margin: 120);
 
-  String get _type => widget.kind == LibraryKind.movies ? 'Movie' : 'Series';
+  List<String> get _types => switch (widget.kind) {
+        LibraryKind.movies => const ['Movie'],
+        LibraryKind.shows => const ['Series'],
+        LibraryKind.favorites => const ['Movie', 'Series'],
+      };
 
   @override
   void initState() {
     super.initState();
     _reload();
-    AppServicesScope.read(context).catalog.genres(types: [_type]).then((g) {
+    AppServicesScope.read(context).catalog.genres(types: _types).then((g) {
       if (mounted) setState(() => _genres = g);
     }).catchError((_) {});
   }
@@ -98,9 +104,12 @@ class _LibraryPageState extends State<LibraryPage> {
     if (_loading || (_total >= 0 && _items.length >= _total)) return;
     _loading = true;
     final generation = _generation;
+    final settings = AppServicesScope.read(context).settings;
+    if (_grouped(settings)) return _loadGrouped(generation);
     try {
       final page = await AppServicesScope.read(context).catalog.query(
-            types: [_type],
+            collapseBoxSets: _grouped(settings),
+            types: _types,
             sortBy: _sort.field,
             descending: _sort.descending,
             start: _items.length,
@@ -133,6 +142,90 @@ class _LibraryPageState extends State<LibraryPage> {
       apply(chosen);
       _reload();
     }
+  }
+
+  Future<void> _loadGrouped(int generation) async {
+    try {
+      final page = await AppServicesScope.read(context).catalog.query(
+            types: _types,
+            sortBy: 'SortName',
+            limit: 5000,
+            collapseBoxSets: true,
+            fields: '${CatalogApi.cardFields},DateCreated',
+          );
+      if (!mounted || generation != _generation) return;
+      final items = await _withTmdbCollections(page.items);
+      if (!mounted || generation != _generation) return;
+      int newest(DateTime? a, DateTime? b) => (b ?? DateTime(1900)).compareTo(a ?? DateTime(1900));
+      switch (_sort) {
+        case _Sort.name:
+          break;
+        case _Sort.added:
+          items.sort((a, b) => newest(a.dateCreated, b.dateCreated));
+        case _Sort.released:
+          items.sort((a, b) => newest(a.premiereDate, b.premiereDate));
+        case _Sort.rating:
+          items.sort((a, b) => (b.communityRating ?? 0).compareTo(a.communityRating ?? 0));
+        case _Sort.played:
+          items.sort((a, b) => newest(a.lastPlayedDate, b.lastPlayedDate));
+        case _Sort.random:
+          items.shuffle();
+      }
+      setState(() {
+        _items.addAll(items);
+        _total = items.length;
+      });
+    } catch (e) {
+      debugPrint('[library] grouped: $e');
+    } finally {
+      _loading = false;
+    }
+  }
+
+  Future<List<EmbyItem>> _withTmdbCollections(List<EmbyItem> grouped) async {
+    final index = AppServicesScope.read(context).catalog.collections;
+    if (index == null) return [...grouped];
+    final List<LibraryCollection> tmdb;
+    try {
+      tmdb = await index.all();
+    } catch (e) {
+      debugPrint('[library] tmdb collections: $e');
+      return [...grouped];
+    }
+    final loose = {for (final i in grouped) if (i.isMovie) i.id: i};
+    final serverSets = {for (final i in grouped) if (i.isCollection) ?i.tmdbId};
+    final hidden = <String>{};
+    final added = <EmbyItem>[];
+    for (final c in tmdb) {
+      final members = [for (final id in c.ownedIds) ?loose[id]];
+      if (members.isEmpty) continue;
+      if (serverSets.contains(c.info.id)) {
+        hidden.addAll(members.map((m) => m.id));
+        continue;
+      }
+      if (members.length < 2) continue;
+      hidden.addAll(members.map((m) => m.id));
+      DateTime? latest(Iterable<DateTime?> dates) =>
+          dates.nonNulls.fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
+      added.add(CollectionIndex.itemFor(
+        c.info,
+        owned: members.length,
+        added: latest(members.map((m) => m.dateCreated)),
+        released: latest(members.map((m) => m.premiereDate)),
+      ));
+    }
+    debugPrint('[library] grouped: ${grouped.length} from the server, ${added.length} TMDB collections '
+        'replace ${hidden.length} films');
+    return [for (final i in grouped) if (!hidden.contains(i.id)) i, ...added]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  bool _grouped(AppSettings settings) =>
+      widget.kind == LibraryKind.movies && settings.groupCollections && _genre == null && _watched == _Watched.all;
+
+  Future<void> _toggleGrouping(AppServices services) async {
+    await services.updateSettings(services.settings.copyWith(groupCollections: !services.settings.groupCollections));
+    if (mounted) _reload();
   }
 
   Future<void> _pickView(AppServices services) async {
@@ -194,7 +287,11 @@ class _LibraryPageState extends State<LibraryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final title = widget.kind == LibraryKind.movies ? l10n.movies : l10n.shows;
+    final title = switch (widget.kind) {
+      LibraryKind.movies => l10n.movies,
+      LibraryKind.shows => l10n.shows,
+      LibraryKind.favorites => l10n.favorites,
+    };
     final services = AppServicesScope.of(context);
     final view = services.settings.libraryView;
     final columns = switch (view) {
@@ -225,6 +322,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 onSelect: () => _pick<String>(l10n.genre, {'': l10n.allGenres, for (final g in _genres) g: g}, _genre ?? '',
                     (v) => _genre = v.isEmpty ? null : v),
               ),
+              if (widget.kind != LibraryKind.favorites) ...[
               const SizedBox(width: 14),
               TvButton(
                 label: switch (_watched) {
@@ -241,6 +339,17 @@ class _LibraryPageState extends State<LibraryPage> {
                   _Watched.favorites: l10n.favorites,
                 }, _watched, (v) => _watched = v),
               ),
+              ],
+              if (widget.kind == LibraryKind.movies) ...[
+                const SizedBox(width: 14),
+                TvButton(
+                  label: l10n.groupCollections,
+                  icon: services.settings.groupCollections ? Icons.collections_bookmark_rounded : Icons.collections_bookmark_outlined,
+                  collapsed: true,
+                  primary: services.settings.groupCollections,
+                  onSelect: () => _toggleGrouping(services),
+                ),
+              ],
               const SizedBox(width: 14),
               TvButton(
                 label: _viewLabel(l10n, view),

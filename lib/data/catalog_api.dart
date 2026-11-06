@@ -157,6 +157,7 @@ final class CatalogApi {
     String? listItemIds,
     String fields = cardFields,
     bool localize = true,
+    bool collapseBoxSets = false,
   }) async {
     if (anyProviderIdEquals != null && _janus.client.isJellyfin) {
       final index = await _providerIndex();
@@ -185,6 +186,8 @@ final class CatalogApi {
       'PersonIds': personIds,
       'Ids': ids?.join(','),
       'ListItemIds': listItemIds,
+      'GroupItemsIntoCollections': collapseBoxSets ? 'true' : null,
+      'CollapseBoxSetItems': collapseBoxSets ? 'true' : null,
       'Fields': fields,
       'EnableTotalRecordCount': 'true',
       ..._imageArgs,

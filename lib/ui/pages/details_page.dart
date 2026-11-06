@@ -21,6 +21,8 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/profile_widgets.dart';
+import '../widgets/report_problem.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/trailer.dart';
@@ -279,6 +281,27 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
+  Future<void> _reportProblem() async {
+    final item = _item!;
+    if (item.isMovie) {
+      final tmdb = item.tmdbId;
+      if (tmdb != null) await reportProblem(context, title: item.name, tmdbId: tmdb);
+      return;
+    }
+    final season = item.parentIndexNumber;
+    if (item.seriesId == null || season == null) return;
+    try {
+      final series = await AppServicesScope.read(context).catalog.item(item.seriesId!);
+      final tmdb = series.tmdbId;
+      if (tmdb == null || !mounted) return;
+      final tvdb = int.tryParse(series.providerIds['Tvdb'] ?? series.providerIds['tvdb'] ?? '');
+      await reportProblem(context, title: series.name, tmdbId: tmdb, season: season, tvdbId: tvdb);
+    } catch (e) {
+      debugPrint('[details] report ${item.id}: $e');
+      UiSounds.play(UiSound.error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = _item;
@@ -343,6 +366,7 @@ class _DetailsPageState extends State<DetailsPage> {
                     icon: Icons.layers_rounded,
                     onSelect: _pickVersion,
                   ),
+                if (item.isPlayable && s.together.available) const TogetherButton(collapsed: true),
                 if ((_source?.subtitleStreams.length ?? 0) > 0)
                   TvButton(
                     label: sub == null
@@ -354,6 +378,7 @@ class _DetailsPageState extends State<DetailsPage> {
                     collapsed: true,
                     onSelect: _pickSubtitle,
                   ),
+                if (item.isMovie && s.profiles.profile != null) MyListButton(item: item, collapsed: true),
                 TrailerButtons(controller: _trailer, title: item.name, focusNode: _trailerNode, collapsed: true),
                 if (overviewIsLong(item.overview)) SynopsisButton(title: item.name, text: item.overview!),
                 if ((_source?.audioStreams.length ?? 0) > 1)
@@ -382,6 +407,8 @@ class _DetailsPageState extends State<DetailsPage> {
                     collapsed: true,
                     onSelect: () => openSeries(context, item.seriesId!, focusEpisodeId: item.id),
                   ),
+                if (canReportProblem(s) && (item.isMovie ? item.tmdbId != null : item.isEpisode && item.parentIndexNumber != null))
+                  TvButton(label: l10n.reportProblem, icon: Icons.report_problem_outlined, collapsed: true, onSelect: _reportProblem),
               ]),
             ),
           ),

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../l10n/l10n.dart';
 import '../../playback/media3/osd_model.dart';
@@ -15,8 +14,10 @@ import '../focus/focus_zone.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/net_image.dart';
+import '../widgets/profile_widgets.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/value_slider.dart';
+import '../widgets/wall_clock.dart';
 import 'player_loading.dart';
 
 class _ScreenBand extends StatelessWidget {
@@ -129,8 +130,9 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     super.initState();
     model.addListener(_onModel);
     model.state.addListener(_onState);
-    model.onToast = (text) {
-      if (mounted) showToast(context, text);
+    model.onToast = (text, {image, name}) {
+      if (!mounted) return;
+      showToast(context, text, leading: image == null ? null : UserAvatar(url: image, name: name ?? '', size: 44));
     };
     WidgetsBinding.instance.addPostFrameCallback((_) => _root.requestFocus());
   }
@@ -325,7 +327,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       model.onToast?.call(found.error ?? l10n.subtitleSearchEmpty);
       return;
     }
-    final chosen = await showSidePanel<String>(context, title: l10n.searchSubtitles, options: [
+    final chosen = await showSidePanel<String>(context, title: l10n.searchSubtitles, header: found.file, options: [
       for (final c in found.results) PanelOption(value: c.id, title: c.label, subtitle: c.detail),
     ]);
     _panelOpen = false;
@@ -662,8 +664,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
           if (DateTime.now().isBefore(_volumeUntil))
             Positioned(top: _visible ? 180 : 64, right: 96, child: _VolumeBadge(volume: s.muted ? 0 : s.volume)),
           if (miniVisible) ...[
-            const Positioned(top: 64, right: 96, child: _Clock(shadow: true)),
-            Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position, duration: s.duration)),
+            const Positioned(top: 64, right: 96, child: WallClock(shadow: true)),
+            Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position, buffered: s.buffered, duration: s.duration)),
           ],
           if (!loading && !error && _introVisible(s))
             Positioned(
@@ -776,7 +778,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
           ),
           if (model.videoFormat != null) _Badge(text: model.videoFormat!),
           const SizedBox(width: 28),
-          const _Clock(),
+          const WallClock(),
         ]),
       ),
       Positioned(
@@ -791,6 +793,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
             debugLabel: 'osd-seek',
             child: _SeekBar(
               position: position,
+              buffered: s.buffered,
               duration: s.duration,
               onSeek: (secs) => _seekBy(secs),
               onScrub: _scrubTo,
@@ -872,6 +875,7 @@ class _ProgressBar extends StatelessWidget {
   const _ProgressBar({
     required this.position,
     required this.duration,
+    this.buffered = Duration.zero,
     this.focused = false,
     this.hover,
     this.onHover,
@@ -881,6 +885,7 @@ class _ProgressBar extends StatelessWidget {
   });
 
   final Duration position;
+  final Duration buffered;
   final Duration duration;
   final bool focused;
   final List<Duration> marks;
@@ -894,6 +899,7 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final frac = duration > Duration.zero ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0) : 0.0;
+    final ahead = duration > Duration.zero ? (buffered.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0) : 0.0;
     return Row(children: [
       SizedBox(width: 130, child: Text(_fmt(position), style: Zt.label)),
       Expanded(
@@ -908,6 +914,13 @@ class _ProgressBar extends StatelessWidget {
                 height: focused ? 10 : 6,
                 decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(5)),
               ),
+              if (ahead > frac)
+                AnimatedContainer(
+                  duration: Zm.normal,
+                  width: box.maxWidth * ahead,
+                  height: focused ? 10 : 6,
+                  decoration: BoxDecoration(color: Colors.white54, borderRadius: BorderRadius.circular(5)),
+                ),
               AnimatedContainer(
                 duration: Zm.fast,
                 width: box.maxWidth * frac,
@@ -969,6 +982,7 @@ class _SeekBar extends StatefulWidget {
   const _SeekBar({
     required this.position,
     required this.duration,
+    this.buffered = Duration.zero,
     required this.onSeek,
     required this.onScrub,
     required this.onScrubEnd,
@@ -978,6 +992,7 @@ class _SeekBar extends StatefulWidget {
   });
 
   final Duration position;
+  final Duration buffered;
   final Duration duration;
   final void Function(int seconds) onSeek;
   final void Function(Duration target) onScrub;
@@ -1027,6 +1042,7 @@ class _SeekBarState extends State<_SeekBar> {
       },
       child: _ProgressBar(
         position: widget.position,
+        buffered: widget.buffered,
         duration: widget.duration,
         focused: _node.hasFocus || _hover != null,
         marks: widget.marks,
@@ -1037,45 +1053,6 @@ class _SeekBarState extends State<_SeekBar> {
       ),
     );
   }
-}
-
-class _Clock extends StatefulWidget {
-  const _Clock({this.shadow = false});
-
-  final bool shadow;
-
-  @override
-  State<_Clock> createState() => _ClockState();
-}
-
-class _ClockState extends State<_Clock> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _timer = Timer(Duration(seconds: 60 - now.second), () {
-      if (!mounted) return;
-      setState(() {});
-      _timer = Timer.periodic(const Duration(minutes: 1), (_) => mounted ? setState(() {}) : null);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Text(
-        DateFormat.Hm(context.l10n.localeName).format(DateTime.now()),
-        style: Zt.title.copyWith(
-          fontSize: 34,
-          shadows: widget.shadow ? const [Shadow(color: Colors.black87, blurRadius: 12, offset: Offset(0, 2))] : null,
-        ),
-      );
 }
 
 class _Badge extends StatelessWidget {

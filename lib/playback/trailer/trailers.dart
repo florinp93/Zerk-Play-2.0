@@ -7,6 +7,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../../app/app_services.dart';
 import '../../core/emby/models/emby_item.dart';
+import '../../core/host.dart';
 import '../../data/seerr_api.dart';
 
 @immutable
@@ -48,7 +49,14 @@ final class TrailerRef {
       return c.startsWith('avc') ? 0 : c.startsWith('vp9') || c.startsWith('vp09') ? 1 : 2;
     }
 
-    final video = manifest.videoOnly.where((v) => v.videoResolution.height <= 1080).toList()
+    bool deepColour(VideoStreamInfo v) {
+      final c = v.videoCodec.toLowerCase();
+      return c.startsWith('vp09.02') || c.startsWith('vp9.2') || (c.startsWith('av01') && c.contains('.10'));
+    }
+
+    final video = manifest.videoOnly
+        .where((v) => v.videoResolution.height <= 1080 && !deepColour(v) && (!Host.isAndroid || codecRank(v) == 0))
+        .toList()
       ..sort((a, b) {
         final byHeight = b.videoResolution.height.compareTo(a.videoResolution.height);
         if (byHeight != 0) return byHeight;
@@ -62,10 +70,16 @@ final class TrailerRef {
         return b.bitrate.compareTo(a.bitrate);
       });
     if (video.isNotEmpty && audio.isNotEmpty && await _servedInFull(video.first)) {
-      return TrailerStream(video.first.url, audio: audio.first.url);
+      final v = video.first;
+      debugPrint('[trailer] $videoId: ${v.videoResolution.height}p ${v.videoCodec} ${v.container.name}'
+          ' + ${audio.first.audioCodec} (${manifest.videoOnly.length} video streams offered)');
+      return TrailerStream(v.url, audio: audio.first.url);
     }
     final muxed = manifest.muxed.sortByVideoQuality();
-    if (muxed.isNotEmpty) return TrailerStream(muxed.first.url);
+    if (muxed.isNotEmpty) {
+      debugPrint('[trailer] $videoId: muxed ${muxed.first.videoResolution.height}p ${muxed.first.videoCodec}');
+      return TrailerStream(muxed.first.url);
+    }
     throw StateError('no playable streams for $videoId');
   }
 

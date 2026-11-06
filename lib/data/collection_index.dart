@@ -62,7 +62,7 @@ final class CollectionIndex {
 
   Future<int?> collectionOfMovie(int tmdbMovieId) => _tmdb.movieCollectionId(tmdbMovieId);
 
-  static EmbyItem itemFor(TmdbCollectionInfo info, {required int owned}) => EmbyItem(
+  static EmbyItem itemFor(TmdbCollectionInfo info, {required int owned, DateTime? added, DateTime? released}) => EmbyItem(
         id: '',
         name: info.name,
         type: 'BoxSet',
@@ -73,6 +73,8 @@ final class CollectionIndex {
         localizedPosterPath: info.posterPath,
         localizedBackdropPath: info.backdropPath,
         localizedLogoPath: info.logoPath,
+        dateCreated: added,
+        premiereDate: released,
       );
 
   Future<List<LibraryCollection>> _build() async {

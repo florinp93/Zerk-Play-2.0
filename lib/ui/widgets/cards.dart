@@ -37,7 +37,9 @@ class PosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catalog = AppServicesScope.read(context).catalog;
-    final height = width * 1.5;
+    final stacked = item.isCollection;
+    final lift = stacked ? (width * 0.11).clamp(14.0, 26.0) : 0.0;
+    final height = width * 1.5 - lift;
     return TvFocusable(
       autofocus: autofocus,
       focusNode: focusNode,
@@ -47,6 +49,7 @@ class PosterCard extends StatelessWidget {
       builder: (context, focused) => SizedBox(
         width: width,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (stacked) _Sheets(width: width, lift: lift, focused: focused),
           FocusFrame(
             focused: focused,
             child: SizedBox(
@@ -57,7 +60,7 @@ class PosterCard extends StatelessWidget {
                   url: catalog.poster(item, width: width),
                   width: width,
                   fallback: TitleArt(title: item.name, subtitle: item.productionYear?.toString(),
-                      icon: item.isSeries ? Icons.tv_rounded : Icons.movie_outlined),
+                      icon: item.isSeries ? Icons.tv_rounded : item.isCollection ? Icons.collections_bookmark_outlined : Icons.movie_outlined),
                 ),
                 _StatusBadge(item: item),
                 if (marked != null)
@@ -73,11 +76,22 @@ class PosterCard extends StatelessWidget {
                     ),
                   )
                 else if (item.progress != null)
-                  Positioned(left: 0, right: 0, bottom: 0, child: ProgressStrip(item.progress!)),
+                  Positioned(left: 0, right: 0, bottom: 0, child: ProgressStrip(item.progress!))
+                else if (stacked)
+                  Positioned(left: 0, right: 0, bottom: 0, child: CollectionStrip(item: item, compact: width < 180)),
+                if (stacked)
+                  IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Zc.accent, width: 3),
+                        borderRadius: BorderRadius.circular(Zs.radius),
+                      ),
+                    ),
+                  ),
               ]),
             ),
           ),
-          _FocusCaption(focused: focused, title: item.name, subtitle: _subtitle(item)),
+          _FocusCaption(focused: focused, title: item.name, subtitle: stacked ? context.l10n.collectionTitle : _subtitle(item)),
         ]),
       ),
     );
@@ -91,6 +105,63 @@ class PosterCard extends StatelessWidget {
       return i.status == 'Continuing' ? '$y –' : (end != null && end != y ? '$y – $end' : '$y');
     }
     return i.productionYear?.toString();
+  }
+}
+
+class _Sheets extends StatelessWidget {
+  const _Sheets({required this.width, required this.lift, required this.focused});
+
+  final double width;
+  final double lift;
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget sheet(double inset, Color color) => Container(
+          margin: EdgeInsets.symmetric(horizontal: inset),
+          height: lift / 2,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2))],
+          ),
+        );
+    return SizedBox(
+      width: width,
+      height: lift,
+      child: Column(children: [
+        sheet(width * 0.13, focused ? const Color(0xFFB9B4FF) : const Color(0xFF4A4590)),
+        sheet(width * 0.065, focused ? Zc.accentSoft : const Color(0xFF5C55D6)),
+      ]),
+    );
+  }
+}
+
+class CollectionStrip extends StatelessWidget {
+  const CollectionStrip({super.key, required this.item, this.compact = false});
+
+  final EmbyItem item;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = item.childCount ?? item.recursiveItemCount ?? 0;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: compact ? 7 : 10),
+      color: Zc.accent.withValues(alpha: 0.94),
+      child: Row(children: [
+        Icon(Icons.collections_bookmark_rounded, size: compact ? 18 : 22, color: Colors.white),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            count > 0 ? context.l10n.filmCount(count) : context.l10n.collectionTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Zt.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: compact ? 15 : 18),
+          ),
+        ),
+      ]),
+    );
   }
 }
 
@@ -225,7 +296,9 @@ class LandscapeCard extends StatelessWidget {
                       child: _PlayCircle(),
                     ),
                   ),
-                if (item.progress != null) Positioned(left: 0, right: 0, bottom: 0, child: ProgressStrip(item.progress!, height: 6)),
+                if (item.progress != null) Positioned(left: 0, right: 0, bottom: 0, child: ProgressStrip(item.progress!, height: 6))
+                else if (item.isCollection)
+                  Positioned(left: 0, right: 0, bottom: 0, child: CollectionStrip(item: item)),
               ]),
             ),
           ),

@@ -27,6 +27,52 @@
   "mediaServer": "Media server",
   "serverAddress": "Server address",
   "serverAddressHint": "e.g. 192.168.1.10:8096",
+  "signInWithCode": "Sync code",
+  "signInManually": "Set up manually",
+  "syncCode": "Sync code",
+  "syncCodeSubtitle": "Enter the code your server owner gave you, then your own username and password.",
+  "hubAddress": "Hub address",
+  "hubAddressHint": "e.g. zerkplay.example.com",
+  "linkedTo": "Set up by {name}",
+  "@linkedTo": {"placeholders": {"name": {"type": "String"}}},
+  "unlinkHub": "Use another code",
+  "codeEyebrow": "Zerk Play for {server}",
+  "@codeEyebrow": {"placeholders": {"server": {"type": "String"}}},
+  "codeHeadline": "Your server. Every screen.\nOne code.",
+  "codePitch": "Whoever runs your Emby or Jellyfin server sets Zerk Play up once. Enter the code they gave you, sign in with your own account, and everything is ready.",
+  "codeFeatureRequests": "Request movies and shows from the couch",
+  "codeFeatureTogether": "Watch together, in sync, from anywhere",
+  "codeFeatureProfiles": "Profiles and your own My list",
+  "codeFeatureLiveTv": "Live TV with a full guide",
+  "codeEnterTitle": "Enter your sync code",
+  "codeEnterHint": "12 letters and numbers, from your server owner",
+  "codeContinue": "Continue",
+  "codeChecking": "Checking…",
+  "codeSignInTitle": "Now sign in",
+  "codeSignInBody": "Use your own {kind} username and password.",
+  "@codeSignInBody": {"placeholders": {"kind": {"type": "String"}}},
+  "codeNoCode": "No code? Set it up yourself or scan a QR code with your phone.",
+  "codeOwnerHint": "Run a server? Get the Zerk Play Dashboard at {site}",
+  "@codeOwnerHint": {"placeholders": {"site": {"type": "String"}}},
+  "codeBack": "Use a sync code",
+  "groupCollections": "Group into collections",
+  "collectionTitle": "Collection",
+  "groupCollectionsHint": "In Movies, show each collection as one item instead of every film in it.",
+  "homeClock": "Clock on the home screen",
+  "homeClockHint": "Shows the time in the top corner of Home.",
+  "requestFolderTitle": "Save to folder",
+  "requestFolder": "Folder: {name}",
+  "@requestFolder": {"placeholders": {"name": {"type": "String"}}},
+  "sendLogs": "Send logs to the developer",
+  "sendLogsHint": "Uploads the logs from this and the last session so a problem can be looked at. You get a code to share on Discord.",
+  "sendLogsSending": "Sending logs…",
+  "sendLogsDoneTitle": "Logs sent",
+  "sendLogsDoneBody": "Share this code on Discord so your logs can be found:",
+  "sendLogsFailed": "Couldn't send the logs. {error}",
+  "@sendLogsFailed": {"placeholders": {"error": {"type": "String"}}},
+  "hubLinkedSetting": "Sync code",
+  "hubLinkedSettingValue": "{code} · {name}",
+  "@hubLinkedSettingValue": {"placeholders": {"code": {"type": "String"}, "name": {"type": "String"}}},
   "username": "Username",
   "password": "Password",
   "signIn": "Sign in",
@@ -1242,5 +1288,179 @@
   "settingsGroupPlaybackLanguages": "Audio & subtitles",
   "settingsGroupContentLanguages": "Titles & trailers",
   "settingsGroupLayout": "Layout",
-  "sliderHint": "Left and right change it. OK keeps it, Back cancels."
+  "sliderHint": "Left and right change it. OK keeps it, Back cancels.",
+  "watchTogether": "Watch together",
+  "togetherIntro": "Watch in step with friends who use this server. Play, pause and seek once for everyone; the room waits whenever someone is still loading.",
+  "togetherStart": "Start a room",
+  "togetherJoin": "Join a room",
+  "togetherCodeTitle": "Room code",
+  "togetherCodeHint": "4 letters, from the screen of someone in the room",
+  "togetherShare": "Give this code to the others. Whatever anyone in the room plays starts for everyone.",
+  "togetherLeave": "Leave room",
+  "togetherPeople": "In the room",
+  "togetherYou": "{name} (you)",
+  "@togetherYou": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherBrowsing": "Browsing",
+  "togetherLoading": "Loading…",
+  "togetherWatching": "Watching",
+  "togetherNowPlaying": "Now playing: {title}",
+  "@togetherNowPlaying": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherConnecting": "Connecting…",
+  "togetherUnreachable": "Couldn't reach the Watch together server.",
+  "togetherSignedOut": "Sign in again to use Watch together.",
+  "togetherNoRoom": "There's no room with that code.",
+  "togetherRoomFull": "That room is full.",
+  "togetherStopped": "{name} stopped playback",
+  "@togetherStopped": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherSwitched": "{name} switched to {channel}",
+  "@togetherSwitched": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherPaused": "{name} paused",
+  "@togetherPaused": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherPlayed": "{name} pressed play",
+  "@togetherPlayed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherSeeked": "{name} jumped to {time}",
+  "@togetherSeeked": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherWaiting": "Waiting for {names}…",
+  "@togetherWaiting": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherJoined": "{name} joined the room",
+  "@togetherJoined": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherLeft": "{name} left the room",
+  "@togetherLeft": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherStarted": "{name} started {title}",
+  "@togetherStarted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherSomeone": "Someone",
+  "togetherWatchWith": "Watch together",
+  "togetherRoomReady": "Room {code} is ready",
+  "@togetherRoomReady": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "togetherRoomHint": "Give this code to the others (Watch together → Join a room). Press Play when everyone is in.",
+  "togetherMembersCount": "{count, plural, =1{Only you so far} other{{count} people in the room}}",
+  "@togetherMembersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myList": "My list",
+  "myListAdded": "Added to My list",
+  "myListRemoved": "Removed from My list",
+  "myListEmpty": "Nothing here yet. Use the My list button on a movie or show to save it for later.",
+  "profileName": "Name",
+  "profileNameHint": "How others see you, e.g. in Watch together",
+  "profilePicture": "Profile picture",
+  "profilePictureHint": "Pick one, or upload your own. It's also set as your server picture when the server allows it.",
+  "profileUpload": "Upload your own",
+  "profileUploadFailed": "Couldn't use that picture.",
+  "profileSaveFailed": "Couldn't save. Check the connection and try again.",
+  "reportProblem": "Report a problem",
+  "reportSent": "Files deleted. A new copy is being downloaded.",
+  "reportFailed": "Could not redo the download: {error}",
+  "@reportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "reportConfirm": "Delete and download again",
+  "reportMovieBody": "The files of {title} seem to be corrupted, so all of its versions will be deleted and downloaded again. It leaves the library until the new copy arrives.",
+  "@reportMovieBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reportSeasonBody": "The files of season {season} of {title} seem to be corrupted, so they will be deleted and downloaded again. The season leaves the library until the new copy arrives.",
+  "@reportSeasonBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "season": {
+        "type": "int"
+      }
+    }
+  }
 }

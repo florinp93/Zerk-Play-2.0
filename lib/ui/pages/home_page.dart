@@ -80,6 +80,9 @@ class _HomePageState extends State<HomePage> {
   AppServices? _services;
   String _pickedCollections = '';
 
+  _Row? _myListRow;
+  String _myListKeys = '';
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -92,6 +95,7 @@ class _HomePageState extends State<HomePage> {
     if (_services == null) {
       _services = AppServicesScope.read(context);
       _services!.libraryChanged.addListener(refresh);
+      _services!.profiles.addListener(_onProfile);
       _pickedCollections = _collectionsKey(_services!);
       _services!.addListener(_onServices);
     }
@@ -113,6 +117,14 @@ class _HomePageState extends State<HomePage> {
       _allowFirstRows();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _pump());
+  }
+
+  void _onProfile() {
+    final keys = [for (final e in _services!.profiles.profile?.list ?? const []) e.key].join(',');
+    if (keys == _myListKeys) return;
+    _myListKeys = keys;
+    final row = _myListRow;
+    if (row != null && mounted) setState(() => _data.remove(row));
   }
 
   void _allowFirstRows() {
@@ -171,6 +183,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _services?.libraryChanged.removeListener(refresh);
+    _services?.profiles.removeListener(_onProfile);
     _services?.removeListener(_onServices);
     _hero.dispose();
     _scroll.removeListener(_onScroll);
@@ -235,6 +248,7 @@ class _HomePageState extends State<HomePage> {
         _Row((l) => name,
             () => items(c.query(parentId: id, recursive: false, sortBy: 'PremiereDate,ProductionYear,SortName', limit: 100)),
             recommends: false),
+      _myListRow = _Row((l) => l.myList, s.myList, recommends: false),
       _because(s, (t) => t.recentMovies, 0),
       _Row((l) => l.latestMovies, () => c.latest(types: ['Movie']), recommends: false),
       if (r.tmdb != null) _Row((l) => l.moodShelfTitle, () async => const [], kind: _Kind.moods, recommends: false),

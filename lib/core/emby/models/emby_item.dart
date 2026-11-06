@@ -86,6 +86,7 @@ final class EmbyItem {
     this.unplayedItemCount,
     this.isFavorite = false,
     this.lastPlayedDate,
+    this.dateCreated,
     this.providerIds = const {},
     this.people = const [],
     this.mediaSources = const [],
@@ -158,6 +159,7 @@ final class EmbyItem {
   final int? unplayedItemCount;
   final bool isFavorite;
   final DateTime? lastPlayedDate;
+  final DateTime? dateCreated;
 
   final Map<String, String> providerIds;
   final List<Person> people;
@@ -266,7 +268,7 @@ final class EmbyItem {
       isPlayed: isPlayed ?? this.isPlayed,
       playbackPositionTicks: playbackPositionTicks ?? this.playbackPositionTicks,
       playedPercentage: playedPercentage, unplayedItemCount: unplayedItemCount,
-      isFavorite: isFavorite ?? this.isFavorite, lastPlayedDate: lastPlayedDate,
+      isFavorite: isFavorite ?? this.isFavorite, lastPlayedDate: lastPlayedDate, dateCreated: dateCreated,
       providerIds: providerIds, people: people ?? this.people, mediaSources: mediaSources, partCount: partCount,
       introStartTicks: introStartTicks, introEndTicks: introEndTicks,
       creditsStartTicks: creditsStartTicks, chapters: chapters,
@@ -349,6 +351,7 @@ final class EmbyItem {
       unplayedItemCount: _int(userData['UnplayedItemCount']),
       isFavorite: userData['IsFavorite'] == true,
       lastPlayedDate: _date(userData['LastPlayedDate']),
+      dateCreated: _date(json['DateCreated']),
       providerIds: providerIds,
       people: [for (final p in (json['People'] as List? ?? const [])) ?Person.fromJson(p)],
       mediaSources: sources,

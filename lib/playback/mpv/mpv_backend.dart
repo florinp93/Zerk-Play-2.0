@@ -180,6 +180,7 @@ final class MpvBackend implements PlayerBackend {
 
   @override
   void osd(String command, Object? data) {
+    if (command == 'toast' && data is Map) return unawaited(_sendPictureToast(data));
     final payload = data is String ? data : jsonEncode(data);
     if (command != 'strings') {
       debugPrint('[osd] -> $command ${payload.length > 300 ? '${payload.substring(0, 300)}...' : payload}');
@@ -334,6 +335,59 @@ final class MpvBackend implements PlayerBackend {
   }
 
   static const _nextImageWidth = 800;
+
+  int _toastSerial = 0;
+
+  Future<void> _sendPictureToast(Map data) async {
+    final text = data['text'] as String? ?? '';
+    final serial = ++_toastSerial;
+    final uri = Uri.tryParse(data['image'] as String? ?? '');
+    try {
+      if (uri == null) throw const FormatException('no picture');
+      final image = await _resolve(NetImageProvider(uri, decodeWidth: _toastImageSize)).timeout(const Duration(seconds: 2));
+      final bytes = await _roundPicture(image);
+      image.dispose();
+      final dir = Directory(p.join((await getTemporaryDirectory()).path, 'zerk_play_osd_toast'));
+      await dir.create(recursive: true);
+      for (final f in dir.listSync()) {
+        try {
+          f.deleteSync();
+        } catch (_) {}
+      }
+      final file = File(p.join(dir.path, 'toast-$serial.bgra'));
+      await file.writeAsBytes(bytes, flush: true);
+      if (serial != _toastSerial) return;
+      _mpv.scriptMessage('zerk_osd', ['toast-image', jsonEncode({'text': text, 'image': file.path, 'size': _toastImageSize})]);
+    } catch (e) {
+      debugPrint('[mpv] toast picture: $e');
+      if (serial == _toastSerial) _mpv.scriptMessage('zerk_osd', ['toast', text]);
+    }
+  }
+
+  static const _toastImageSize = 96;
+
+  static Future<Uint8List> _roundPicture(ui.Image image) async {
+    const size = _toastImageSize;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.clipPath(Path()..addOval(const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0)));
+    final src = Offset.zero & Size(image.width.toDouble(), image.height.toDouble());
+    final fit = applyBoxFit(BoxFit.cover, src.size, const Size(size + 0.0, size + 0.0));
+    canvas.drawImageRect(image, Alignment.center.inscribe(fit.source, src), const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0),
+        Paint()..filterQuality = FilterQuality.medium);
+    final picture = recorder.endRecording();
+    final out = await picture.toImage(size, size);
+    picture.dispose();
+    final data = await out.toByteData(format: ui.ImageByteFormat.rawRgba);
+    out.dispose();
+    final px = data!.buffer.asUint8List();
+    for (var i = 0; i < px.length; i += 4) {
+      final red = px[i];
+      px[i] = px[i + 2];
+      px[i + 2] = red;
+    }
+    return px;
+  }
 
   static Future<ui.Image> _resolve(ImageProvider provider) {
     final done = Completer<ui.Image>();

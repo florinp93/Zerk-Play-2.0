@@ -5,9 +5,11 @@ import 'package:http/http.dart' as http;
 
 import '../../app/app_services.dart';
 import '../../app/app_settings.dart';
+import '../../app/hub_link.dart';
 import '../../app/release.dart';
 import '../../core/host.dart';
 import '../../core/log/app_log.dart';
+import '../../core/log/log_upload.dart';
 import '../../core/windows/native_window.dart';
 import '../../data/xtream/live_catalog.dart';
 import '../../data/xtream/xtream.dart';
@@ -89,6 +91,26 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _savePlayer(PlayerSettings next) async {
     setState(() => _player = next);
     await next.save();
+  }
+
+  bool _sendingLogs = false;
+
+  Future<void> _sendLogs(BuildContext context) async {
+    if (_sendingLogs) return;
+    _sendingLogs = true;
+    final l10n = context.l10n;
+    showToast(context, l10n.sendLogsSending);
+    try {
+      final id = await LogUpload.send();
+      if (!context.mounted) return;
+      UiSounds.play(UiSound.select);
+      await showDialog<void>(context: context, builder: (_) => _LogsSentDialog(id: id));
+    } catch (e) {
+      UiSounds.play(UiSound.error);
+      if (context.mounted) showToast(context, l10n.sendLogsFailed('$e'), duration: const Duration(seconds: 5));
+    } finally {
+      _sendingLogs = false;
+    }
   }
 
   @override
@@ -430,6 +452,12 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {CollectionsView.covers: l10n.viewCovers, CollectionsView.wide: l10n.viewWide},
             onChanged: (v) => services.updateSettings(app.copyWith(collectionsView: v)),
           ),
+          SettingToggleRow(
+            title: l10n.groupCollections,
+            subtitle: l10n.groupCollectionsHint,
+            value: app.groupCollections,
+            onChanged: (v) => services.updateSettings(app.copyWith(groupCollections: v)),
+          ),
         ];
       case _Section.content:
         return [
@@ -459,6 +487,12 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: l10n.hideAnimationHint,
             value: app.hideAnimation,
             onChanged: (v) => services.updateSettings(app.copyWith(hideAnimation: v)),
+          ),
+          SettingToggleRow(
+            title: l10n.homeClock,
+            subtitle: l10n.homeClockHint,
+            value: app.homeClock,
+            onChanged: (v) => services.updateSettings(app.copyWith(homeClock: v)),
           ),
           if (TrailerPlayer.supported) ...[
             SettingHeader(l10n.trailers),
@@ -668,6 +702,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _savePlayer(p.copyWith(detailedLog: v)),
             ),
           SettingActionRow(title: l10n.openLogsFolder, icon: Icons.folder_open_rounded, onSelect: AppLog.openFolder),
+          if (LogUpload.available)
+            SettingActionRow(
+              title: l10n.sendLogs,
+              subtitle: l10n.sendLogsHint,
+              icon: Icons.outbox_rounded,
+              onSelect: () => _sendLogs(context),
+            ),
           SettingActionRow(
             title: l10n.checkForUpdates,
             icon: Icons.system_update_rounded,
@@ -689,6 +730,13 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 8),
           Text(l10n.signedInOnDevice, style: Zt.body),
           const SizedBox(height: 30),
+          if (HubLink.linked)
+            SettingActionRow(
+              title: l10n.hubLinkedSetting,
+              subtitle: l10n.hubLinkedSettingValue(HubLink.code ?? '', HubLink.config!.serverName),
+              icon: Icons.sync_rounded,
+              onSelect: () => services.refreshHub(),
+            ),
           SettingToggleRow(
             title: l10n.allowSelfSigned,
             subtitle: l10n.allowSelfSignedHint,
@@ -839,6 +887,53 @@ class _AdvancedVideoPageState extends State<_AdvancedVideoPage> {
                   value: p.mpvConfOnly, onChanged: (v) => _save(p.copyWith(mpvConfOnly: v))),
             ],
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogsSentDialog extends StatelessWidget {
+  const _LogsSentDialog({required this.id});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Dialog(
+      backgroundColor: Zc.surfaceHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Zs.radiusLarge)),
+      child: SizedBox(
+        width: 760,
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: FocusZone(
+            debugLabel: 'logs-sent',
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const Icon(Icons.check_circle_rounded, size: 48, color: Zc.success),
+                const SizedBox(width: 24),
+                Expanded(child: Text(l10n.sendLogsDoneTitle, style: Zt.headline.copyWith(fontSize: 40))),
+              ]),
+              const SizedBox(height: 20),
+              Text(l10n.sendLogsDoneBody, style: Zt.body),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                decoration: BoxDecoration(color: Zc.surfaceTop, borderRadius: BorderRadius.circular(16)),
+                child: Text(id, style: Zt.display.copyWith(fontSize: 52, letterSpacing: 8)),
+              ),
+              const SizedBox(height: 36),
+              TvButton(
+                label: l10n.close,
+                icon: Icons.check_rounded,
+                primary: true,
+                autofocus: true,
+                onSelect: () => Navigator.of(context).pop(),
+              ),
+            ]),
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../core/host.dart';
 import '../core/http/trust_all_certs.dart';
 import '../core/log/app_log.dart';
 import '../core/storage/shared_preferences_store.dart';
+import '../core/emby/models/emby_item.dart';
 import '../core/emby/server_kind.dart';
 import '../data/catalog_api.dart';
 import '../data/collection_index.dart';
@@ -14,22 +15,40 @@ import '../data/recommendations.dart';
 import '../data/seerr_api.dart';
 import '../data/title_tags.dart';
 import '../data/tmdb_api.dart';
+import '../data/user_profile.dart';
 import '../data/emby_live_tv.dart';
 import '../data/title_ratings.dart';
 import '../data/xtream/live_catalog.dart';
 import '../data/xtream/xtream.dart';
 import '../playback/emby_playback_api.dart';
+import '../playback/sync/watch_together.dart';
 import '../services/janus/janus_service.dart';
 import '../ui/core/ui_sounds.dart';
 import 'app_settings.dart';
+import 'hub_link.dart';
 
 final class AppServices extends ChangeNotifier {
   AppServices._({
     required this.janus,
     required this.catalog,
     required this.playback,
+    required this.together,
+    required this.profiles,
     required this._settings,
   }) {
+    var togetherAvailable = together.available;
+    together.addListener(() {
+      if (together.available == togetherAvailable) return;
+      togetherAvailable = together.available;
+      notifyListeners();
+    });
+    var hasProfile = profiles.profile != null;
+    profiles.addListener(() {
+      if ((profiles.profile != null) == hasProfile) return;
+      hasProfile = profiles.profile != null;
+      notifyListeners();
+    });
+    HubLink.changed.addListener(_detectHub);
     _rebuildSeerr();
     _rebuildMetadata();
     _warmLiveTv();
@@ -39,6 +58,10 @@ final class AppServices extends ChangeNotifier {
   final JanusService janus;
   final CatalogApi catalog;
   final EmbyPlaybackApi playback;
+
+  final WatchTogether together;
+
+  final ProfileService profiles;
 
   AppSettings _settings;
   AppSettings get settings => _settings;
@@ -71,11 +94,43 @@ final class AppServices extends ChangeNotifier {
 
   bool get isSignedIn => janus.isAuthenticated;
 
+  Future<MixedItems> myList() async {
+    final entries = profiles.profile?.list ?? const <ListEntry>[];
+    if (entries.isEmpty) return const [];
+    final libraryIds = [for (final e in entries) if (e.isLibraryOnly && e.embyId != null) e.embyId!];
+    final media = [for (final e in entries) ?e.media];
+    final (byId, resolved) = await (
+      libraryIds.isEmpty
+          ? Future.value(const <String, EmbyItem>{})
+          : catalog.query(ids: libraryIds, limit: libraryIds.length).then((p) => {
+                for (final i in p.items) i.id.replaceAll('-', '').toLowerCase(): i,
+              }),
+      recommender.resolve(media),
+    ).wait;
+    final byKey = <String, Object>{
+      for (final r in resolved)
+        if (ListEntry.of(r) case final e?) e.key: r,
+    };
+    return [
+      for (final e in entries)
+        if (e.isLibraryOnly)
+          ?byId[e.embyId]
+        else if (byKey[e.key] case final item? when item is EmbyItem || _seerr != null)
+          item,
+    ];
+  }
+
+  void _detectHub() {
+    unawaited(together.detect());
+    unawaited(profiles.detect());
+  }
+
   static Future<AppServices> create() async {
     final store = SharedPreferencesStore();
     await store.init();
     final hadSettings = await AppSettings.exist();
     var settings = await AppSettings.load();
+    await HubLink.load();
     if (settings.acceptInvalidCertificates) trustAllCertificates();
     UiSounds.enabled = settings.sounds;
     RecommendationFilter.hideAnimation = settings.hideAnimation;
@@ -95,14 +150,36 @@ final class AppServices extends ChangeNotifier {
       janus: janus,
       catalog: CatalogApi(janus: janus),
       playback: EmbyPlaybackApi(janus: janus),
+      together: WatchTogether(
+        credentials: () => janus.isAuthenticated ? (token: janus.session.accessToken, userId: janus.session.userId) : null,
+        device: Host.isAndroid ? 'Android TV' : Host.isLinux ? 'Linux' : 'Windows',
+      ),
+      profiles: ProfileService(janus: janus),
       settings: settings,
     );
+    services._detectHub();
     if (janus.isAuthenticated) {
       unawaited(services.playback.registerCapabilities().catchError((Object e) {
         debugPrint('[emby] capabilities: $e');
       }));
     }
+    if (HubLink.due) unawaited(services.refreshHub());
+    services._hubTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      if (HubLink.due) unawaited(services.refreshHub());
+    });
     return services;
+  }
+
+  Timer? _hubTimer;
+
+  @override
+  void dispose() {
+    _hubTimer?.cancel();
+    super.dispose();
+  }
+
+  void checkHub() {
+    if (HubLink.due) unawaited(refreshHub());
   }
 
   bool get liveTvAvailable => _settings.xtreamConfigured || playlist.configured;
@@ -165,17 +242,65 @@ final class AppServices extends ChangeNotifier {
   Future<void> signIn(
       {required String server, ServerKind kind = ServerKind.emby, required String username, required String password}) async {
     await janus.login(serverUrl: server, kind: kind, username: username, password: password);
+    HubLink.droppedMessage = null;
     catalog.collections?.invalidate();
     try {
       await playback.registerCapabilities();
     } catch (_) {}
     notifyListeners();
     unawaited(_detectEmbyTv());
+    _detectHub();
+  }
+
+  Future<HubConfig> linkHub(String code, {String? hub}) async {
+    final config = await HubLink.redeem(code, hub: hub);
+    await updateSettings(config.applyTo(_settings));
+    return config;
+  }
+
+  Future<void> refreshHub() async {
+    final linkedServer = HubLink.config?.serverUrl;
+    try {
+      final config = await HubLink.refresh();
+      if (config != null) await updateSettings(config.applyTo(_settings));
+    } on HubLinkException catch (e) {
+      if (!e.dropsLink) return;
+      debugPrint('[hub] link dropped: ${e.code}');
+      HubLink.droppedMessage = e.message;
+      await updateSettings(_settings.copyWith(
+        seerrUrl: '',
+        seerrApiKey: '',
+        tmdbApiKey: '',
+        mdblistApiKey: '',
+        xtreamUrl: '',
+        xtreamAccounts: const [],
+        playlistUrl: '',
+        playlistGuideUrl: '',
+      ));
+      if (janus.isAuthenticated && (linkedServer == null || _sameServer('${janus.session.serverUrl}', linkedServer))) {
+        await signOut();
+      }
+    }
+  }
+
+  static bool _sameServer(String a, String b) {
+    String norm(String s) => s.trim().toLowerCase().replaceAll(RegExp(r'/+$'), '');
+    return norm(a) == norm(b);
+  }
+
+  Future<void> unlinkHub() async {
+    final wasRelay = _settings.seerrUrl.endsWith('/seerr-proxy');
+    await HubLink.unlink();
+    if (wasRelay) await updateSettings(_settings.copyWith(seerrUrl: '', seerrApiKey: ''));
+    notifyListeners();
   }
 
   Future<void> signOut() async {
+    together.leave();
+    profiles.clear();
     await janus.logout();
     _embyTvAvailable = false;
+    _detectHub();
     notifyListeners();
   }
 
@@ -190,6 +315,7 @@ final class AppServices extends ChangeNotifier {
       apiKey: s.seerrApiKey.trim(),
       language: s.tmdbMetadataEnabled ? s.metadataLanguage : null,
       embyUserId: () => janus.isAuthenticated ? janus.session.userId : null,
+      embyToken: () => janus.isAuthenticated ? janus.session.accessToken : null,
     );
   }
 

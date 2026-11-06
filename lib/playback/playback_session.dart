@@ -14,6 +14,8 @@ import 'language.dart';
 import 'player_backend.dart';
 import 'player_settings.dart';
 import 'subtitle_style.dart';
+import 'sync/together_sync.dart';
+import 'sync/watch_together.dart';
 import 'track_labels.dart';
 import 'track_policy.dart';
 import 'versions.dart';
@@ -65,6 +67,9 @@ final class PlaybackSession {
     this.onVersionChosen,
     this.artwork,
     this.localize,
+    this.together,
+    this.avatarOf,
+    this.fetchItem,
   }) : _versionPrefs = Map.of(versionPreferences);
 
   final Map<String, String> _versionPrefs;
@@ -74,6 +79,15 @@ final class PlaybackSession {
   final ({Uri? backdrop, Uri? logo, Uri? still}) Function(EmbyItem item)? artwork;
 
   final Future<EmbyItem> Function(EmbyItem item)? localize;
+
+  final WatchTogether? together;
+
+  final Uri? Function(RoomMember member)? avatarOf;
+
+  final Future<EmbyItem> Function(String id)? fetchItem;
+  TogetherSync? _sync;
+
+  bool _closedByRoom = false;
 
   static String _versionScope(EmbyItem item) => item.seriesId ?? item.id;
 
@@ -106,6 +120,19 @@ final class PlaybackSession {
   Future<PlaybackEndReason> run(PlaybackRequest request) async {
     _eventsSub = _player.events.listen(_onEvent);
     _player.state.addListener(_onState);
+    if (together?.room != null) {
+      _sync = TogetherSync(
+        room: together!,
+        player: _player,
+        l10n: l10n,
+        toast: _togetherToast,
+        follow: _followRoom,
+        close: () {
+          _closedByRoom = true;
+          unawaited(_finish(PlaybackEndReason.userExit));
+        },
+      )..start();
+    }
     await _player.open();
     _osd('config', {
       'seekForward': _settings.seekForwardSeconds,
@@ -135,7 +162,8 @@ final class PlaybackSession {
     _osdState('loading', item);
 
     try {
-      final start = request.start ?? _resumePosition(item);
+      final start = request.start ?? _sync?.startFor(item) ?? _resumePosition(item);
+      _sync?.opening(item, title: _titles(item).$1, start: start ?? Duration.zero);
       var info = await _api.getPlaybackInfo(
         item.id,
         mediaSourceId: request.mediaSourceId,
@@ -257,6 +285,7 @@ final class PlaybackSession {
     debugPrint('[session] playing "${cur.item.name}": ${cur.stream.method.wire}, duration ${ps.duration}, '
         'fps ${ps.fps}, ${ps.tracks.length} tracks, audio ${cur.audioIndex} sub ${cur.subtitleIndex}');
     _osdState('playing', cur.item);
+    _sync?.loaded();
     _sendTracks();
     _sendVersions();
     unawaited(_sendSegments(cur));
@@ -483,6 +512,25 @@ final class PlaybackSession {
     await _play(PlaybackRequest(next, start: Duration.zero));
   }
 
+  Future<void> _followRoom(String itemId) async {
+    final fetch = fetchItem;
+    if (fetch == null || _finishing || _current?.item.id == itemId) return;
+    final EmbyItem item;
+    try {
+      final fetched = await fetch(itemId);
+      item = await localize?.call(fetched) ?? fetched;
+    } catch (e) {
+      debugPrint("[session] could not load the room's item: $e");
+      return;
+    }
+    if (_finishing) return;
+    final cur = _current;
+    await _report(_api.reportStopped, eventName: null);
+    _progressTimer?.cancel();
+    if (cur != null && cur.stream.method == PlayMethod.transcode) unawaited(_api.stopTranscode(cur.stream.playSessionId));
+    await _play(PlaybackRequest(item));
+  }
+
   void _onEvent(PlayerEvent e) {
     switch (e) {
       case PlayerLoaded():
@@ -555,6 +603,13 @@ final class PlaybackSession {
       ? l10n.subtitleSearchDenied
       : l10n.subtitleSearchFailed;
 
+  static String? _fileName(MediaSourceInfo source) {
+    final path = source.path?.trim() ?? '';
+    if (path.isEmpty || path.startsWith('http')) return source.name;
+    final name = path.split(RegExp(r'[\\/]')).last;
+    return name.isEmpty ? source.name : name;
+  }
+
   Future<void> _searchSubtitles(String language) async {
     final cur = _current;
     final code = searchLanguageCode(language);
@@ -568,6 +623,7 @@ final class PlaybackSession {
       }
       if (!identical(_current, cur)) return;
       _osd('subsearch', {
+        'file': ?_fileName(cur.source),
         'results': [
           for (final r in results.take(50))
             {
@@ -731,6 +787,12 @@ final class PlaybackSession {
 
   void _toast(String text) => _player.osd('toast', text);
 
+  void _togetherToast(String text, {RoomMember? who}) {
+    final image = who == null ? null : avatarOf?.call(who);
+    if (image == null) return _toast(text);
+    _player.osd('toast', {'text': text, 'image': '$image', 'name': who!.name});
+  }
+
   Future<double?> _matchRefreshRate(_Current cur) async {
     final fps = _player.state.value.fps ?? cur.source.video?.frameRate;
     if (fps == null) return null;
@@ -816,6 +878,7 @@ final class PlaybackSession {
     _finishing = true;
     debugPrint('[session] finishing (${reason.name}) at ${_player.state.value.position}');
     _progressTimer?.cancel();
+    _sync?.dispose(stopRoom: reason == PlaybackEndReason.userExit && !_closedByRoom);
     final cur = _current;
     final stopped = cur != null && cur.reportedStart ? _snapshot(null) : null;
     if (cur != null && cur.reportedStart) _webhook.send('stop', cur.item, position: _player.state.value.position, extra: {'reason': reason.name});

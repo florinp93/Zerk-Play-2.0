@@ -150,14 +150,18 @@ class SettingTextRow extends StatelessWidget {
   }
 }
 
+Future<String?> showTextInputDialog(BuildContext context,
+        {required String title, String initial = '', String? hint, String? action}) =>
+    showDialog<String>(context: context, builder: (_) => _TextDialog(title: title, initial: initial, hint: hint, action: action));
+
 class _TextDialog extends StatefulWidget {
-  const _TextDialog({required this.title, required this.initial, this.hint, this.obscure = false});
+  const _TextDialog({required this.title, required this.initial, this.hint, this.obscure = false, this.action});
 
   final String title;
   final String initial;
   final String? hint;
   final bool obscure;
-
+  final String? action;
 
   @override
   State<_TextDialog> createState() => _TextDialogState();
@@ -203,7 +207,7 @@ class _TextDialogState extends State<_TextDialog> {
               ),
               const SizedBox(height: 26),
               Row(children: [
-                TvButton(label: context.l10n.save, icon: Icons.check_rounded, primary: true, onSelect: () => Navigator.of(context).pop(_controller.text)),
+                TvButton(label: widget.action ?? context.l10n.save, icon: Icons.check_rounded, primary: true, onSelect: () => Navigator.of(context).pop(_controller.text)),
                 const SizedBox(width: 16),
                 TvButton(label: context.l10n.cancel, onSelect: () => Navigator.of(context).pop()),
               ]),

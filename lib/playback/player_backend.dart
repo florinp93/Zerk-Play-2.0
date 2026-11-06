@@ -28,6 +28,7 @@ final class PlayerTrack {
 final class PlayerState {
   const PlayerState({
     this.position = Duration.zero,
+    this.buffered = Duration.zero,
     this.duration = Duration.zero,
     this.paused = false,
     this.buffering = false,
@@ -41,6 +42,7 @@ final class PlayerState {
   });
 
   final Duration position;
+  final Duration buffered;
   final Duration duration;
   final bool paused;
   final bool buffering;

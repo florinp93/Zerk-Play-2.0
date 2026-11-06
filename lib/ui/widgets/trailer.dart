@@ -36,6 +36,7 @@ class TrailerController extends ChangeNotifier {
   String? _key;
   TrailerPlayer? _player;
   Future<TrailerPlayer?>? _creating;
+  ({int generation, Future<void> run})? _run;
   Timer? _autoplay;
   bool _onstage = true;
   bool _watching = false;
@@ -62,6 +63,8 @@ class TrailerController extends ChangeNotifier {
   String? get key => _key;
 
   bool get exhausted => _done && !_playing;
+
+  bool get loading => _run != null;
 
   bool get sound => _settings.trailerSound;
 
@@ -121,6 +124,7 @@ class TrailerController extends ChangeNotifier {
       if (s.ended) player.restart();
       player.setPaused(false);
     } else {
+      _done = false;
       unawaited(_start());
     }
     await navigator.push(_TheatreRoute(trailer: this, player: player, title: title));
@@ -191,13 +195,25 @@ class TrailerController extends ChangeNotifier {
     });
   }
 
-  Future<void> _start() async {
+  Future<void> _start() {
+    final current = _run;
+    if (current != null && current.generation == _generation) return current.run;
+    final run = _startOnce();
+    _run = (generation: _generation, run: run);
+    return run.whenComplete(() {
+      if (!identical(_run?.run, run)) return;
+      _run = null;
+      if (!_disposed) notifyListeners();
+    });
+  }
+
+  Future<void> _startOnce() async {
     final generation = _generation;
     bool stale() => _disposed || generation != _generation || (!_watching && (_suspended || !_onstage));
     final player = await _ensurePlayer();
     if (player == null || stale()) return;
     player.setCover(!_watching);
-    for (final ref in _refs) {
+    for (final ref in _refs.take(3)) {
       try {
         final stream = await ref.resolve();
         if (stale()) return;
@@ -707,6 +723,8 @@ class _TheatreState extends State<_Theatre> {
   void initState() {
     super.initState();
     _player.state.addListener(_onState);
+    widget.controller.addListener(_onState);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onState());
     _poke();
   }
 
@@ -714,15 +732,19 @@ class _TheatreState extends State<_Theatre> {
   void dispose() {
     _hide?.cancel();
     _player.state.removeListener(_onState);
+    widget.controller.removeListener(_onState);
     _focus.dispose();
     _backFocus.dispose();
     super.dispose();
   }
 
   void _onState() {
+    if (!mounted || _closing) return;
     final s = _player.state.value;
-    if ((s.ended || s.failed) && !_closing) {
-      if (s.failed) UiSounds.play(UiSound.error);
+    final c = widget.controller;
+    final failed = (s.failed && !c.loading) || (c.exhausted && !s.ready);
+    if (s.ended || failed) {
+      if (!s.ended) UiSounds.play(UiSound.error);
       _close();
     }
   }

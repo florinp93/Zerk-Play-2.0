@@ -192,6 +192,17 @@ final class EmbyClient {
     );
   }
 
+  Future<void> postImage(String path, List<int> bytes, {required String contentType}) async {
+    final uri = buildUri(path);
+    final response = await _http.post(
+      uri,
+      headers: _headers(extra: {'Content-Type': contentType}),
+      body: base64Encode(bytes),
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    throw EmbyApiException(statusCode: response.statusCode, reasonPhrase: response.reasonPhrase, body: response.body, uri: uri);
+  }
+
   Future<void> deleteNoContent(
     String path, {
     Map<String, String?> queryParameters = const {},

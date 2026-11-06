@@ -15,6 +15,7 @@ abstract final class Zc {
   static const accentSoft = Color(0xFF8E87FF);
 
   static const request = Color(0xFFF5B544);
+  static const requestDeep = Color(0xFF8A5A10);
 
   static const cinema = Color(0xFFFF8F6B);
 

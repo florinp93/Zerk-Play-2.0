@@ -17,6 +17,7 @@ import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/critic_scores.dart';
 import '../widgets/net_image.dart';
+import '../widgets/profile_widgets.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/side_panel.dart';
 import '../widgets/trailer.dart';
@@ -47,6 +48,7 @@ class _RequestPageState extends State<RequestPage> {
   MixedItems _similar = const [];
   List<SeerrQuality> _qualities = const [];
   SeerrQuality? _quality;
+  String? _folder;
 
   @override
   void initState() {
@@ -123,7 +125,7 @@ class _RequestPageState extends State<RequestPage> {
     }
     setState(() => _busy = true);
     try {
-      await seerr.request(_media, seasons: _media.isTv ? (_selectedSeasons.toList()..sort()) : null, quality: _quality);
+      await seerr.request(_media, seasons: _media.isTv ? (_selectedSeasons.toList()..sort()) : null, quality: _shownQuality, rootFolder: _folder);
       RequestStatuses.record(_media, Availability.pending);
       if (!mounted) return;
       final waits = ReleaseInfos.of(_media)?.notOut ?? false;
@@ -158,7 +160,37 @@ class _RequestPageState extends State<RequestPage> {
       for (final q in _qualities)
         PanelOption(value: q, title: q.profileName, subtitle: q.is4k ? '${q.serverName}  ·  4K' : q.serverName, selected: q == current),
     ]);
-    if (chosen != null && mounted) setState(() => _quality = chosen);
+    if (chosen != null && mounted) {
+      setState(() {
+        if (chosen.serverId != _shownQuality?.serverId || chosen.is4k != _shownQuality?.is4k) _folder = null;
+        _quality = chosen;
+      });
+    }
+  }
+
+  String? get _shownFolder => _folder ?? _shownQuality?.defaultFolder;
+
+  static String _folderName(String? path) {
+    if (path == null) return '';
+    final parts = path.split(RegExp(r'[\\/]')).where((p) => p.isNotEmpty);
+    return parts.isEmpty ? path : parts.last;
+  }
+
+  Future<void> _chooseFolder() async {
+    final q = _shownQuality;
+    if (q == null) return;
+    final current = _shownFolder;
+    final chosen = await showSidePanel<String>(context, title: context.l10n.requestFolderTitle, options: [
+      for (final f in q.rootFolders)
+        PanelOption(
+          value: f,
+          title: f,
+          subtitle: f == q.defaultFolder ? context.l10n.qualityDefault : null,
+          icon: Icons.folder_rounded,
+          selected: f == current,
+        ),
+    ]);
+    if (chosen != null && mounted) setState(() => _folder = chosen);
   }
 
   @override
@@ -259,9 +291,16 @@ class _RequestPageState extends State<RequestPage> {
                           icon: Icons.tune_rounded,
                           onSelect: _chooseQuality,
                         ),
+                      if (canRequest && (_shownQuality?.rootFolders.length ?? 0) > 1)
+                        TvButton(
+                          label: l10n.requestFolder(_folderName(_shownFolder)),
+                          icon: Icons.folder_open_rounded,
+                          onSelect: _chooseFolder,
+                        ),
                       if (!canRequest && _libraryItem == null)
                         TvButton(label: statusLabel, icon: Icons.schedule_rounded, autofocus: true, onSelect: () {}),
                       TrailerButtons(controller: _trailer, title: m.title, focusNode: _trailerNode),
+                      if (AppServicesScope.of(context).profiles.profile != null) MyListButton(item: _libraryItem ?? m),
                     ]),
                   ),
                   if (_message != null)
