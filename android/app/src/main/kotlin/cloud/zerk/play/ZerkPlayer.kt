@@ -40,8 +40,10 @@ import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
 import androidx.media3.exoplayer.video.VideoRendererEventListener
@@ -113,6 +115,11 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private var announceLoaded = false
 
+    @Volatile private var downmix = false
+    @Volatile private var subtitleDelayUs = 0L
+    private var reselectingAudio = false
+    private val reenableAudio = Runnable { finishAudioReselect() }
+
     private val ticker = object : Runnable {
         override fun run() {
             emitState()
@@ -155,6 +162,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                         call.argument<Map<String, Any?>>("subtitleStyle") ?: emptyMap(),
                         call.argument<List<String>>("passthrough"),
                         call.argument<Boolean>("encodeAc3") == true,
+                        call.argument<Boolean>("downmix") == true,
+                        DownmixTuning.from(call.argument<Map<String, Any?>>("downmixConfig")),
                     )
                     result.success(null)
                 }
@@ -196,6 +205,14 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 "subtitleLift" -> {
                     subtitleLift = (call.argument<Number>("fraction") ?: 0).toFloat()
                     liftSubtitles()
+                    result.success(null)
+                }
+                "downmix" -> {
+                    setDownmix(call.argument<Boolean>("enabled") == true)
+                    result.success(null)
+                }
+                "subtitleDelay" -> {
+                    subtitleDelayUs = (call.argument<Number>("us") ?: 0).toLong()
                     result.success(null)
                 }
                 "speed" -> {
@@ -242,9 +259,15 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         }
     }
 
-    private fun open(subtitleStyle: Map<String, Any?>, passthrough: List<String>?, encodeAc3: Boolean) {
+    private fun open(
+        subtitleStyle: Map<String, Any?>, passthrough: List<String>?, encodeAc3: Boolean,
+        downmixOn: Boolean, tuning: DownmixTuning?,
+    ) {
         val layer = layer ?: throw IllegalStateException("No video layer")
         if (player != null) return
+        downmix = downmixOn && tuning != null
+        subtitleDelayUs = 0L
+        val downmixProcessor = DialogueDownmixProcessor(tuning) { downmix }
 
         val surface = SurfaceView(activity).apply { keepScreenOn = true }
         val box = CropBox(activity).apply {
@@ -282,8 +305,19 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             }
 
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? {
-                val sink = super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams) ?: return null
-                return Ac3EncodingAudioSink(sink, passthroughEncodings(passthrough), encodeAc3)
+                val sink = DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(downmixProcessor))
+                    .build()
+                return Ac3EncodingAudioSink(sink, passthroughEncodings(passthrough), encodeAc3) { downmix }
+            }
+
+            override fun buildTextRenderers(
+                context: Context, output: TextOutput, outputLooper: Looper, extensionRendererMode: Int, out: ArrayList<Renderer>,
+            ) {
+                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out)
+                for (i in out.indices) out[i] = SubtitleDelayRenderer(out[i]) { subtitleDelayUs }
             }
         }
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
@@ -412,6 +446,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private fun close() {
         main.removeCallbacks(ticker)
         main.removeCallbacks(cropTicker)
+        main.removeCallbacks(reenableAudio)
+        reselectingAudio = false
+        subtitleDelayUs = 0L
         layer?.removeOnLayoutChangeListener(screenListener)
         cropBox = null
         detector = null
@@ -448,9 +485,12 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         detector?.reset()
         applyCrop(0f)
         restartCropDetection()
+        main.removeCallbacks(reenableAudio)
+        reselectingAudio = false
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
             .clearOverrides()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
             .build()
         exo.setMediaItem(buildItem(), startMs)
         exo.prepare()
@@ -497,6 +537,29 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, t))
         }
         exo.trackSelectionParameters = params.build()
+    }
+
+    private fun setDownmix(enabled: Boolean) {
+        if (downmix == enabled) return
+        downmix = enabled
+        Log.i(TAG, "stereo downmix ${if (enabled) "on" else "off"}")
+        val exo = player ?: return
+        if (reselectingAudio || exo.currentTracks.groups.none { it.type == C.TRACK_TYPE_AUDIO }) return
+        reselectingAudio = true
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build()
+        main.postDelayed(reenableAudio, AUDIO_RESELECT_TIMEOUT_MS)
+    }
+
+    private fun finishAudioReselect() {
+        main.removeCallbacks(reenableAudio)
+        if (!reselectingAudio) return
+        reselectingAudio = false
+        val exo = player ?: return
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .build()
     }
 
     private fun passthroughEncodings(codecs: List<String>?): Set<Int>? = codecs?.takeIf { it.isNotEmpty() }?.flatMap {
@@ -609,6 +672,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     override fun onTracksChanged(tracks: Tracks) {
         if (tracks.groups.isEmpty()) return
+        if (reselectingAudio && tracks.groups.none { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }) main.post(reenableAudio)
         if (pendingAudio != null || pendingSub != null || pendingExternalId != null) applyPending(tracks)
         if (announceLoaded) {
             announceLoaded = false
@@ -724,6 +788,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     companion object {
         private const val TAG = "ZerkPlayer"
+        private const val AUDIO_RESELECT_TIMEOUT_MS = 1_000L
         private val TRAILING_NUMBER = Regex("""(\d+)$""")
         private val SUBTITLE_STREAM_INDEX = Regex("""CurrentSubtitleStreamIndex=(\d+)""")
     }

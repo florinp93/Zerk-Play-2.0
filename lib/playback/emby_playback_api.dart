@@ -8,6 +8,7 @@ import '../services/janus/janus_service.dart';
 import 'device_profile.dart';
 import 'media3/device_caps.dart';
 import 'player_settings.dart';
+import 'trickplay.dart';
 
 const _iconUrl =
     'https://raw.githubusercontent.com/florinp93/Zerk-Play-2.0/main/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png';
@@ -120,6 +121,61 @@ final class PlaybackReport {
       };
 }
 
+final class PlaybackInfoRequest {
+  const PlaybackInfoRequest._({this.query = const {}, required this.body});
+
+  final Map<String, String?> query;
+  final Map<String, Object?> body;
+
+  factory PlaybackInfoRequest.build({
+    required bool jellyfin,
+    required String userId,
+    required Map<String, Object?> deviceProfile,
+    String? mediaSourceId,
+    int? audioStreamIndex,
+    int? subtitleStreamIndex,
+    Duration? start,
+    int maxBitrate = 0,
+    bool enableDirectPlay = true,
+    bool enableDirectStream = true,
+  }) {
+    final bitrate = maxBitrate > 0 ? maxBitrate : kUnlimitedBitrate;
+    final startTicks = start == null ? null : start.inMicroseconds * 10;
+    if (jellyfin) {
+      return PlaybackInfoRequest._(body: {
+        'UserId': userId,
+        'AutoOpenLiveStream': true,
+        'MediaSourceId': ?mediaSourceId,
+        'AudioStreamIndex': ?audioStreamIndex,
+        'SubtitleStreamIndex': ?subtitleStreamIndex,
+        'StartTimeTicks': ?startTicks,
+        'MaxStreamingBitrate': bitrate,
+        'EnableDirectPlay': enableDirectPlay,
+        'EnableDirectStream': enableDirectStream,
+        'EnableTranscoding': true,
+        'AllowVideoStreamCopy': true,
+        'AllowAudioStreamCopy': true,
+        'DeviceProfile': deviceProfile,
+      });
+    }
+    return PlaybackInfoRequest._(
+      query: {
+        'UserId': userId,
+        'IsPlayback': 'true',
+        'AutoOpenLiveStream': 'true',
+        'MediaSourceId': mediaSourceId,
+        'AudioStreamIndex': audioStreamIndex?.toString(),
+        'SubtitleStreamIndex': subtitleStreamIndex?.toString(),
+        'StartTimeTicks': startTicks?.toString(),
+        'MaxStreamingBitrate': '$bitrate',
+        'EnableDirectPlay': '$enableDirectPlay',
+        'EnableDirectStream': '$enableDirectStream',
+      },
+      body: {'DeviceProfile': deviceProfile},
+    );
+  }
+}
+
 final class EmbyPlaybackApi {
   EmbyPlaybackApi({required this._janus});
 
@@ -160,40 +216,20 @@ final class EmbyPlaybackApi {
   }) async {
     final s = _janus.session;
     final profile = await _deviceProfile(maxBitrate);
-    final bitrate = maxBitrate > 0 ? maxBitrate : kUnlimitedBitrate;
-    final startTicks = start == null ? null : start.inMicroseconds * 10;
-    final json = _jellyfin
-        ? await _janus.client.postJson('/Items/$itemId/PlaybackInfo', body: {
-            'UserId': s.userId,
-            'AutoOpenLiveStream': true,
-            'MediaSourceId': ?mediaSourceId,
-            'AudioStreamIndex': ?audioStreamIndex,
-            'SubtitleStreamIndex': ?subtitleStreamIndex,
-            'StartTimeTicks': ?startTicks,
-            'MaxStreamingBitrate': bitrate,
-            'EnableDirectPlay': enableDirectPlay,
-            'EnableDirectStream': enableDirectStream,
-            'EnableTranscoding': true,
-            'AllowVideoStreamCopy': true,
-            'AllowAudioStreamCopy': true,
-            'DeviceProfile': profile,
-          })
-        : await _janus.client.postJson(
-            '/Items/$itemId/PlaybackInfo',
-            queryParameters: {
-              'UserId': s.userId,
-              'IsPlayback': 'true',
-              'AutoOpenLiveStream': 'true',
-              'MediaSourceId': mediaSourceId,
-              'AudioStreamIndex': audioStreamIndex?.toString(),
-              'SubtitleStreamIndex': subtitleStreamIndex?.toString(),
-              'StartTimeTicks': startTicks?.toString(),
-              'MaxStreamingBitrate': '$bitrate',
-              'EnableDirectPlay': '$enableDirectPlay',
-              'EnableDirectStream': '$enableDirectStream',
-            },
-            body: {'DeviceProfile': profile},
-          );
+    final request = PlaybackInfoRequest.build(
+      jellyfin: _jellyfin,
+      userId: s.userId,
+      deviceProfile: profile,
+      mediaSourceId: mediaSourceId,
+      audioStreamIndex: audioStreamIndex,
+      subtitleStreamIndex: subtitleStreamIndex,
+      start: start,
+      maxBitrate: maxBitrate,
+      enableDirectPlay: enableDirectPlay,
+      enableDirectStream: enableDirectStream,
+    );
+    final json = await _janus.client
+        .postJson('/Items/$itemId/PlaybackInfo', queryParameters: request.query, body: request.body);
     final info = PlaybackInfoResponse.fromJson(json);
     if (info.errorCode != null) {
       throw PlaybackRefusedException(info.errorCode!);
@@ -209,14 +245,16 @@ final class EmbyPlaybackApi {
     PlaybackInfoResponse info, {
     String? mediaSourceId,
     bool streamSubtitles = false,
+    bool transcode = false,
   }) {
     final source = info.mediaSources.firstWhere(
       (m) => m.id == mediaSourceId,
       orElse: () => info.mediaSources.first,
     );
     final s = _janus.session;
+    final direct = !transcode || source.transcodingUrl == null;
 
-    if (source.supportsDirectPlay || source.supportsDirectStream && source.directStreamUrl == null) {
+    if (direct && (source.supportsDirectPlay || source.supportsDirectStream && source.directStreamUrl == null)) {
       final live = source.liveStreamId;
       final containers = (source.container ?? (live != null ? 'ts' : 'mkv')).split(',');
       final container = containers.contains('mp4') ? 'mp4' : containers.first;
@@ -234,7 +272,7 @@ final class EmbyPlaybackApi {
         playSessionId: info.playSessionId,
       );
     }
-    if (source.supportsDirectStream && source.directStreamUrl != null) {
+    if (direct && source.supportsDirectStream && source.directStreamUrl != null) {
       return ResolvedStream(
         url: absoluteUrl(source.directStreamUrl!),
         method: PlayMethod.directStream,
@@ -373,6 +411,22 @@ final class EmbyPlaybackApi {
         ? await _janus.client.getJson('/Items/$itemId', queryParameters: {'userId': userId})
         : await _janus.client.getJson('/Users/$userId/Items/$itemId', queryParameters: {'Fields': 'Chapters'});
     return ChapterInfo.listFromJson(json['Chapters']);
+  }
+
+  Future<Trickplay?> trickplay(String itemId, String mediaSourceId, {int width = 320}) async {
+    final client = _janus.client;
+    if (_jellyfin) {
+      final json = await client.getJson('/Users/${_janus.session.userId}/Items/$itemId',
+          queryParameters: {'Fields': 'Trickplay'});
+      final grid = TrickplayGrid.fromJellyfin(json['Trickplay'], mediaSourceId, preferredWidth: width);
+      if (grid == null) return null;
+      return SheetTrickplay(grid, (sheet) => client.getBytes('/Videos/$itemId/Trickplay/${grid.width}/$sheet.jpg',
+          queryParameters: {'MediaSourceId': mediaSourceId}));
+    }
+    final bytes = await client.getBytes('/Videos/$itemId/index.bif',
+        queryParameters: {'Width': '$width', 'MediaSourceId': mediaSourceId});
+    final bif = bytes == null ? null : BifIndex.parse(bytes);
+    return bif == null ? null : BifTrickplay(bif);
   }
 
   Uri? chapterImage(String itemId, ChapterInfo chapter, {int width = 480}) => chapter.imageTag == null

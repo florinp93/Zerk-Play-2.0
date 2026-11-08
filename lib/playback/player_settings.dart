@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'subtitle_style.dart';
+import 'transcode_quality.dart';
 
 enum SubtitleMode {
   off,
@@ -30,8 +31,10 @@ final class PlayerSettings {
     this.preferredSubtitleLanguage = '',
     this.subtitleMode = SubtitleMode.smart,
     this.maxStreamingBitrate = 0,
+    this.transcodeBitrate = 0,
     this.passthrough = const {},
     this.audioExclusive = false,
+    this.stereoDownmix = false,
     this.hdrPassthrough = true,
     this.autoHdr = true,
     this.matchRefreshRate = false,
@@ -70,9 +73,12 @@ final class PlayerSettings {
   final SubtitleMode subtitleMode;
 
   final int maxStreamingBitrate;
+  final int transcodeBitrate;
   final Set<PassthroughCodec> passthrough;
 
   final bool audioExclusive;
+
+  final bool stereoDownmix;
 
   final bool hdrPassthrough;
 
@@ -138,8 +144,10 @@ final class PlayerSettings {
     String? preferredSubtitleLanguage,
     SubtitleMode? subtitleMode,
     int? maxStreamingBitrate,
+    int? transcodeBitrate,
     Set<PassthroughCodec>? passthrough,
     bool? audioExclusive,
+    bool? stereoDownmix,
     bool? hdrPassthrough,
     bool? autoHdr,
     bool? matchRefreshRate,
@@ -177,8 +185,10 @@ final class PlayerSettings {
       preferredSubtitleLanguage: preferredSubtitleLanguage ?? this.preferredSubtitleLanguage,
       subtitleMode: subtitleMode ?? this.subtitleMode,
       maxStreamingBitrate: maxStreamingBitrate ?? this.maxStreamingBitrate,
+      transcodeBitrate: transcodeBitrate ?? this.transcodeBitrate,
       passthrough: passthrough ?? this.passthrough,
       audioExclusive: audioExclusive ?? this.audioExclusive,
+      stereoDownmix: stereoDownmix ?? this.stereoDownmix,
       hdrPassthrough: hdrPassthrough ?? this.hdrPassthrough,
       autoHdr: autoHdr ?? this.autoHdr,
       matchRefreshRate: matchRefreshRate ?? this.matchRefreshRate,
@@ -218,8 +228,10 @@ final class PlayerSettings {
         'subLang': preferredSubtitleLanguage,
         'subMode': subtitleMode.name,
         'maxBitrate': maxStreamingBitrate,
+        'transcodeBitrate': transcodeBitrate,
         'passthrough': passthrough.map((c) => c.name).toList(),
         'exclusive': audioExclusive,
+        'stereo': stereoDownmix,
         'hdr': hdrPassthrough,
         'autoHdr': autoHdr,
         'matchHz': matchRefreshRate,
@@ -269,10 +281,12 @@ final class PlayerSettings {
       preferredSubtitleLanguage: pick('subLang', d.preferredSubtitleLanguage),
       subtitleMode: SubtitleMode.values.asNameMap()[j['subMode']] ?? d.subtitleMode,
       maxStreamingBitrate: pick('maxBitrate', d.maxStreamingBitrate),
+      transcodeBitrate: normalizeTranscodeBitrate(pick('transcodeBitrate', d.transcodeBitrate)),
       passthrough: rawPass is List
           ? {for (final n in rawPass) ?PassthroughCodec.values.asNameMap()[n]}
           : d.passthrough,
       audioExclusive: pick('exclusive', d.audioExclusive),
+      stereoDownmix: pick('stereo', d.stereoDownmix),
       hdrPassthrough: pick('hdr', d.hdrPassthrough),
       autoHdr: pick('autoHdr', d.autoHdr),
       matchRefreshRate: pick('matchHz', d.matchRefreshRate),

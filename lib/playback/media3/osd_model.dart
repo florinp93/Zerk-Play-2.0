@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../player_backend.dart';
+import '../trickplay.dart';
 
 final class OsdChoice {
   const OsdChoice({required this.id, required this.label, this.detail, this.selected = false});
@@ -63,6 +64,8 @@ final class OsdModel extends ChangeNotifier {
     this.setSpeed,
     this.setAspect,
     this.stats,
+    this.setDownmix,
+    this.setSubtitleDelay,
   });
 
   final ValueListenable<PlayerState> state;
@@ -77,9 +80,13 @@ final class OsdModel extends ChangeNotifier {
   final void Function(double speed)? setSpeed;
   final void Function(String mode)? setAspect;
   final Future<Map<String, Object?>> Function()? stats;
+  final void Function(bool enabled)? setDownmix;
+  final void Function(double seconds)? setSubtitleDelay;
 
   double speed = 1;
   String aspect = 'fit';
+  bool downmix = false;
+  double subtitleDelay = 0;
 
   String phase = 'loading';
   String title = '';
@@ -91,10 +98,14 @@ final class OsdModel extends ChangeNotifier {
   List<OsdChoice> audio = const [];
   List<OsdChoice> subs = const [];
   List<OsdChoice> versions = const [];
+  List<OsdChoice> quality = const [];
+  String? qualityLabel;
+  String? qualityHint;
   Duration? introStart;
   Duration? introEnd;
   Duration? creditsStart;
   List<OsdChapter> chapters = const [];
+  Trickplay? trickplay;
   NextUp? next;
   double scope = 0;
 
@@ -149,12 +160,18 @@ final class OsdModel extends ChangeNotifier {
         subs = OsdChoice.list(m['subs']);
       case 'versions':
         versions = OsdChoice.list(data);
+      case 'quality':
+        quality = OsdChoice.list(m['options']);
+        qualityLabel = m['label'] as String?;
+        qualityHint = m['hint'] as String?;
       case 'segments':
         introStart = secs(m['introStart']);
         introEnd = secs(m['introEnd']);
         creditsStart = secs(m['creditsStart']);
       case 'chapters':
         chapters = OsdChapter.list(data);
+      case 'trickplay':
+        trickplay = data is Trickplay ? data : null;
       case 'next':
         next = data is Map
             ? NextUp(

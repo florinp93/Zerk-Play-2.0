@@ -18,6 +18,8 @@ import 'sync/together_sync.dart';
 import 'sync/watch_together.dart';
 import 'track_labels.dart';
 import 'track_policy.dart';
+import 'transcode_quality.dart';
+import 'trickplay.dart';
 import 'versions.dart';
 import 'webhook.dart';
 
@@ -115,6 +117,10 @@ final class PlaybackSession {
 
   bool _hdrAutoEnabled = false;
 
+  final _trickplay = <String, Future<Trickplay?>>{};
+
+  late int _transcodeBitrate = _settings.transcodeBitrate;
+
   String? _videoSignature;
 
   Future<PlaybackEndReason> run(PlaybackRequest request) async {
@@ -152,6 +158,9 @@ final class PlaybackSession {
 
   Future<void> _play(PlaybackRequest request, {bool forceTranscode = false}) async {
     final item = request.item;
+    final quality = _transcodeBitrate;
+    final transcode = forceTranscode || quality > 0;
+    final maxBitrate = quality > 0 ? quality : _settings.maxStreamingBitrate;
     _loading = true;
     _nextEpisode = null;
     _nextCancelled = false;
@@ -159,6 +168,7 @@ final class PlaybackSession {
     _osd('next', null);
     _osd('video', null);
     _osd('chapters', null);
+    _osd('trickplay', null);
     _osdState('loading', item);
 
     try {
@@ -168,9 +178,9 @@ final class PlaybackSession {
         item.id,
         mediaSourceId: request.mediaSourceId,
         start: start,
-        maxBitrate: _settings.maxStreamingBitrate,
-        enableDirectPlay: !forceTranscode,
-        enableDirectStream: !forceTranscode,
+        maxBitrate: maxBitrate,
+        enableDirectPlay: !transcode,
+        enableDirectStream: !transcode,
       );
       final versions = item.mediaSources.length > 1
           ? item.mediaSources
@@ -184,7 +194,7 @@ final class PlaybackSession {
       debugPrint('[session] playback info for "${item.name}" (${item.id}): ${info.mediaSources.length} source(s), '
           'chosen ${source.id} ${source.container} ${source.bitrate ?? '?'} b/s, direct play ${source.supportsDirectPlay}, '
           'direct stream ${source.supportsDirectStream}, transcode url ${source.transcodingUrl != null}, '
-          'remote ${source.isRemote}, start $start, force transcode $forceTranscode');
+          'remote ${source.isRemote}, start $start, transcode $transcode${quality > 0 ? ' at ${mbpsLabel(quality)}' : ''}');
       final policy = TrackPolicy.choose(source, _settings, sticky: _sticky);
       final audioIndex = request.audioIndex ?? policy.audioIndex;
       final subtitleIndex = switch (request.subtitleIndex) {
@@ -194,7 +204,7 @@ final class PlaybackSession {
       };
 
       final streamSubs = _player.streamSubtitles;
-      var stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs);
+      var stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode);
       final serverTracks = stream.method != PlayMethod.transcode &&
           !_player.selectsFileTracks &&
           _needsServerTracks(source, audioIndex, subtitleIndex, streamSubtitles: streamSubs);
@@ -205,12 +215,12 @@ final class PlaybackSession {
           start: start,
           audioStreamIndex: audioIndex,
           subtitleStreamIndex: subtitleIndex ?? -1,
-          maxBitrate: _settings.maxStreamingBitrate,
-          enableDirectPlay: !forceTranscode && !serverTracks,
-          enableDirectStream: !forceTranscode && !serverTracks,
+          maxBitrate: maxBitrate,
+          enableDirectPlay: !transcode && !serverTracks,
+          enableDirectStream: !transcode && !serverTracks,
         );
         source = info.mediaSources.firstWhere((m) => m.id == source.id, orElse: () => info.mediaSources.first);
-        stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs);
+        stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode);
       }
       await _prepareHdr(VersionInfo(source).hdr != null);
       if (_finishing) return;
@@ -288,8 +298,10 @@ final class PlaybackSession {
     _sync?.loaded();
     _sendTracks();
     _sendVersions();
+    _sendQuality();
     unawaited(_sendSegments(cur));
     unawaited(_sendChapters(cur));
+    unawaited(_sendTrickplay(cur));
     final hz = _settings.matchRefreshRate ? await _matchRefreshRate(cur) : null;
     if (_settings.matchRefreshRate) debugPrint('[session] refresh rate match: ${hz == null ? 'no change' : '$hz Hz'}');
     unawaited(_sendVideo(cur, announce: true, refreshHz: hz));
@@ -444,6 +456,31 @@ final class PlaybackSession {
     ]);
   }
 
+  String _qualityLabel() =>
+      _transcodeBitrate > 0 ? l10n.qualityTranscoding(mbpsLabel(_transcodeBitrate)) : l10n.qualityDirect;
+
+  void _sendQuality() {
+    _osd('quality', {
+      'label': _qualityLabel(),
+      'hint': l10n.qualityTranscodeDetail,
+      'options': [
+        {'id': '0', 'label': l10n.qualityDirect, 'detail': l10n.qualityDirectDetail, 'selected': _transcodeBitrate == 0},
+        for (final bitrate in transcodeBitrates)
+          {'id': '$bitrate', 'label': mbpsLabel(bitrate), 'selected': _transcodeBitrate == bitrate},
+      ],
+    });
+  }
+
+  Future<void> _switchQuality(int bitrate) async {
+    final cur = _current;
+    final target = normalizeTranscodeBitrate(bitrate);
+    if (cur == null || _loading || target == _transcodeBitrate) return;
+    _transcodeBitrate = target;
+    _sendQuality();
+    _toast(_qualityLabel());
+    await _renegotiate(audioIndex: cur.audioIndex, subtitleIndex: cur.subtitleIndex);
+  }
+
   Future<void> _switchVersion(String mediaSourceId) async {
     final cur = _current;
     if (cur == null || cur.source.id == mediaSourceId || _loading) return;
@@ -575,6 +612,9 @@ final class PlaybackSession {
         if (i != null) unawaited(_switchSubtitle(i));
       case 'version':
         if (arg != null) unawaited(_switchVersion(arg));
+      case 'quality':
+        final bitrate = int.tryParse(arg ?? '');
+        if (bitrate != null) unawaited(_switchQuality(bitrate));
       case 'next':
         unawaited(_playNext());
       case 'next-cancel':
@@ -773,6 +813,19 @@ final class PlaybackSession {
     });
   }
 
+  Future<void> _sendTrickplay(_Current cur) async {
+    if (cur.item.isChannel || cur.source.liveStreamId != null) return;
+    final key = '${cur.item.id}|${cur.source.id}';
+    final trickplay = await (_trickplay[key] ??= _api.trickplay(cur.item.id, cur.source.id).catchError((Object e) {
+      debugPrint('[session] trickplay: $e');
+      return null;
+    }));
+    if (!identical(_current, cur) || _finishing) return;
+    debugPrint('[session] trickplay for ${cur.item.id}: '
+        '${trickplay == null ? 'none' : 'every ${trickplay.interval.inMilliseconds} ms'}');
+    if (trickplay != null) _osd('trickplay', trickplay);
+  }
+
   Future<void> _sendChapters(_Current cur) async {
     final chapters = await _api.chapters(cur.item).catchError((Object e) {
       debugPrint('[session] chapters: $e');
@@ -888,6 +941,10 @@ final class PlaybackSession {
     await _eventsSub?.cancel();
     _player.state.removeListener(_onState);
     await _player.close();
+    for (final pending in _trickplay.values) {
+      unawaited(pending.then((trickplay) => trickplay?.dispose()));
+    }
+    _trickplay.clear();
     if (_hdrAutoEnabled) {
       if (_settings.keepHdr) {
         debugPrint('[session] leaving Windows HDR on (keep after playback)');

@@ -15,14 +15,18 @@ import '../../l10n/app_localizations.dart';
 import '../../ui/core/gamepad.dart';
 import '../../ui/player/player_osd.dart';
 import '../../ui/widgets/net_image.dart';
+import '../dialogue_downmix.dart';
 import '../display_refresh.dart';
 import '../media3/osd_model.dart';
 import '../player_backend.dart';
 import '../player_settings.dart';
+import '../trickplay.dart';
 import 'libmpv.dart' show MpvEndFileReason;
 import 'mpv_options.dart';
 import 'mpv_player.dart';
 import 'video_host.dart';
+
+typedef _TrickFile = ({String path, int w, int h});
 
 final class MpvBackend implements PlayerBackend {
   MpvBackend({
@@ -102,6 +106,12 @@ final class MpvBackend implements PlayerBackend {
       debugPrint('[mpv] the OSD script did not report ready within 3 s: the player UI will be missing');
     });
     osd('strings', _osdStrings(l10n));
+    osd('downmix', {
+      'on': _settings.stereoDownmix,
+      'label': DialogueDownmix.mpvLabel,
+      'af': DialogueDownmix.mpvFilter,
+      'spdif': _settings.mpvSpdif,
+    });
   }
 
   static Map<String, String> _osdStrings(L10n l) => {
@@ -121,6 +131,7 @@ final class MpvBackend implements PlayerBackend {
         'off': l.subtitleOff,
         'chapter': l.chapterNumber('{n}'),
         'version': l.version,
+        'quality': l.playerQuality,
         'aspect_original': l.aspectOriginal,
         'aspect_original_detail': l.aspectOriginalDetail,
         'aspect_flat': l.aspectFlat,
@@ -151,6 +162,9 @@ final class MpvBackend implements PlayerBackend {
         'intro_skipped': l.introSkipped,
         'play_now': l.playNow,
         'keep_watching': l.keepWatching,
+        'stereo_downmix': l.stereoDownmix,
+        'stereo_downmix_detail': l.stereoDownmixDetail,
+        'on': l.toggleOn,
       };
 
   Future<void> _showVideo(bool show) async {
@@ -180,6 +194,7 @@ final class MpvBackend implements PlayerBackend {
 
   @override
   void osd(String command, Object? data) {
+    if (command == 'trickplay') return _setTrickplay(data is Trickplay ? data : null);
     if (command == 'toast' && data is Map) return unawaited(_sendPictureToast(data));
     final payload = data is String ? data : jsonEncode(data);
     if (command != 'strings') {
@@ -228,6 +243,7 @@ final class MpvBackend implements PlayerBackend {
     await VideoHost.hide();
     if (Host.isLinux) await VideoHost.detach();
     _mpv.dispose();
+    _resetTrickplay(null);
     final route = _route;
     _route = null;
     if (route != null && route.isActive) _navigator.removeRoute(route);
@@ -252,12 +268,14 @@ final class MpvBackend implements PlayerBackend {
         debugPrint('[mpv] end of file (reason $reason)');
       case MpvClientMessage(:final args) when args.firstOrNull == 'zerk-event':
         final name = args.elementAtOrNull(1);
-        debugPrint('[osd] event $name${args.length > 2 ? ' ${args[2]}' : ''}');
+        if (name != 'trick') debugPrint('[osd] event $name${args.length > 2 ? ' ${args[2]}' : ''}');
         switch (name) {
           case null:
             break;
           case 'ready':
             if (!_osdReady.isCompleted) _osdReady.complete();
+          case 'trick':
+            unawaited(_sendTrick(args.elementAtOrNull(2)));
           case 'fullscreen':
             unawaited(_toggleFullscreen());
           default:
@@ -366,17 +384,95 @@ final class MpvBackend implements PlayerBackend {
 
   static const _toastImageSize = 96;
 
-  static Future<Uint8List> _roundPicture(ui.Image image) async {
-    const size = _toastImageSize;
+  Trickplay? _trickplay;
+  int _trickGeneration = 0;
+  int _trickSerial = 0;
+  final _trickFiles = <int, _TrickFile>{};
+  Directory? _trickDir;
+
+  static const _trickFileLimit = 48;
+
+  void _setTrickplay(Trickplay? trickplay) {
+    if (identical(trickplay, _trickplay)) return;
+    _resetTrickplay(trickplay);
+    final config = trickplay == null ? null : {'interval': trickplay.interval.inMilliseconds / 1000};
+    _mpv.scriptMessage('zerk_osd', ['trickplay', jsonEncode(config)]);
+  }
+
+  void _resetTrickplay(Trickplay? trickplay) {
+    _trickplay = trickplay;
+    _trickGeneration++;
+    unawaited(_clearTrickFiles());
+  }
+
+  Future<Directory> _trickDirectory() async {
+    final dir = _trickDir ??= Directory(p.join((await getTemporaryDirectory()).path, 'zerk_play_osd_trick'));
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<void> _clearTrickFiles() async {
+    _trickFiles.clear();
+    final keep = 'trick-$_trickGeneration-';
+    try {
+      final dir = await _trickDirectory();
+      for (final f in dir.listSync()) {
+        if (p.basename(f.path).startsWith(keep)) continue;
+        try {
+          f.deleteSync();
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _sendTrick(String? arg) async {
+    final trickplay = _trickplay;
+    final secs = double.tryParse(arg ?? '');
+    if (trickplay == null || secs == null) return;
+    final serial = ++_trickSerial;
+    final generation = _trickGeneration;
+    final index = trickplay.indexAt(Duration(milliseconds: (secs * 1000).round()));
+    final file = _trickFiles[index] ?? await _writeTrickFile(trickplay, index, generation);
+    if (file == null || serial != _trickSerial || generation != _trickGeneration) return;
+    _mpv.scriptMessage('zerk_osd', ['trick-image', jsonEncode({'path': file.path, 'w': file.w, 'h': file.h})]);
+  }
+
+  Future<_TrickFile?> _writeTrickFile(Trickplay trickplay, int index, int generation) async {
+    final frame = await trickplay.frame(index);
+    if (frame == null) return null;
+    try {
+      final pixels = await _framePixels(frame);
+      if (generation != _trickGeneration) return null;
+      final path = p.join((await _trickDirectory()).path, 'trick-$generation-$index.bgra');
+      await File(path).writeAsBytes(pixels.bytes, flush: true);
+      if (generation != _trickGeneration) return null;
+      final file = (path: path, w: pixels.w, h: pixels.h);
+      _trickFiles[index] = file;
+      while (_trickFiles.length > _trickFileLimit) {
+        final old = _trickFiles.remove(_trickFiles.keys.first)!;
+        try {
+          File(old.path).deleteSync();
+        } catch (_) {}
+      }
+      return file;
+    } catch (e) {
+      debugPrint('[mpv] trickplay thumbnail: $e');
+      return null;
+    } finally {
+      frame.dispose();
+    }
+  }
+
+  static Future<({Uint8List bytes, int w, int h})> _framePixels(TrickplayFrame frame) async {
+    final w = frame.source.width.round(), h = frame.source.height.round();
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.clipPath(Path()..addOval(const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0)));
-    final src = Offset.zero & Size(image.width.toDouble(), image.height.toDouble());
-    final fit = applyBoxFit(BoxFit.cover, src.size, const Size(size + 0.0, size + 0.0));
-    canvas.drawImageRect(image, Alignment.center.inscribe(fit.source, src), const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0),
-        Paint()..filterQuality = FilterQuality.medium);
+    frame.paint(Canvas(recorder), Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()));
+    return (bytes: await _bgraPixels(recorder, w, h), w: w, h: h);
+  }
+
+  static Future<Uint8List> _bgraPixels(ui.PictureRecorder recorder, int w, int h) async {
     final picture = recorder.endRecording();
-    final out = await picture.toImage(size, size);
+    final out = await picture.toImage(w, h);
     picture.dispose();
     final data = await out.toByteData(format: ui.ImageByteFormat.rawRgba);
     out.dispose();
@@ -387,6 +483,18 @@ final class MpvBackend implements PlayerBackend {
       px[i + 2] = red;
     }
     return px;
+  }
+
+  static Future<Uint8List> _roundPicture(ui.Image image) {
+    const size = _toastImageSize;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.clipPath(Path()..addOval(const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0)));
+    final src = Offset.zero & Size(image.width.toDouble(), image.height.toDouble());
+    final fit = applyBoxFit(BoxFit.cover, src.size, const Size(size + 0.0, size + 0.0));
+    canvas.drawImageRect(image, Alignment.center.inscribe(fit.source, src), const Rect.fromLTWH(0, 0, size + 0.0, size + 0.0),
+        Paint()..filterQuality = FilterQuality.medium);
+    return _bgraPixels(recorder, size, size);
   }
 
   static Future<ui.Image> _resolve(ImageProvider provider) {
@@ -405,7 +513,7 @@ final class MpvBackend implements PlayerBackend {
     return done.future;
   }
 
-  static Future<Uint8List> _cardStill(ui.Image image, {required bool grey}) async {
+  static Future<Uint8List> _cardStill(ui.Image image, {required bool grey}) {
     const w = _nextImageWidth, h = _nextImageWidth * 9 ~/ 16;
     const r = Radius.circular(36);
     final recorder = ui.PictureRecorder();
@@ -423,18 +531,7 @@ final class MpvBackend implements PlayerBackend {
     final src = Offset.zero & Size(image.width.toDouble(), image.height.toDouble());
     final fit = applyBoxFit(BoxFit.cover, src.size, const Size(w + 0.0, h + 0.0));
     canvas.drawImageRect(image, Alignment.center.inscribe(fit.source, src), Offset.zero & const Size(w + 0.0, h + 0.0), paint);
-    final picture = recorder.endRecording();
-    final out = await picture.toImage(w, h);
-    picture.dispose();
-    final data = await out.toByteData(format: ui.ImageByteFormat.rawRgba);
-    out.dispose();
-    final px = data!.buffer.asUint8List();
-    for (var i = 0; i < px.length; i += 4) {
-      final red = px[i];
-      px[i] = px[i + 2];
-      px[i + 2] = red;
-    }
-    return px;
+    return _bgraPixels(recorder, w, h);
   }
 
   Future<void> _toggleFullscreen() async {

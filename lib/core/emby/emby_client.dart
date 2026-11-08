@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -129,6 +130,17 @@ final class EmbyClient {
     final uri = buildUri(path, queryParameters: queryParameters);
     final response = await _http.get(uri, headers: _headers());
     return _decodeJsonResponse(response);
+  }
+
+  Future<Uint8List?> getBytes(
+    String path, {
+    Map<String, String?> queryParameters = const {},
+  }) async {
+    final uri = buildUri(path, queryParameters: queryParameters);
+    final response = await _http.get(uri, headers: _headers(extra: {'Accept': '*/*'}));
+    if (response.statusCode == 404) return null;
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    throw EmbyApiException(statusCode: response.statusCode, reasonPhrase: response.reasonPhrase, body: null, uri: uri);
   }
 
   Future<List<dynamic>> getJsonList(

@@ -8,8 +8,10 @@ import '../../core/windows/native_window.dart' show DisplayHdrStatus;
 import '../../ui/core/tv_scale.dart';
 import '../../ui/player/player_osd.dart';
 import '../device_profile.dart' show androidEncodesAc3;
+import '../dialogue_downmix.dart';
 import '../player_backend.dart';
 import '../player_settings.dart';
+import '../subtitle_delay.dart';
 import '../subtitle_style.dart';
 import 'device_caps.dart';
 import 'osd_model.dart';
@@ -32,7 +34,11 @@ final class Media3Backend implements PlayerBackend {
     setSpeed: (speed) => _call('speed', {'speed': speed}),
     setAspect: (mode) => _call('resizeMode', {'mode': mode}),
     stats: () async => (await _channel.invokeMapMethod<String, Object?>('stats')) ?? const {},
-  )..subtitleScale = _settings.subtitleScale;
+    setDownmix: (enabled) => _call('downmix', {'enabled': enabled}),
+    setSubtitleDelay: (seconds) => _call('subtitleDelay', {'us': SubtitleDelay.micros(seconds)}),
+  )
+    ..subtitleScale = _settings.subtitleScale
+    ..downmix = _settings.stereoDownmix;
   StreamSubscription<Object?>? _sub;
   Route<void>? _route;
 
@@ -73,6 +79,8 @@ final class Media3Backend implements PlayerBackend {
       'subtitleStyle': SubtitleStyle.androidStyle(_settings),
       'passthrough': [for (final c in _settings.passthrough) c.name],
       'encodeAc3': androidEncodesAc3(caps, _settings.passthrough),
+      'downmix': _settings.stereoDownmix,
+      'downmixConfig': DialogueDownmix.androidConfig(),
     });
     _osd.subtitleLift.addListener(_liftSubtitles);
     TvScale.videoUnderlay.value = true;

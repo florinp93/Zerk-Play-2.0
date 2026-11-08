@@ -30,7 +30,7 @@ local T = {
 local L = {
   back = "Back", seek_back = "Back {n}s", seek_forward = "Forward {n}s", play = "Play", pause = "Pause",
   audio = "Audio", subtitles = "Subtitles", chapters = "Chapters", next_episode = "Next episode", settings = "Settings",
-  full_screen = "Full screen", off = "Off", chapter = "Chapter {n}", version = "Version",
+  full_screen = "Full screen", off = "Off", chapter = "Chapter {n}", version = "Version", quality = "Quality",
   aspect_original = "Original", aspect_original_detail = "As the video says", aspect_flat = "Flat", aspect_scope = "Scope",
   aspect_zoom = "Zoom to fill", aspect_zoom_detail = "Crops the picture to fill the screen",
   aspect_stretch = "Stretch to fill", aspect_stretch_detail = "Distorts the picture",
@@ -42,6 +42,7 @@ local L = {
   skip_intro = "Skip intro", up_next = "Up next", starts_in = "Starts in {n} s", intro_skipped = "Intro skipped",
   play_now = "Play now", keep_watching = "Keep watching",
   mute = "Mute", unmute = "Unmute",
+  stereo_downmix = "Stereo downmix", stereo_downmix_detail = "Clearer voices on TV speakers", on = "On",
 }
 
 local function tr(key, n)
@@ -98,6 +99,9 @@ local S = {
   tracks = { audio = {}, subs = {} },
   versions = {},
   versions_title = nil,
+  quality = nil,
+  downmix = nil,
+  trick = nil, trick_img = nil, trick_req = nil,
   sub_search = false, sub_languages = {}, sub_results = nil,
   seg = {}, intro_skipped = false, chapters = {},
   next_up = nil, next_elapsed = 0, next_last = nil, next_cancelled = false, next_choice = 1, next_img = nil,
@@ -253,14 +257,44 @@ local open_panel
 
 local function percent(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
 
+local function has_filter(label)
+  for _, f in ipairs(mp.get_property_native("af", {})) do
+    if f.label == label then return true end
+  end
+  return false
+end
+
+local function on_off(on) return on and tr("on") or tr("off") end
+
+local function set_downmix(on)
+  local d = S.downmix
+  d.on = on
+  local label = "@" .. d.label
+  if on then
+    mp.set_property("audio-spdif", "")
+    mp.set_property("audio-channels", "stereo")
+    if not has_filter(d.label) then mp.commandv("af", "add", label .. ":" .. d.af) end
+  else
+    if has_filter(d.label) then mp.commandv("af", "remove", label) end
+    mp.set_property("audio-channels", "auto")
+    mp.set_property("audio-spdif", d.spdif)
+  end
+  msg.info("stereo downmix " .. (on and "on" or "off"))
+end
+
 local function track_items(kind)
   local items = {}
   if kind == "subs" then
     if S.sub_search then items[#items + 1] = { id = "subsearch", label = tr("search_subtitles"), submenu = true } end
     items[#items + 1] = { id = "subsize", label = tr("subtitle_size"), detail = percent(prop("sub-scale", 1)), submenu = true }
+    items[#items + 1] = { id = "subdelay", label = tr("subtitle_delay"), detail = string.format("%+.1fs", prop("sub-delay", 0)), submenu = true }
     local any = false
     for _, t in ipairs(S.tracks.subs) do if t.selected then any = true end end
     items[#items + 1] = { id = -1, label = tr("off"), selected = not any }
+  end
+  if kind == "audio" and S.downmix then
+    items[#items + 1] = { id = "downmix", label = tr("stereo_downmix"),
+      detail = on_off(S.downmix.on) .. "  ·  " .. tr("stereo_downmix_detail") }
   end
   for _, t in ipairs(S.tracks[kind]) do
     items[#items + 1] = { id = t.id, label = t.label, detail = t.detail, selected = t.selected }
@@ -430,6 +464,9 @@ local function settings_items()
     for _, v in ipairs(S.versions) do if v.selected then current = v.label end end
     items[#items + 1] = { id = "version", label = tr("version"), detail = current, submenu = true }
   end
+  if S.quality and #S.quality.options > 0 then
+    items[#items + 1] = { id = "quality", label = tr("quality"), detail = S.quality.label, submenu = true }
+  end
   for _, it in ipairs({
     { id = "aspect", label = tr("aspect_ratio"), detail = aspect_label(S.aspect), submenu = true },
     { id = "speed", label = tr("playback_speed"), detail = string.format("%gx", speed), submenu = true },
@@ -441,10 +478,10 @@ local function settings_items()
   return items
 end
 
-local function delay_items(p, step, unit)
+local function delay_items(p, step, unit, steps)
   local cur = prop(p, 0)
   local items = {}
-  for i = -10, 10 do
+  for i = -steps, steps do
     local v = i * step
     items[#items + 1] = { id = v, label = string.format("%+." .. unit .. "fs", v), selected = math.abs(v - cur) < step / 2 }
   end
@@ -467,6 +504,11 @@ open_panel = function(kind)
     for _, v in ipairs(S.versions) do
       p.items[#p.items + 1] = { id = v.id, label = v.label, detail = v.detail, selected = v.selected }
     end
+  elseif kind == "quality" then
+    p.title, p.items = tr("quality"), {}
+    for _, q in ipairs(S.quality.options) do
+      p.items[#p.items + 1] = { id = q.id, label = q.label, detail = q.detail, selected = q.selected }
+    end
   elseif kind == "speed" then
     p.title, p.items = tr("playback_speed"), {}
     for _, s in ipairs(speeds) do p.items[#p.items + 1] = { id = s, label = string.format("%gx", s), selected = math.abs(prop("speed", 1) - s) < 0.01 } end
@@ -476,8 +518,8 @@ open_panel = function(kind)
       local label, detail = aspect_text(a)
       p.items[#p.items + 1] = { id = a.id, label = label, detail = detail, selected = a.id == S.aspect }
     end
-  elseif kind == "subdelay" then p.title, p.items = tr("subtitle_delay"), delay_items("sub-delay", 0.1, "1")
-  elseif kind == "audiodelay" then p.title, p.items = tr("audio_delay"), delay_items("audio-delay", 0.05, "2")
+  elseif kind == "subdelay" then p.title, p.items = tr("subtitle_delay"), delay_items("sub-delay", 0.1, "1", 50)
+  elseif kind == "audiodelay" then p.title, p.items = tr("audio_delay"), delay_items("audio-delay", 0.05, "2", 10)
   elseif kind == "subsize" then
     local cur = prop("sub-scale", 1)
     p.title, p.items = tr("subtitle_size"), { { id = "slider" } }
@@ -506,9 +548,15 @@ end
 
 local function panel_activate(item)
   local p = S.panel
-  if p.kind == "audio" then send("audio", tostring(item.id)); S.panel = nil
+  if p.kind == "audio" then
+    if item.id == "downmix" then
+      set_downmix(not S.downmix.on)
+      S.toast, S.toast_until, S.toast_img = tr("stereo_downmix") .. ": " .. on_off(S.downmix.on), now() + 2, nil
+    else send("audio", tostring(item.id)) end
+    S.panel = nil
   elseif p.kind == "subs" then
-    if item.id == "subsize" or item.id == "subsearch" then open_panel(item.id == "subsize" and "subsize" or "sublang")
+    local sub_panels = { subsize = "subsize", subdelay = "subdelay", subsearch = "sublang" }
+    if sub_panels[item.id] then open_panel(sub_panels[item.id])
     else send("sub", tostring(item.id)); S.panel = nil end
   elseif p.kind == "chapters" then mp.commandv("seek", item.id, "absolute+exact"); S.panel = nil
   elseif p.kind == "settings" then
@@ -516,6 +564,9 @@ local function panel_activate(item)
     else open_panel(item.id) end
   elseif p.kind == "version" then
     if not item.selected then send("version", tostring(item.id)) end
+    S.panel = nil
+  elseif p.kind == "quality" then
+    if not item.selected then send("quality", tostring(item.id)) end
     S.panel = nil
   elseif p.kind == "speed" then mp.set_property_number("speed", item.id); S.panel = nil
   elseif p.kind == "aspect" then
@@ -570,6 +621,40 @@ local function draw_spinner(cx, cy, r)
   return arc[1]
 end
 
+local OV_TRICK, TRICK_W = 60, 320
+local trick_key, trick_drawn = nil, false
+
+local function draw_trick(out, cx, bottom, t, x1, x2)
+  local tp = S.trick
+  if not tp then return end
+  local bucket = math.floor(t / math.max(tp.interval, 0.1))
+  if bucket ~= S.trick_req then
+    S.trick_req = bucket
+    send("trick", string.format("%.3f", t))
+  end
+  local img = S.trick_img
+  local osd_w, osd_h = mp.get_osd_size()
+  if not img or not osd_h or osd_h == 0 then return end
+  local tw = TRICK_W
+  local th = R(tw * img.h / img.w)
+  local left = R(clamp(cx - tw / 2, x1, x2 - tw))
+  local top = bottom - th
+  out[#out + 1] = rrect(left - 6, top - 6, tw + 12, th + 12, 14, T.panel, "20")
+  trick_drawn = true
+  local k = osd_h * band_f / H
+  local px, py, dw, dh = R(left * k), R((top + band_oy) * k), R(tw * k), R(th * k)
+  local key = table.concat({ img.path, px, py, dw, dh }, "|")
+  if key == trick_key then return end
+  trick_key = key
+  mp.commandv("overlay-add", OV_TRICK, px, py, img.path, 0, "bgra", img.w, img.h, img.w * 4, dw, dh)
+end
+
+local function hide_trick()
+  if not trick_key then return end
+  trick_key = nil
+  mp.commandv("overlay-remove", OV_TRICK)
+end
+
 local function draw_progress(out, y, focused, mini)
   local m = 80
   local x1, x2 = m, W - m
@@ -599,11 +684,13 @@ local function draw_progress(out, y, focused, mini)
     if S.scrub then
       out[#out + 1] = rrect(x1 + width * frac - 70, y - 72, 140, 46, 23, T.panel, "20")
       out[#out + 1] = text(x1 + width * frac, y - 49, 5, 28, T.white, fmt_time(S.scrub), { font = T.font_semibold })
+      draw_trick(out, x1 + width * frac, y - 84, S.scrub, x1, x2)
     elseif S.pointer and S.hover == "seek" and dur > 0 then
       local hx = clamp(S.mouse_x, x1, x2)
       out[#out + 1] = rrect(hx - 1, y - h / 2 - 4, 2, h + 8, 1, T.white, "20")
       out[#out + 1] = rrect(hx - 70, y - 72, 140, 46, 23, T.panel, "20")
       out[#out + 1] = text(hx, y - 49, 5, 28, T.white, fmt_time((hx - x1) / width * dur), { font = T.font_semibold })
+      draw_trick(out, hx, y - 84, (hx - x1) / width * dur, x1, x2)
     end
   end
 
@@ -950,6 +1037,7 @@ end
 
 render = function()
   local osd_w, osd_h = mp.get_osd_size()
+  trick_drawn = false
   update_band()
   if osd_w and osd_h and osd_w > 0 and osd_h > 0 then W = math.floor(H * osd_w / (osd_h * band_f)) end
   band_oy = R((H / band_f - H) / 2)
@@ -966,6 +1054,7 @@ render = function()
   if S.phase == "loading" or S.phase == "error" then
     lift_subtitles(0)
     hide_still()
+    hide_trick()
     out[#out + 1] = ev("\\pos(0,0)\\1c&H000000&\\p1", string.format("m 0 0 l %d 0 l %d %d l 0 %d", W, W, H, H))
     out[#out + 1] = text(W / 2, H / 2 - 120, 5, 48, T.white, esc(S.title), { font = T.font_semibold })
     if S.subtitle ~= "" then out[#out + 1] = text(W / 2, H / 2 - 66, 5, 28, T.dim, esc(S.subtitle)) end
@@ -1051,6 +1140,7 @@ render = function()
   if not (S.toast_img and S.toast and t < S.toast_until and t >= S.vol_until) then hide_toast_picture() end
 
   if S.panel then draw_panel(out) end
+  if not trick_drawn then hide_trick() end
 
   local data = shift_y(table.concat(out, "\n"), band_oy)
   if data ~= overlay.data or W ~= S.drawn_w then
@@ -1440,9 +1530,25 @@ mp.register_script_message("versions", function(raw)
   S.versions = json(raw) or {}
 end)
 
+mp.register_script_message("quality", function(raw)
+  S.quality = json(raw)
+end)
+
 mp.register_script_message("chapters", function(raw)
   S.chapters = json(raw) or {}
   if S.panel and S.panel.kind == "chapters" then open_panel("chapters") end
+  refresh()
+end)
+
+mp.register_script_message("trickplay", function(raw)
+  S.trick, S.trick_img, S.trick_req = json(raw), nil, nil
+  refresh()
+end)
+
+mp.register_script_message("trick-image", function(raw)
+  local img = json(raw)
+  if not img or not S.trick then return end
+  S.trick_img = img
   refresh()
 end)
 
@@ -1465,6 +1571,10 @@ mp.register_script_message("next-image", function(raw)
     S.next_img = img
     refresh()
   end
+end)
+
+mp.register_script_message("downmix", function(raw)
+  S.downmix = json(raw)
 end)
 
 mp.register_script_message("config", function(raw)

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,9 @@ import 'package:flutter/services.dart';
 import '../../l10n/l10n.dart';
 import '../../playback/media3/osd_model.dart';
 import '../../playback/player_backend.dart';
+import '../../playback/subtitle_delay.dart';
 import '../../playback/subtitle_style.dart';
+import '../../playback/trickplay.dart';
 import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
@@ -291,20 +294,78 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     if (chosen != null) model.send(event, chosen);
   }
 
+  Future<void> _chooseAudio() async {
+    final l10n = context.l10n;
+    final setDownmix = model.setDownmix;
+    if (setDownmix == null) return _choose(l10n.audio, model.audio, 'audio');
+    String state() => model.downmix ? l10n.toggleOn : l10n.toggleOff;
+    _panelOpen = true;
+    final chosen = await showSidePanel<String>(context, title: l10n.audio, options: [
+      PanelOption(
+        value: 'downmix',
+        title: l10n.stereoDownmix,
+        subtitle: '${state()}  ·  ${l10n.stereoDownmixDetail}',
+        icon: Icons.record_voice_over_rounded,
+      ),
+      for (final c in model.audio) PanelOption(value: c.id, title: c.label, subtitle: c.detail, selected: c.selected),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen == 'downmix') {
+      model.downmix = !model.downmix;
+      setDownmix(model.downmix);
+      model.onToast?.call('${l10n.stereoDownmix}: ${state()}');
+      return;
+    }
+    if (chosen != null) model.send('audio', chosen);
+  }
+
   Future<void> _chooseSubtitles() async {
     final l10n = context.l10n;
+    final delay = model.setSubtitleDelay != null;
     _panelOpen = true;
     final chosen = await showSidePanel<String>(context, title: l10n.subtitles, options: [
       if (model.subtitleSearch) PanelOption(value: 'search', title: l10n.searchSubtitles, icon: Icons.search_rounded),
       PanelOption(value: 'size', title: l10n.subtitleSize, subtitle: SubtitleStyle.percent(model.subtitleScale), icon: Icons.format_size_rounded),
+      if (delay)
+        PanelOption(value: 'delay', title: l10n.subtitleDelay, subtitle: SubtitleDelay.format(model.subtitleDelay), icon: Icons.av_timer_rounded),
+      if (delay && model.subtitleDelay != 0)
+        PanelOption(value: 'delay-reset', title: l10n.subtitleDelayReset, icon: Icons.restart_alt_rounded),
       PanelOption(value: '-1', title: l10n.subtitleOff, selected: !model.subs.any((c) => c.selected)),
       for (final c in model.subs) PanelOption(value: c.id, title: c.label, subtitle: c.detail, selected: c.selected),
     ]);
     _panelOpen = false;
     _armHide();
     if (chosen == 'size') return _chooseSubtitleSize();
+    if (chosen == 'delay') return _chooseSubtitleDelay();
+    if (chosen == 'delay-reset') return _setSubtitleDelay(0);
     if (chosen == 'search') return _searchSubtitles();
     if (chosen != null) model.send('sub', chosen);
+  }
+
+  void _setSubtitleDelay(double seconds) {
+    model.subtitleDelay = SubtitleDelay.clamp(seconds);
+    model.setSubtitleDelay?.call(model.subtitleDelay);
+  }
+
+  Future<void> _chooseSubtitleDelay() async {
+    final original = model.subtitleDelay;
+    _panelOpen = true;
+    final chosen = await showSliderPanel(
+      context,
+      title: context.l10n.subtitleDelay,
+      hint: context.l10n.subtitleDelayHint,
+      value: original,
+      min: SubtitleDelay.min,
+      max: SubtitleDelay.max,
+      step: SubtitleDelay.step,
+      marks: SubtitleDelay.marks,
+      format: SubtitleDelay.format,
+      onChanged: (s) => model.setSubtitleDelay?.call(SubtitleDelay.clamp(s)),
+    );
+    _panelOpen = false;
+    _armHide();
+    _setSubtitleDelay(chosen ?? original);
   }
 
   Future<void> _searchSubtitles() async {
@@ -363,6 +424,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     final l10n = context.l10n;
     _panelOpen = true;
     final chosen = await showSidePanel<String>(context, title: l10n.settings, options: [
+      if (model.quality.isNotEmpty)
+        PanelOption(value: 'quality', title: l10n.playerQuality, subtitle: model.qualityLabel, icon: Icons.high_quality_outlined),
       PanelOption(value: 'aspect', title: l10n.aspectRatio, subtitle: _aspectLabel(l10n, model.aspect), icon: Icons.aspect_ratio_rounded),
       PanelOption(value: 'speed', title: l10n.playbackSpeed, subtitle: _speedLabel(model.speed), icon: Icons.speed_rounded),
       if (model.stats != null)
@@ -370,6 +433,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     ]);
     _panelOpen = false;
     _armHide();
+    if (chosen == 'quality') return _chooseQuality();
     if (chosen == 'aspect') return _chooseAspect();
     if (chosen == 'speed') return _chooseSpeed();
     if (chosen == 'info') return _showInfo();
@@ -382,6 +446,16 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       };
 
   static String _speedLabel(double speed) => '${speed == speed.roundToDouble() ? speed.toStringAsFixed(0) : '$speed'}x';
+
+  Future<void> _chooseQuality() async {
+    _panelOpen = true;
+    final chosen = await showSidePanel<String>(context, title: context.l10n.playerQuality, header: model.qualityHint, options: [
+      for (final c in model.quality) PanelOption(value: c.id, title: c.label, subtitle: c.detail, selected: c.selected),
+    ]);
+    _panelOpen = false;
+    _armHide();
+    if (chosen != null && !model.quality.any((c) => c.selected && c.id == chosen)) model.send('quality', chosen);
+  }
 
   Future<void> _chooseAspect() async {
     final l10n = context.l10n;
@@ -665,7 +739,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
             Positioned(top: _visible ? 180 : 64, right: 96, child: _VolumeBadge(volume: s.muted ? 0 : s.volume)),
           if (miniVisible) ...[
             const Positioned(top: 64, right: 96, child: WallClock(shadow: true)),
-            Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position, buffered: s.buffered, duration: s.duration)),
+            Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position,
+                buffered: s.buffered, duration: s.duration, trickplay: model.trickplay, seeking: _seekTarget != null)),
           ],
           if (!loading && !error && _introVisible(s))
             Positioned(
@@ -801,6 +876,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
               forwardStep: model.seekForward,
               backStep: model.seekBack,
               marks: [for (final c in model.chapters) c.start],
+              trickplay: model.trickplay,
+              seeking: _seekTarget != null,
             ),
           ),
           const SizedBox(height: 34),
@@ -832,7 +909,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 const SizedBox(width: 30),
               ],
               if (model.audio.isNotEmpty) ...[
-                TvButton(label: l10n.audio, icon: Icons.graphic_eq_rounded, onSelect: () => _choose(l10n.audio, model.audio, 'audio')),
+                TvButton(label: l10n.audio, icon: Icons.graphic_eq_rounded, onSelect: _chooseAudio),
                 const SizedBox(width: 18),
               ],
               if (model.subs.isNotEmpty || model.subtitleSearch) ...[
@@ -882,6 +959,8 @@ class _ProgressBar extends StatelessWidget {
     this.onScrub,
     this.onScrubEnd,
     this.marks = const [],
+    this.trickplay,
+    this.seeking = false,
   });
 
   final Duration position;
@@ -889,6 +968,8 @@ class _ProgressBar extends StatelessWidget {
   final Duration duration;
   final bool focused;
   final List<Duration> marks;
+  final Trickplay? trickplay;
+  final bool seeking;
 
   final double? hover;
   final ValueChanged<double?>? onHover;
@@ -939,7 +1020,14 @@ class _ProgressBar extends StatelessWidget {
                   left: (box.maxWidth * frac - 14).clamp(0, box.maxWidth - 28),
                   child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
                 ),
-              if (hover != null && duration > Duration.zero)
+              if (trickplay != null && duration > Duration.zero && (hover != null || seeking))
+                Positioned(
+                  left: (box.maxWidth * (hover ?? frac) - _TrickplayPreview.outer / 2)
+                      .clamp(0.0, math.max(0.0, box.maxWidth - _TrickplayPreview.outer)),
+                  bottom: 40,
+                  child: IgnorePointer(child: _TrickplayPreview(trickplay: trickplay!, time: duration * (hover ?? frac))),
+                )
+              else if (hover != null && duration > Duration.zero)
                 Positioned(
                   left: (box.maxWidth * hover! - 60).clamp(0, box.maxWidth - 120),
                   bottom: 40,
@@ -989,6 +1077,8 @@ class _SeekBar extends StatefulWidget {
     required this.forwardStep,
     required this.backStep,
     this.marks = const [],
+    this.trickplay,
+    this.seeking = false,
   });
 
   final Duration position;
@@ -1000,6 +1090,8 @@ class _SeekBar extends StatefulWidget {
   final int forwardStep;
   final int backStep;
   final List<Duration> marks;
+  final Trickplay? trickplay;
+  final bool seeking;
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
@@ -1046,6 +1138,8 @@ class _SeekBarState extends State<_SeekBar> {
         duration: widget.duration,
         focused: _node.hasFocus || _hover != null,
         marks: widget.marks,
+        trickplay: widget.trickplay,
+        seeking: widget.seeking,
         hover: _hover,
         onHover: (frac) => setState(() => _hover = frac),
         onScrub: widget.duration > Duration.zero ? (frac) => widget.onScrub(_at(frac)) : null,
@@ -1053,6 +1147,97 @@ class _SeekBarState extends State<_SeekBar> {
       ),
     );
   }
+}
+
+class _TrickplayPreview extends StatefulWidget {
+  const _TrickplayPreview({required this.trickplay, required this.time});
+
+  static const width = 320.0;
+  static const outer = width + 12;
+
+  final Trickplay trickplay;
+  final Duration time;
+
+  @override
+  State<_TrickplayPreview> createState() => _TrickplayPreviewState();
+}
+
+class _TrickplayPreviewState extends State<_TrickplayPreview> {
+  TrickplayFrame? _frame;
+  int? _wanted;
+
+  @override
+  void initState() {
+    super.initState();
+    _request();
+  }
+
+  @override
+  void didUpdateWidget(_TrickplayPreview old) {
+    super.didUpdateWidget(old);
+    if (old.trickplay != widget.trickplay) {
+      _frame?.dispose();
+      _frame = null;
+      _wanted = null;
+    }
+    _request();
+  }
+
+  @override
+  void dispose() {
+    _frame?.dispose();
+    super.dispose();
+  }
+
+  void _request() {
+    final trickplay = widget.trickplay;
+    final index = trickplay.indexAt(widget.time);
+    if (index == _wanted) return;
+    _wanted = index;
+    trickplay.frame(index).then((frame) {
+      if (frame == null) return;
+      if (!mounted || trickplay != widget.trickplay || (frame.index != _wanted && _frame != null)) return frame.dispose();
+      setState(() {
+        _frame?.dispose();
+        _frame = frame;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = _frame;
+    final aspect = frame == null ? 16 / 9 : frame.source.width / frame.source.height;
+    return Container(
+      width: _TrickplayPreview.outer,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.75), borderRadius: BorderRadius.circular(14)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: SizedBox(
+            width: _TrickplayPreview.width,
+            height: _TrickplayPreview.width / aspect,
+            child: frame == null ? const ColoredBox(color: Colors.black) : CustomPaint(painter: _FramePainter(frame)),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(_fmt(widget.time), style: Zt.label, textAlign: TextAlign.center),
+      ]),
+    );
+  }
+}
+
+class _FramePainter extends CustomPainter {
+  _FramePainter(this.frame);
+
+  final TrickplayFrame frame;
+
+  @override
+  void paint(Canvas canvas, Size size) => frame.paint(canvas, Offset.zero & size);
+
+  @override
+  bool shouldRepaint(_FramePainter old) => old.frame != frame;
 }
 
 class _Badge extends StatelessWidget {

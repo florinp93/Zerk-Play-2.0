@@ -20,6 +20,8 @@ import '../../playback/mpv_conf.dart';
 import '../../playback/player_settings.dart';
 import '../../playback/subtitle_style.dart';
 import '../../playback/trailer/trailer_player.dart';
+import '../../playback/transcode_quality.dart';
+import '../../services/updater/updater.dart';
 import '../core/navigation.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
@@ -197,6 +199,13 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {0: l10n.qualityOriginal, 120000000: '120 Mbps', 60000000: '60 Mbps (4K)', 20000000: '20 Mbps (1080p)', 8000000: '8 Mbps (720p)', 3000000: '3 Mbps'},
             onChanged: (v) => _savePlayer(p.copyWith(maxStreamingBitrate: v)),
           ),
+          SettingChoiceRow<int>(
+            title: l10n.transcodeByDefault,
+            subtitle: l10n.transcodeByDefaultHint,
+            value: p.transcodeBitrate,
+            options: {0: l10n.qualityDirect, for (final bitrate in transcodeBitrates) bitrate: mbpsLabel(bitrate)},
+            onChanged: (v) => _savePlayer(p.copyWith(transcodeBitrate: v)),
+          ),
           SettingToggleRow(title: l10n.autoPlayNext, value: p.autoPlayNextEpisode,
               onChanged: (v) => _savePlayer(p.copyWith(autoPlayNextEpisode: v))),
           SettingToggleRow(title: l10n.autoSkipIntro, value: p.skipIntroAutomatically,
@@ -330,6 +339,8 @@ class _SettingsPageState extends State<SettingsPage> {
               value: p.passthrough.contains(c),
               onChanged: (v) => _savePlayer(p.copyWith(passthrough: v ? {...p.passthrough, c} : ({...p.passthrough}..remove(c)))),
             ),
+          SettingToggleRow(title: l10n.stereoDownmix, subtitle: l10n.stereoDownmixHint,
+              value: p.stereoDownmix, onChanged: (v) => _savePlayer(p.copyWith(stereoDownmix: v))),
           if (Host.isWindows)
             SettingToggleRow(title: l10n.exclusiveAudio, subtitle: l10n.exclusiveAudioHint,
                 value: p.audioExclusive, onChanged: (v) => _savePlayer(p.copyWith(audioExclusive: v))),
@@ -709,11 +720,12 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.outbox_rounded,
               onSelect: () => _sendLogs(context),
             ),
-          SettingActionRow(
-            title: l10n.checkForUpdates,
-            icon: Icons.system_update_rounded,
-            onSelect: () => checkForUpdate(context, quiet: false),
-          ),
+          if (!Updater.playStore)
+            SettingActionRow(
+              title: l10n.checkForUpdates,
+              icon: Icons.system_update_rounded,
+              onSelect: () => checkForUpdate(context, quiet: false),
+            ),
           const SizedBox(height: 20),
           Text(l10n.appVersionLabel(Release.name), style: Zt.title),
           const SizedBox(height: 8),

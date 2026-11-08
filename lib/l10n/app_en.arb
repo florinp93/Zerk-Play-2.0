@@ -153,6 +153,20 @@
   "streamingQuality": "Streaming quality",
   "streamingQualityHint": "Higher than your connection allows causes buffering. \"Original\" plays the file untouched.",
   "qualityOriginal": "Original (no limit)",
+  "playerQuality": "Quality",
+  "qualityDirect": "Original / Direct",
+  "qualityDirectDetail": "Plays the file untouched when the device can",
+  "qualityTranscoding": "Transcoding · {rate}",
+  "@qualityTranscoding": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityTranscodeDetail": "The server re-encodes the video at this bitrate",
+  "transcodeByDefault": "Transcode by default",
+  "transcodeByDefaultHint": "The server re-encodes every video at this bitrate. You can still change it for each video from the player settings.",
   "hdrPassthrough": "HDR passthrough",
   "hdrPassthroughHint": "Send HDR10/HLG to the display when Windows HDR is on; tone-map otherwise.",
   "autoHdr": "Turn on HDR automatically",
@@ -762,6 +776,13 @@
   "playbackSpeed": "Playback speed",
   "subtitleDelay": "Subtitle delay",
   "audioDelay": "Audio delay",
+  "stereoDownmix": "Stereo downmix",
+  "stereoDownmixHint": "Mixes surround sound to stereo with louder dialogue and evens out loud scenes. Made for TV speakers; turns passthrough off while it's on.",
+  "stereoDownmixDetail": "Clearer voices on TV speakers",
+  "subtitleDelayReset": "Reset subtitle delay",
+  "subtitleDelayHint": "Left and right shift subtitles by 0.1 s (positive shows them later). OK keeps it, Back cancels.",
+  "toggleOn": "On",
+  "toggleOff": "Off",
   "playbackInfo": "Playback info",
   "playbackInfoDetail": "Codecs, bitrate, dropped frames",
   "infoVideo": "Video",

@@ -29,6 +29,7 @@ class Ac3EncodingAudioSink(
     sink: AudioSink,
     private val passthrough: Set<Int>?,
     private val encode: Boolean,
+    private val downmix: () -> Boolean,
 ) : ForwardingAudioSink(sink) {
 
     private var handle = 0L
@@ -53,9 +54,12 @@ class Ac3EncodingAudioSink(
 
     override fun getFormatSupport(format: Format): Int {
         val mime = format.sampleMimeType
-        if (passthrough != null && mime != null && mime != MimeTypes.AUDIO_RAW) {
-            val e = MimeTypes.getEncoding(mime, format.codecs)
-            if (e != C.ENCODING_INVALID && e !in passthrough) return AudioSink.SINK_FORMAT_UNSUPPORTED
+        if (mime != null && mime != MimeTypes.AUDIO_RAW) {
+            if (downmix()) return AudioSink.SINK_FORMAT_UNSUPPORTED
+            if (passthrough != null) {
+                val e = MimeTypes.getEncoding(mime, format.codecs)
+                if (e != C.ENCODING_INVALID && e !in passthrough) return AudioSink.SINK_FORMAT_UNSUPPORTED
+            }
         }
         return super.getFormatSupport(format)
     }
@@ -63,7 +67,7 @@ class Ac3EncodingAudioSink(
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         close()
         val pcmEncoding = inputFormat.pcmEncoding
-        val wanted = encode && Ac3Encoder.available &&
+        val wanted = encode && !downmix() && Ac3Encoder.available &&
             inputFormat.sampleMimeType == MimeTypes.AUDIO_RAW &&
             (pcmEncoding == C.ENCODING_PCM_16BIT || pcmEncoding == C.ENCODING_PCM_FLOAT) &&
             (inputFormat.channelCount == 6 || inputFormat.channelCount == 8) &&

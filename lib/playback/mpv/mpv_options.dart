@@ -1,4 +1,5 @@
 import '../../core/host.dart';
+import '../dialogue_downmix.dart';
 import '../player_settings.dart';
 import '../subtitle_style.dart';
 
@@ -9,7 +10,8 @@ Map<String, String> buildMpvOptions({
   String? logFile,
   String? osdFontsDir,
 }) {
-  final spdif = settings.mpvSpdif;
+  final downmix = settings.stereoDownmix;
+  final spdif = downmix ? '' : settings.mpvSpdif;
   final bitstream = spdif.isNotEmpty;
   final own = !settings.mpvConfOnly;
   final linux = Host.isLinux;
@@ -73,7 +75,8 @@ Map<String, String> buildMpvOptions({
     'audio-spdif': spdif,
     if (bitstream) ...{'audio-stream-silence': 'yes', 'audio-buffer': '0.5'},
     if (!linux) 'audio-exclusive': settings.audioExclusive ? 'yes' : 'no',
-    'audio-channels': 'auto',
+    'audio-channels': downmix ? 'stereo' : 'auto',
+    if (downmix) 'af': '@${DialogueDownmix.mpvLabel}:${DialogueDownmix.mpvFilter}',
     'audio-pitch-correction': 'yes',
     'volume': settings.volume.round().toString(),
     'volume-max': '150',
