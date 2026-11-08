@@ -13,6 +13,7 @@ import '../../services/updater/updater.dart';
 import '../core/input_mode.dart';
 import '../core/navigation.dart';
 import '../core/playback_launcher.dart';
+import '../core/tv_home.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
@@ -104,8 +105,49 @@ class _ShellState extends State<Shell> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_roomSub == null) {
-      _roomSub = AppServicesScope.read(context).together.updates.listen(_onRoom);
+      _services = AppServicesScope.read(context);
+      _roomSub = _services.together.updates.listen(_onRoom);
       playbackActiveNotifier.addListener(_onPlayback);
+      if (TvHome.supported) _watchTvHome();
+    }
+  }
+
+  late final AppServices _services;
+  AppLifecycleListener? _lifecycle;
+  Timer? _tvHomeTimer;
+
+  void _watchTvHome() {
+    _services.libraryChanged.addListener(_scheduleTvHome);
+    _lifecycle = AppLifecycleListener(onHide: _publishTvHome);
+    _tvHomeTimer = Timer(const Duration(seconds: 10), _publishTvHome);
+    TvHome.onLaunch(_openLaunch);
+    unawaited(_openLaunch());
+  }
+
+  void _scheduleTvHome() {
+    _tvHomeTimer?.cancel();
+    _tvHomeTimer = Timer(const Duration(seconds: 3), _publishTvHome);
+  }
+
+  Future<void> _publishTvHome() async {
+    _tvHomeTimer?.cancel();
+    if (!_services.isSignedIn) return;
+    try {
+      await TvHome.publish(_services.catalog);
+    } catch (e) {
+      debugPrint('[tvhome] publish: $e');
+    }
+  }
+
+  Future<void> _openLaunch() async {
+    final id = await TvHome.takeLaunch();
+    if (id == null || !mounted || playbackActive) return;
+    debugPrint('[tvhome] launched for $id');
+    try {
+      final item = await _services.catalog.item(id);
+      if (mounted && !playbackActive) await playItem(context, item);
+    } catch (e) {
+      debugPrint('[tvhome] could not open $id: $e');
     }
   }
 
@@ -157,6 +199,10 @@ class _ShellState extends State<Shell> {
   void dispose() {
     unawaited(_roomSub?.cancel());
     playbackActiveNotifier.removeListener(_onPlayback);
+    _services.libraryChanged.removeListener(_scheduleTvHome);
+    _lifecycle?.dispose();
+    _tvHomeTimer?.cancel();
+    if (TvHome.supported && !_services.isSignedIn) unawaited(TvHome.clear());
     for (final n in _railNodes.values) {
       n.dispose();
     }

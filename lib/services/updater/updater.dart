@@ -30,7 +30,9 @@ abstract final class Updater {
 
   static String get _assetName => Host.isAndroid ? 'ZerkPlay-Public-Android.apk' : 'ZerkPlay-Public-Windows-setup.exe';
 
-  static bool get supported => Host.isWindows || Host.isAndroid;
+  static const playStore = bool.fromEnvironment('PLAY_STORE');
+
+  static bool get supported => !playStore && (Host.isWindows || Host.isAndroid);
 
   static Future<AppUpdate?> check() async {
     final res = await http.get(

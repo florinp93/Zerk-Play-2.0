@@ -1,5 +1,6 @@
 package cloud.zerk.play
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
@@ -35,6 +36,13 @@ class MainActivity : FlutterActivity() {
         val engine = flutterEngine
         if (flutterView != null && engine != null) ImeProxy.install(flutterView, engine.dartExecutor.binaryMessenger)
         if (engine != null) Updater.install(this, engine.dartExecutor.binaryMessenger)
+        if (engine != null) TvHome.install(this, engine.dartExecutor.binaryMessenger)
+        TvHome.onIntent(intent, running = false)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        TvHome.onIntent(intent, running = true)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
