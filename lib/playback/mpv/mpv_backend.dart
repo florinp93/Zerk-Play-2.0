@@ -197,7 +197,7 @@ final class MpvBackend implements PlayerBackend {
     if (command == 'trickplay') return _setTrickplay(data is Trickplay ? data : null);
     if (command == 'toast' && data is Map) return unawaited(_sendPictureToast(data));
     final payload = data is String ? data : jsonEncode(data);
-    if (command != 'strings') {
+    if (command != 'strings' && command != 'crop') {
       debugPrint('[osd] -> $command ${payload.length > 300 ? '${payload.substring(0, 300)}...' : payload}');
     }
     _mpv.scriptMessage('zerk_osd', [command, payload]);
@@ -268,7 +268,7 @@ final class MpvBackend implements PlayerBackend {
         debugPrint('[mpv] end of file (reason $reason)');
       case MpvClientMessage(:final args) when args.firstOrNull == 'zerk-event':
         final name = args.elementAtOrNull(1);
-        if (name != 'trick') debugPrint('[osd] event $name${args.length > 2 ? ' ${args[2]}' : ''}');
+        if (name != 'trick' && name != 'bars') debugPrint('[osd] event $name${args.length > 2 ? ' ${args[2]}' : ''}');
         switch (name) {
           case null:
             break;

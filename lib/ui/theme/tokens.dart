@@ -22,6 +22,8 @@ abstract final class Zc {
   static const success = Color(0xFF3DDC97);
   static const danger = Color(0xFFFF5D6C);
   static const rating = Color(0xFFFFC94D);
+  static const favorite = Color(0xFFFF3B5C);
+  static const favoriteOnLight = Color(0xFFE0183C);
 }
 
 abstract final class Zs {

@@ -112,7 +112,7 @@ local S = {
   flash_icon = nil, flash_until = 0,
   seek_fwd = 10, seek_back = 10, auto_skip_intro = false,
   video = nil, aspect = "auto", default_aspect = "auto",
-  scope = 0, anamorphic = 1, autocrop = false, crop = nil, margin = 0, crop_hits = 0,
+  scope = 0, anamorphic = 1, autocrop = false, crop = nil, margin = 0, crop_box = nil, full_ratio = nil,
   hits = {},
   pointer = false, hover = nil, mouse_x = 0,
 }
@@ -388,7 +388,7 @@ apply_crop = function()
   local c = S.crop
   local vw, vh = prop("video-params/w", 0), prop("video-params/h", 0)
   if not S.autocrop or not c or vw == 0 or (S.aspect ~= "auto" and S.aspect ~= "zoom") then
-    if S.crop_applied then mp.set_property("video-crop", ""); S.crop_applied = nil end
+    if S.crop_applied then mp.set_property("video-crop", ""); S.crop_applied = nil; S.crop_box = nil end
     return
   end
   local y, h = R(c.top * vh), R((1 - c.top - c.bottom) * vh)
@@ -396,6 +396,7 @@ apply_crop = function()
   local value = string.format("%dx%d+0+%d", vw, h, y)
   if value ~= S.crop_applied then
     S.crop_applied = value
+    S.crop_box = { y = y, h = h, vh = vh }
     mp.set_property("video-crop", value)
     msg.info(string.format("black bars: cropping to %s (%.3f:1)", value, prop("video-params/aspect", 1.78) * vh / h))
   end
@@ -419,41 +420,37 @@ local function detect_bars()
   local shot = mp.command_native({ "screenshot-raw", "video", "bgr0" })
   if not shot or not shot.data or not shot.w or shot.w == 0 then return end
   local w, h, stride, data = shot.w, shot.h, shot.stride, shot.data
+  local ratio = w / h
+  local box = S.crop_box
+  local cropped = false
+  if not box then
+    if S.aspect == "auto" or S.aspect == "zoom" then S.full_ratio = ratio end
+  elseif S.full_ratio and box.h > 0 then
+    cropped = ratio > S.full_ratio * (1 + (box.vh / box.h - 1) / 2)
+  end
   local limit = math.floor(h * 0.3)
   local top = 0
   while top < limit and row_black(data, stride, top, w) do top = top + 1 end
   local bottom = 0
   while bottom < limit and row_black(data, stride, h - 1 - bottom, w) do bottom = bottom + 1 end
-  if top >= limit or bottom >= limit then return end
+  local dark = top >= limit or bottom >= limit
   local t, b = top / h, bottom / h
-  if t < 0.01 and b < 0.01 then t, b = 0, 0 end
-  if math.abs(t - b) > 0.02 then return end
-  local m = math.min(t, b)
-  if S.crop_seen and math.abs(S.crop_seen - m) < 0.004 then
-    S.crop_hits = S.crop_hits + 1
-  else
-    S.crop_seen, S.crop_hits = m, 1
+  if cropped then
+    local scale = box.h / h
+    t = (box.y + top * scale) / box.vh
+    b = (box.vh - box.y - box.h + bottom * scale) / box.vh
   end
-  local current = S.crop and S.crop.top or 0
-  if S.crop_hits >= 2 and (S.crop == nil and m > 0 or m < current - 0.003 or (S.crop_hits >= 4 and math.abs(m - current) > 0.003)) then
-    S.crop = m > 0 and { top = m, bottom = m } or nil
-    apply_crop()
-  end
+  send("bars", string.format('{"top":%.4f,"bottom":%.4f,"dark":%s,"clip":%s}', t, b, tostring(dark),
+    tostring(cropped and top == 0 and bottom == 0)))
 end
 
-local crop_timer = nil
-local function schedule_crop()
+local crop_timer, crop_interval = nil, nil
+local function schedule_crop(interval)
+  if interval == crop_interval and crop_timer then return end
   if crop_timer then crop_timer:kill(); crop_timer = nil end
-  if not S.autocrop then return end
-  local runs = 0
-  crop_timer = mp.add_periodic_timer(2, function()
-    runs = runs + 1
-    if not prop("pause", false) then detect_bars() end
-    if runs == 8 then
-      crop_timer:kill()
-      crop_timer = mp.add_periodic_timer(15, function() if not prop("pause", false) then detect_bars() end end)
-    end
-  end)
+  crop_interval = interval
+  if not S.autocrop or not interval or interval <= 0 then return end
+  crop_timer = mp.add_periodic_timer(interval, function() if not prop("pause", false) then detect_bars() end end)
 end
 
 local function settings_items()
@@ -1506,11 +1503,12 @@ mp.register_script_message("state", function(raw)
   S.subtitle = s.subtitle or S.subtitle
   S.message = s.message or ""
   if S.phase == "loading" and was ~= "loading" then
-    S.crop, S.crop_seen, S.crop_hits = nil, nil, 0
+    S.crop, S.full_ratio = nil, nil
     apply_crop()
   end
   if S.phase == "playing" and was ~= "playing" then
-    schedule_crop()
+    crop_interval = nil
+    schedule_crop(2)
     S.intro_skipped, S.next_cancelled, S.next_fired = false, false, false
     S.next_elapsed, S.next_last, S.next_choice = 0, nil, 1
     S.panel, S.scrub = nil, nil
@@ -1592,6 +1590,14 @@ mp.register_script_message("config", function(raw)
   S.default_aspect = c.defaultAspect or "auto"
   set_aspect(S.default_aspect)
   render()
+end)
+
+mp.register_script_message("crop", function(raw)
+  local c = json(raw) or {}
+  local f = tonumber(c.crop) or 0
+  S.crop = f > 0 and { top = f, bottom = f } or nil
+  apply_crop()
+  schedule_crop(tonumber(c.interval) or 0)
 end)
 
 mp.register_script_message("subsearch", function(raw)

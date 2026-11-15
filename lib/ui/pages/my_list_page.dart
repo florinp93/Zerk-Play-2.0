@@ -96,7 +96,7 @@ class _MyListPageState extends State<MyListPage> {
                       crossAxisCount: columns,
                       mainAxisSpacing: 26,
                       crossAxisSpacing: Zs.cardGap,
-                      childAspectRatio: cardW / (cardW * 1.5 + 70),
+                      childAspectRatio: cardW / (cardW * 1.5 + captionSpace(context, 70)),
                     ),
                     itemCount: items?.length ?? 7,
                     itemBuilder: (context, i) {

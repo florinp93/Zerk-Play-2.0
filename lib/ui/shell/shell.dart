@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
+import '../../app/app_settings.dart' show LauncherEpisodeArt;
 import '../../core/log/app_log.dart';
 import '../../data/user_profile.dart';
 import '../../l10n/l10n.dart';
@@ -22,6 +23,7 @@ import '../pages/collections_page.dart';
 import '../pages/discover_page.dart';
 import '../pages/emby_live_tv_page.dart';
 import '../pages/home_page.dart';
+import '../pages/libraries_page.dart';
 import '../pages/library_page.dart';
 import '../pages/live_tv_page.dart';
 import '../pages/my_list_page.dart';
@@ -44,6 +46,7 @@ enum ShellTab {
   movies(Icons.movie_rounded),
   shows(Icons.tv_rounded),
   collections(Icons.collections_bookmark_rounded),
+  libraries(Icons.folder_copy_rounded),
   discover(Icons.explore_rounded),
   calendar(Icons.calendar_month_rounded),
   liveTv(Icons.live_tv_rounded),
@@ -63,6 +66,7 @@ enum ShellTab {
         movies => l10n.movies,
         shows => l10n.shows,
         collections => l10n.collections,
+        libraries => l10n.libraries,
         discover => l10n.discover,
         calendar => l10n.calendar,
         liveTv => l10n.liveTv,
@@ -116,7 +120,18 @@ class _ShellState extends State<Shell> {
   AppLifecycleListener? _lifecycle;
   Timer? _tvHomeTimer;
 
+  LauncherEpisodeArt? _tvHomeArt;
+
+  void _onTvHomeSettings() {
+    final art = _services.settings.launcherEpisodeArt;
+    if (art == _tvHomeArt) return;
+    _tvHomeArt = art;
+    _scheduleTvHome();
+  }
+
   void _watchTvHome() {
+    _tvHomeArt = _services.settings.launcherEpisodeArt;
+    _services.addListener(_onTvHomeSettings);
     _services.libraryChanged.addListener(_scheduleTvHome);
     _lifecycle = AppLifecycleListener(onHide: _publishTvHome);
     _tvHomeTimer = Timer(const Duration(seconds: 10), _publishTvHome);
@@ -133,19 +148,32 @@ class _ShellState extends State<Shell> {
     _tvHomeTimer?.cancel();
     if (!_services.isSignedIn) return;
     try {
-      await TvHome.publish(_services.catalog);
+      await TvHome.publish(_services.catalog, episodeArt: _services.settings.launcherEpisodeArt);
     } catch (e) {
       debugPrint('[tvhome] publish: $e');
     }
   }
 
+  int _launchSeq = 0;
+
   Future<void> _openLaunch() async {
     final id = await TvHome.takeLaunch();
-    if (id == null || !mounted || playbackActive) return;
-    debugPrint('[tvhome] launched for $id');
+    if (id == null || !mounted) return;
+    final seq = ++_launchSeq;
+    debugPrint('[tvhome] launched for $id${playbackActive ? ' while playing ${playingItemId ?? 'something'}' : ''}');
+    if (playbackActive && playingItemId == id) {
+      resumePlayback();
+      return;
+    }
     try {
       final item = await _services.catalog.item(id);
-      if (mounted && !playbackActive) await playItem(context, item);
+      if (!mounted || seq != _launchSeq) return;
+      if (playbackActive && playingItemId == id) {
+        resumePlayback();
+        return;
+      }
+      if (playbackActive && !await stopPlayback()) return;
+      if (mounted && seq == _launchSeq && !playbackActive) await playItem(context, item);
     } catch (e) {
       debugPrint('[tvhome] could not open $id: $e');
     }
@@ -200,6 +228,7 @@ class _ShellState extends State<Shell> {
     unawaited(_roomSub?.cancel());
     playbackActiveNotifier.removeListener(_onPlayback);
     _services.libraryChanged.removeListener(_scheduleTvHome);
+    _services.removeListener(_onTvHomeSettings);
     _lifecycle?.dispose();
     _tvHomeTimer?.cancel();
     if (TvHome.supported && !_services.isSignedIn) unawaited(TvHome.clear());
@@ -333,6 +362,7 @@ class _ShellState extends State<Shell> {
     ShellTab.shows => const LibraryPage(kind: LibraryKind.shows),
     ShellTab.favorites => const LibraryPage(kind: LibraryKind.favorites),
     ShellTab.collections => const CollectionsPage(),
+    ShellTab.libraries => const LibrariesPage(),
     ShellTab.discover => const DiscoverPage(),
     ShellTab.calendar => const CalendarPage(),
     ShellTab.liveTv => AppServicesScope.read(context).liveTvAvailable ? const LiveTvPage() : const EmbyLiveTvPage(),
@@ -344,7 +374,7 @@ class _ShellState extends State<Shell> {
 }
 
 enum _Group {
-  library(Icons.video_library_rounded, [ShellTab.movies, ShellTab.shows, ShellTab.collections]),
+  library(Icons.video_library_rounded, [ShellTab.movies, ShellTab.shows, ShellTab.collections, ShellTab.libraries]),
   explore(Icons.explore_rounded, [ShellTab.discover, ShellTab.calendar]);
 
   const _Group(this.icon, this.tabs);

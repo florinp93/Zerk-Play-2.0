@@ -5,13 +5,15 @@ import 'package:flutter/widgets.dart';
 import '../theme/tokens.dart';
 
 class TvScale extends StatelessWidget {
-  const TvScale({super.key, required this.child});
+  const TvScale({super.key, required this.child, this.textScale = 1});
 
   static const designWidth = 1920.0;
   static const designHeight = 1080.0;
   static const maxHeight = 1200.0;
 
   final Widget child;
+
+  final double textScale;
 
   static final videoUnderlay = ValueNotifier(false);
 
@@ -46,7 +48,7 @@ class TvScale extends StatelessWidget {
                   data: mq.copyWith(
                     size: size,
                     devicePixelRatio: mq.devicePixelRatio * scale,
-                    textScaler: TextScaler.noScaling,
+                    textScaler: textScale == 1 ? TextScaler.noScaling : TextScaler.linear(textScale),
                     padding: EdgeInsets.zero,
                     viewPadding: EdgeInsets.zero,
                   ),

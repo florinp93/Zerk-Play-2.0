@@ -138,10 +138,14 @@ class TvButton extends StatelessWidget {
     this.focusNode,
     this.compact = false,
     this.collapsed = false,
+    this.iconColor,
+    this.focusedIconColor,
   });
 
   final String label;
   final IconData? icon;
+  final Color? iconColor;
+  final Color? focusedIconColor;
   final VoidCallback? onSelect;
   final bool primary;
   final Color accent;
@@ -161,8 +165,9 @@ class TvButton extends StatelessWidget {
       builder: (context, focused) {
         final bg = focused ? Colors.white : (primary ? accent : Colors.white.withValues(alpha: 0.12));
         final fg = focused ? Zc.background : Colors.white;
+        final ic = (focused ? focusedIconColor ?? iconColor : iconColor) ?? fg;
         if (collapsed && icon != null) {
-          return ExpandingPill(focused: focused, primary: primary, accent: accent, leading: Icon(icon, color: fg, size: 30),
+          return ExpandingPill(focused: focused, primary: primary, accent: accent, leading: Icon(icon, color: ic, size: 30),
               label: Text(label, style: Zt.label.copyWith(color: fg, fontSize: 22)));
         }
         return AnimatedScale(
@@ -180,7 +185,7 @@ class TvButton extends StatelessWidget {
               boxShadow: focused ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
             ),
             child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (icon != null) Icon(icon, color: fg, size: 30),
+              if (icon != null) Icon(icon, color: ic, size: 30),
               if (!compact) ...[
                 if (icon != null) const SizedBox(width: 10),
                 Text(label, style: Zt.label.copyWith(color: fg, fontSize: 22)),

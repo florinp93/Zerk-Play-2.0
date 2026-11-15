@@ -155,6 +155,7 @@ class _ZerkAppState extends State<ZerkApp> {
       navigatorObservers: [LogNavigatorObserver()],
       builder: (context, child) => InputModeDetector(
         child: TvScale(
+          textScale: services.settings.textSize.scale,
           child: CallbackShortcuts(
             bindings: {
               const SingleActivator(LogicalKeyboardKey.f11): () => unawaited(NativeWindow.toggleFullScreen()),

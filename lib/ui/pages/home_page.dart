@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
+import '../../app/home_rows.dart';
 import '../../core/emby/models/emby_item.dart';
 import '../../data/catalog_api.dart';
+import '../../data/libraries.dart';
 import '../../data/recommendations.dart';
 import '../../data/seerr_api.dart';
 import '../../data/taste_profile.dart';
@@ -24,6 +26,7 @@ import '../widgets/mixed_cards.dart';
 import '../widgets/mood_shelf.dart';
 import '../widgets/trailer.dart';
 import 'hero.dart';
+import 'home_rows_page.dart';
 import 'title_extras.dart';
 import 'routes.dart';
 
@@ -78,7 +81,8 @@ class _HomePageState extends State<HomePage> {
   Future<List<TitleTag>>? _tasteTags;
 
   AppServices? _services;
-  String _pickedCollections = '';
+  String _layoutKey = '';
+  final _rowCache = <String, List<_Row>>{};
 
   _Row? _myListRow;
   String _myListKeys = '';
@@ -87,16 +91,18 @@ class _HomePageState extends State<HomePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_rows == null) {
-      _rows = _buildRows(AppServicesScope.read(context));
+      final services = AppServicesScope.read(context);
+      _layoutKey = _layoutKeyOf(services);
+      _rows = _buildRows(services);
       _allowFirstRows();
       _scroll.addListener(_onScroll);
       _awaitFirstRows();
+      if (services.isSignedIn) services.libraries();
     }
     if (_services == null) {
       _services = AppServicesScope.read(context);
       _services!.libraryChanged.addListener(refresh);
       _services!.profiles.addListener(_onProfile);
-      _pickedCollections = _collectionsKey(_services!);
       _services!.addListener(_onServices);
     }
   }
@@ -106,15 +112,26 @@ class _HomePageState extends State<HomePage> {
 
   static String _collectionsKey(AppServices s) => [for (final (id, _) in _collections(s)) id].join(',');
 
+  static String _layoutKeyOf(AppServices s) {
+    final layout = homeRowLayout(s);
+    return [
+      _collectionsKey(s),
+      for (final d in layout.visible(homeRowDefaults(s))) d.id,
+      for (final l in s.knownLibraries) l.name,
+    ].join('|');
+  }
+
   void _onServices() {
-    final key = _collectionsKey(_services!);
-    if (key == _pickedCollections || !mounted) return;
-    _pickedCollections = key;
+    final key = _layoutKeyOf(_services!);
+    if (key == _layoutKey || !mounted) return;
+    _layoutKey = key;
     setState(() {
-      _rows = _buildRows(_services!);
-      _data.clear();
-      _resolved.clear();
-      _allowFirstRows();
+      final rows = _rows = _buildRows(_services!);
+      final kept = rows.toSet();
+      _data.removeWhere((r, _) => !kept.contains(r));
+      _resolved.removeWhere((r, _) => !kept.contains(r));
+      _allowed.removeWhere((r) => !kept.contains(r));
+      if (_allowed.isEmpty) _allowFirstRows();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _pump());
   }
@@ -237,57 +254,125 @@ class _HomePageState extends State<HomePage> {
       });
 
   List<_Row> _buildRows(AppServices s) {
+    final defaults = homeRowDefaults(s);
+    final layout = homeRowLayout(s);
+    final nextUp = defaults.any((d) => d.id == HomeRows.nextUp && layout.enabled(d));
+    final libraries = {for (final l in s.knownLibraries) l.id: l};
+    final fresh = <String, List<_Row>>{};
+    final rows = <_Row>[];
+    for (final d in layout.visible(defaults)) {
+      final key = switch (d.id) {
+        HomeRows.continueWatching => '${d.id}:$nextUp',
+        HomeRows.homeCollections => '${d.id}:${_collectionsKey(s)}',
+        _ when HomeRows.libraryOf(d.id) != null => '${d.id}:${libraries[HomeRows.libraryOf(d.id)]?.name}',
+        _ => d.id,
+      };
+      rows.addAll(fresh[key] = _rowCache[key] ?? _rowsFor(s, d.id, nextUp: nextUp, libraries: libraries));
+    }
+    _rowCache
+      ..clear()
+      ..addAll(fresh);
+    return rows;
+  }
+
+  static const _generatedStyles = {
+    '${HomeRows.becauseMovie}.2': CardStyle.landscape,
+    '${HomeRows.becauseShow}.1': CardStyle.landscape,
+    '${HomeRows.starring}.2': CardStyle.landscape,
+    '${HomeRows.tag}.2': CardStyle.landscape,
+    '${HomeRows.genre}.2': CardStyle.landscape,
+  };
+
+  List<_Row> _rowsFor(AppServices s, String id, {required bool nextUp, required Map<String, ServerLibrary> libraries}) {
     final c = s.catalog;
     final seerr = s.seerr;
     final r = s.recommender;
     Future<MixedItems> items(Future<ItemPage> page) async => (await page).items;
 
-    return [
-      _Row((l) => l.continueWatching, () => c.continueWatching(), kind: _Kind.continueWatching, recommends: false),
-      for (final (id, name) in _collections(s))
-        _Row((l) => name,
-            () => items(c.query(parentId: id, recursive: false, sortBy: 'PremiereDate,ProductionYear,SortName', limit: 100)),
-            recommends: false),
-      _myListRow = _Row((l) => l.myList, s.myList, recommends: false),
-      _because(s, (t) => t.recentMovies, 0),
-      _Row((l) => l.latestMovies, () => c.latest(types: ['Movie']), recommends: false),
-      if (r.tmdb != null) _Row((l) => l.moodShelfTitle, () async => const [], kind: _Kind.moods, recommends: false),
-      _Row((l) => l.latestShows, () => c.latest(types: ['Episode', 'Series']), style: CardStyle.landscape, recommends: false),
-      if (seerr != null)
-        _Row((l) => l.trendingThisWeek, () => r.mixed((p) => seerr.trending(page: p, timeWindow: 'week'), limit: 10),
-            style: CardStyle.ranked),
-      _Row((l) => l.recommendedForYou, () => _forYou(s), style: CardStyle.spotlight),
-      _starring(s, 0),
-      _likeTag(s, 0),
-      _Row((l) => l.collections, () => c.allCollections(recent: true, limit: 20), kind: _Kind.collections, recommends: false),
-      _because(s, (t) => t.recentSeries, 0, style: CardStyle.landscape),
-      _Row((l) => l.topRatedMovies, () => items(c.query(types: ['Movie'], sortBy: 'CommunityRating', descending: true, minCommunityRating: 7, limit: 24))),
-      _directedBy(s, 0),
-      _likeTag(s, 1, style: CardStyle.landscape),
-      _because(s, (t) => t.recentMovies, 1, style: CardStyle.landscape),
-      _Row((l) => l.yourFavorites,
-          () => items(c.query(types: ['Movie', 'Series'], filters: 'IsFavorite', sortBy: 'Random', limit: 30)),
-          style: CardStyle.landscape, recommends: false),
-      _starring(s, 1, style: CardStyle.landscape),
-      _moreGenre(s, 0),
-      _likeTag(s, 2),
-      _Row((l) => l.recentlyReleased, () => items(c.query(types: ['Movie'], sortBy: 'PremiereDate', descending: true, limit: 24))),
-      _because(s, (t) => t.recentSeries, 1),
-      _Row((l) => l.topRatedShows, () => items(c.query(types: ['Series'], sortBy: 'CommunityRating', descending: true, minCommunityRating: 7, limit: 24)),
-          style: CardStyle.landscape),
-      _starring(s, 2),
-      _moreGenre(s, 1, style: CardStyle.landscape),
-      _likeTag(s, 3),
-      _Row((l) => l.somethingUnseen, () => items(c.query(types: ['Movie'], sortBy: 'Random', filters: 'IsUnplayed', limit: 24))),
-      if (seerr != null)
-        _Row((l) => l.popularToRequest, () async {
-          final (movies, shows) = await (
-            r.requestable((p) => r.discover(SeerrMediaType.movie, page: p, voteCountGte: 200), limit: 20),
-            r.requestable((p) => r.discover(SeerrMediaType.tv, page: p, voteCountGte: 100), limit: 20),
-          ).wait;
-          return _interleave(movies, shows);
-        }),
-    ];
+    if (HomeRows.libraryOf(id) case final libraryId?) {
+      final library = libraries[libraryId];
+      if (library == null) return const [];
+      return [
+        _Row((l) => l.latestIn(library.name), () => c.latest(parentId: libraryId),
+            style: Libraries.isMovies(library) ? CardStyle.poster : CardStyle.landscape, recommends: false),
+      ];
+    }
+    if (HomeRows.generated(id) case (:final kind, :final index)) {
+      final style = _generatedStyles[id] ?? CardStyle.poster;
+      final row = switch (kind) {
+        HomeRows.becauseMovie => _because(s, (t) => t.recentMovies, index, style: style),
+        HomeRows.becauseShow => _because(s, (t) => t.recentSeries, index, style: style),
+        HomeRows.starring => _starring(s, index, style: style),
+        HomeRows.directedBy => _directedBy(s, index, style: style),
+        HomeRows.tag => _likeTag(s, index, style: style),
+        HomeRows.genre => _moreGenre(s, index, style: style),
+        _ => null,
+      };
+      return [?row];
+    }
+    return switch (id) {
+      HomeRows.continueWatching => [
+          _Row((l) => l.continueWatching, () => nextUp ? c.resume() : c.continueWatching(),
+              kind: _Kind.continueWatching, recommends: false),
+        ],
+      HomeRows.nextUp => [
+          _Row((l) => l.homeRowNextUp, () => c.nextUp(), kind: _Kind.continueWatching, recommends: false),
+        ],
+      HomeRows.homeCollections => [
+          for (final (id, name) in _collections(s))
+            _Row((l) => name,
+                () => items(c.query(parentId: id, recursive: false, sortBy: 'PremiereDate,ProductionYear,SortName', limit: 100)),
+                recommends: false),
+        ],
+      HomeRows.myList => [_myListRow = _Row((l) => l.myList, s.myList, recommends: false)],
+      HomeRows.latestMovies => [_Row((l) => l.latestMovies, () => c.latest(types: ['Movie']), recommends: false)],
+      HomeRows.moods => [
+          if (r.tmdb != null) _Row((l) => l.moodShelfTitle, () async => const [], kind: _Kind.moods, recommends: false),
+        ],
+      HomeRows.latestShows => [
+          _Row((l) => l.latestShows, () => c.latest(types: ['Episode', 'Series']), style: CardStyle.landscape, recommends: false),
+        ],
+      HomeRows.trending => [
+          if (seerr != null)
+            _Row((l) => l.trendingThisWeek, () => r.mixed((p) => seerr.trending(page: p, timeWindow: 'week'), limit: 10),
+                style: CardStyle.ranked),
+        ],
+      HomeRows.forYou => [_Row((l) => l.recommendedForYou, () => _forYou(s), style: CardStyle.spotlight)],
+      HomeRows.collections => [
+          _Row((l) => l.collections, () => c.allCollections(recent: true, limit: 20), kind: _Kind.collections, recommends: false),
+        ],
+      HomeRows.topMovies => [
+          _Row((l) => l.topRatedMovies,
+              () => items(c.query(types: ['Movie'], sortBy: 'CommunityRating', descending: true, minCommunityRating: 7, limit: 24))),
+        ],
+      HomeRows.favorites => [
+          _Row((l) => l.yourFavorites,
+              () => items(c.query(types: ['Movie', 'Series'], filters: 'IsFavorite', sortBy: 'Random', limit: 30)),
+              style: CardStyle.landscape, recommends: false),
+        ],
+      HomeRows.recentlyReleased => [
+          _Row((l) => l.recentlyReleased, () => items(c.query(types: ['Movie'], sortBy: 'PremiereDate', descending: true, limit: 24))),
+        ],
+      HomeRows.topShows => [
+          _Row((l) => l.topRatedShows,
+              () => items(c.query(types: ['Series'], sortBy: 'CommunityRating', descending: true, minCommunityRating: 7, limit: 24)),
+              style: CardStyle.landscape),
+        ],
+      HomeRows.unseen => [
+          _Row((l) => l.somethingUnseen, () => items(c.query(types: ['Movie'], sortBy: 'Random', filters: 'IsUnplayed', limit: 24))),
+        ],
+      HomeRows.popularToRequest => [
+          if (seerr != null)
+            _Row((l) => l.popularToRequest, () async {
+              final (movies, shows) = await (
+                r.requestable((p) => r.discover(SeerrMediaType.movie, page: p, voteCountGte: 200), limit: 20),
+                r.requestable((p) => r.discover(SeerrMediaType.tv, page: p, voteCountGte: 100), limit: 20),
+              ).wait;
+              return _interleave(movies, shows);
+            }),
+        ],
+      _ => const [],
+    };
   }
 
   static List<Object> _interleave(List<Object> a, List<Object> b) => [

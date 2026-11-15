@@ -37,7 +37,8 @@ class MainActivity : FlutterActivity() {
         if (flutterView != null && engine != null) ImeProxy.install(flutterView, engine.dartExecutor.binaryMessenger)
         if (engine != null) Updater.install(this, engine.dartExecutor.binaryMessenger)
         if (engine != null) TvHome.install(this, engine.dartExecutor.binaryMessenger)
-        TvHome.onIntent(intent, running = false)
+        val fromHistory = intent?.flags?.and(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (savedInstanceState == null && !fromHistory) TvHome.onIntent(intent, running = false)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -135,7 +135,10 @@ class HeroPanel extends StatelessWidget {
                 ],
                 if (i.overview != null) ...[
                   const SizedBox(height: 18),
-                  Text(i.overview!, maxLines: 3, overflow: TextOverflow.ellipsis, style: Zt.body),
+                  Text(i.overview!,
+                      maxLines: MediaQuery.textScalerOf(context).scale(1) > 1.05 ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: Zt.body),
                 ],
               ]),
             ),

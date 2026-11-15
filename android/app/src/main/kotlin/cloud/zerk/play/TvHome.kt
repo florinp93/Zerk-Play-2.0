@@ -113,7 +113,11 @@ object TvHome {
         (item["episode"] as? Number)?.let { builder.setEpisodeNumber(it.toInt()) }
         (item["overview"] as? String)?.let { builder.setDescription(it) }
         (item["image"] as? String)?.let {
-            builder.setPosterArtUri(Uri.parse(it)).setPosterArtAspectRatio(PreviewProgramColumns.ASPECT_RATIO_16_9)
+            val aspect = when (item["imageAspect"]) {
+                "2:3" -> PreviewProgramColumns.ASPECT_RATIO_2_3
+                else -> PreviewProgramColumns.ASPECT_RATIO_16_9
+            }
+            builder.setPosterArtUri(Uri.parse(it)).setPosterArtAspectRatio(aspect)
         }
         (item["durationMs"] as? Number)?.let { builder.setDurationMillis(it.toInt()) }
         if (position > 0) builder.setLastPlaybackPositionMillis(position)

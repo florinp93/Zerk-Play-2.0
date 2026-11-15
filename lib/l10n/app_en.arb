@@ -60,6 +60,10 @@
   "groupCollectionsHint": "In Movies, show each collection as one item instead of every film in it.",
   "homeClock": "Clock on the home screen",
   "homeClockHint": "Shows the time in the top corner of Home.",
+  "launcherEpisodeArt": "Episode cards on the TV home screen",
+  "launcherEpisodeArtHint": "The picture shown for episodes in the launcher's Play Next row.",
+  "launcherArtSeries": "Series artwork",
+  "launcherArtEpisode": "Episode image",
   "requestFolderTitle": "Save to folder",
   "requestFolder": "Folder: {name}",
   "@requestFolder": {"placeholders": {"name": {"type": "String"}}},
@@ -1256,6 +1260,68 @@
   "homeCollectionsNone": "This server has no collections yet.",
   "onHome": "On Home",
   "moveUp": "Move up",
+  "moveDown": "Move down",
+  "resetToDefault": "Reset to default",
+  "homeRows": "Home rows",
+  "homeRowsHint": "Choose which rows Home shows, and in what order",
+  "homeRowsIntro": "Turn rows on or off and move them up or down. Rows that are off aren't loaded, so Home opens faster.",
+  "homeRowsShownCount": "{shown} of {total} shown",
+  "@homeRowsShownCount": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "homeRowNextUp": "Next up",
+  "homeRowNextUpHint": "Next episodes in their own row instead of in Continue watching",
+  "homeRowBecauseMovie": "Because you watched a movie",
+  "homeRowBecauseShow": "Because you watched a show",
+  "homeRowStarring": "Starring an actor you watch",
+  "homeRowDirectedBy": "Directed by a director you watch",
+  "homeRowTaste": "Themes you like",
+  "homeRowGenre": "More of a genre you like",
+  "homeRowNumbered": "{name} ({number})",
+  "@homeRowNumbered": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "homeRowGeneratedHint": "Picked from what you watch",
+  "latestIn": "Latest in {library}",
+  "@latestIn": {
+    "placeholders": {
+      "library": {
+        "type": "String"
+      }
+    }
+  },
+  "libraries": "Libraries",
+  "allLibraries": "All libraries",
+  "librariesSetting": "Libraries in the app",
+  "librariesSettingHint": "Turn off libraries you don't want to see",
+  "librariesIntro": "Libraries you turn off disappear from Movies, Shows, Home and search.",
+  "librariesHiddenCount": "{count, plural, =0{All shown} =1{1 hidden} other{{count} hidden}}",
+  "@librariesHiddenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "librariesNone": "No libraries found on this server.",
+  "folderEmpty": "Nothing to show here.",
+  "textSize": "Text size",
+  "textSizeHint": "Makes text bigger or smaller across the app",
+  "sizeMedium": "Medium",
   "cardTrailers": "Trailers in cards",
   "cardTrailersHint": "When a card stays focused, it widens and plays the trailer. Turn off to keep cards still while you browse. Trailer sound applies here too.",
   "seekForwardStep": "Skip forward",

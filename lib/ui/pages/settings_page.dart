@@ -23,6 +23,7 @@ import '../../playback/trailer/trailer_player.dart';
 import '../../playback/transcode_quality.dart';
 import '../../services/updater/updater.dart';
 import '../core/navigation.dart';
+import '../core/tv_home.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
@@ -36,6 +37,8 @@ import '../widgets/subtitle_preview.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/value_slider.dart';
 import 'home_collections_page.dart';
+import 'home_rows_page.dart';
+import 'libraries_page.dart';
 
 enum _Section {
   playback(Icons.play_circle_outline_rounded),
@@ -444,6 +447,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           SettingToggleRow(title: l10n.navigationSounds, value: app.sounds, onChanged: (v) => services.updateSettings(app.copyWith(sounds: v))),
           SettingHeader(l10n.settingsGroupLayout),
+          SettingChoiceRow<TextSize>(
+            title: l10n.textSize,
+            subtitle: l10n.textSizeHint,
+            value: app.textSize,
+            options: {TextSize.small: l10n.sizeSmall, TextSize.medium: l10n.sizeMedium, TextSize.large: l10n.sizeLarge},
+            onChanged: (v) => services.updateSettings(app.copyWith(textSize: v)),
+          ),
           SettingChoiceRow<LibraryView>(
             title: l10n.libraryViewSetting,
             value: app.libraryView,
@@ -488,6 +498,17 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingHeader(l10n.sectionHome, first: true),
           if (services.isSignedIn)
             SettingActionRow(
+              title: l10n.homeRows,
+              subtitle: () {
+                final defaults = homeRowDefaults(services);
+                final layout = homeRowLayout(services);
+                return l10n.homeRowsShownCount(defaults.where(layout.enabled).length, defaults.length);
+              }(),
+              icon: Icons.chevron_right_rounded,
+              onSelect: () => Navigator.of(context).push(tvRoute<void>(const HomeRowsPage(), name: 'settings/home-rows')),
+            ),
+          if (services.isSignedIn)
+            SettingActionRow(
               title: l10n.homeCollections,
               subtitle: l10n.homeCollectionsCount(app.homeCollectionsOf(services.janus.session.userId).length),
               icon: Icons.chevron_right_rounded,
@@ -505,6 +526,23 @@ class _SettingsPageState extends State<SettingsPage> {
             value: app.homeClock,
             onChanged: (v) => services.updateSettings(app.copyWith(homeClock: v)),
           ),
+          if (TvHome.supported)
+            SettingChoiceRow<LauncherEpisodeArt>(
+              title: l10n.launcherEpisodeArt,
+              subtitle: l10n.launcherEpisodeArtHint,
+              value: app.launcherEpisodeArt,
+              options: {LauncherEpisodeArt.series: l10n.launcherArtSeries, LauncherEpisodeArt.episode: l10n.launcherArtEpisode},
+              onChanged: (v) => services.updateSettings(app.copyWith(launcherEpisodeArt: v)),
+            ),
+          if (services.isSignedIn) ...[
+            SettingHeader(l10n.libraries),
+            SettingActionRow(
+              title: l10n.librariesSetting,
+              subtitle: '${l10n.librariesSettingHint} · ${l10n.librariesHiddenCount(services.hiddenLibraries.length)}',
+              icon: Icons.chevron_right_rounded,
+              onSelect: () => Navigator.of(context).push(tvRoute<void>(const LibrariesSettingsPage(), name: 'settings/libraries')),
+            ),
+          ],
           if (TrailerPlayer.supported) ...[
             SettingHeader(l10n.trailers),
             SettingChoiceRow<TrailerMode>(

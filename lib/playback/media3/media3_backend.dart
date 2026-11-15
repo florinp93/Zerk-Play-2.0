@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -117,6 +118,12 @@ final class Media3Backend implements PlayerBackend {
         'autoCrop': data['autoCrop'] == true,
       });
     }
+    if (command == 'crop' && data is Map) {
+      return _call('crop', {
+        'fraction': data['crop'] ?? 0,
+        'intervalMs': (((data['interval'] as num?) ?? 0) * 1000).round(),
+      });
+    }
     _osd.handle(command, data);
   }
 
@@ -178,6 +185,8 @@ final class Media3Backend implements PlayerBackend {
         _events.add(const PlayerLoaded());
       case 'error':
         _events.add(PlayerLoadError(raw['message'] as String?));
+      case 'bars':
+        _events.add(PlayerOsdEvent('bars', jsonEncode({'top': raw['top'], 'bottom': raw['bottom'], 'dark': raw['dark']})));
     }
   }
 

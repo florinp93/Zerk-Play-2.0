@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../core/emby/models/emby_item.dart';
 import '../services/janus/janus_service.dart';
 import 'collection_index.dart';
+import 'libraries.dart';
 import 'metadata_localizer.dart';
 
 final class LibraryView {
@@ -15,11 +16,17 @@ final class LibraryView {
   final String? imageTag;
 }
 
+typedef ServerLibrary = LibraryView;
+
 final class ItemPage {
-  const ItemPage(this.items, this.total);
+  const ItemPage(this.items, this.total, {this.scanned = -1});
 
   final List<EmbyItem> items;
   final int total;
+
+  final int scanned;
+
+  int get fetched => scanned < 0 ? items.length : scanned;
 }
 
 enum ImageKind { primary, backdrop, thumb, logo }
@@ -34,6 +41,71 @@ final class CatalogApi {
   CollectionIndex? collections;
 
   String get _userId => _janus.session.userId;
+
+  Set<String> _hiddenLibraries = const {};
+  Future<HiddenContent>? _hidden;
+
+  Set<String> get hiddenLibraries => _hiddenLibraries;
+
+  set hiddenLibraries(Set<String> ids) {
+    if (ids.length == _hiddenLibraries.length && ids.containsAll(_hiddenLibraries)) return;
+    _hiddenLibraries = {...ids};
+    _hidden = null;
+  }
+
+  void forgetHiddenContent() => _hidden = null;
+
+  Future<HiddenContent> hiddenContent() {
+    if (_hiddenLibraries.isEmpty) return Future.value(HiddenContent.none);
+    return _hidden ??= _loadHidden(_hiddenLibraries).catchError((Object e) {
+      debugPrint('[libraries] hidden content: $e');
+      _hidden = null;
+      return HiddenContent.none;
+    });
+  }
+
+  Future<HiddenContent> _loadHidden(Set<String> libraries) async {
+    final pages = await Future.wait([
+      for (final id in libraries)
+        _janus.client.getJson('/Users/$_userId/Items', queryParameters: {
+          'ParentId': id,
+          'Recursive': 'true',
+          'IncludeItemTypes': 'Movie,Series,Video,MusicVideo',
+          'EnableImages': 'false',
+          'EnableUserData': 'false',
+          'EnableTotalRecordCount': 'false',
+        }),
+    ]);
+    return HiddenContent({
+      for (final json in pages)
+        for (final raw in (json['Items'] as List? ?? const []))
+          if (raw is Map && raw['Id'] is String) raw['Id'] as String,
+    });
+  }
+
+  Future<int> hiddenTotal({List<String>? types, String? filters, List<String>? genres}) async {
+    if (_hiddenLibraries.isEmpty) return 0;
+    final counts = await Future.wait([
+      for (final id in _hiddenLibraries)
+        _janus.client.getJson('/Users/$_userId/Items', queryParameters: {
+          'ParentId': id,
+          'Recursive': 'true',
+          'IncludeItemTypes': types?.join(','),
+          'Filters': filters,
+          'Genres': genres?.join('|'),
+          'Limit': '0',
+          'EnableImages': 'false',
+          'EnableUserData': 'false',
+          'EnableTotalRecordCount': 'true',
+        }).then((j) => (j['TotalRecordCount'] as num?)?.toInt() ?? 0, onError: (Object _) => 0),
+    ]);
+    return counts.fold<int>(0, (a, b) => a + b);
+  }
+
+  Future<List<EmbyItem>> _visible(List<EmbyItem> items) async {
+    if (_hiddenLibraries.isEmpty) return items;
+    return (await hiddenContent()).filter(items);
+  }
 
   static const cardFields = 'PrimaryImageAspectRatio,ProductionYear,CommunityRating,OfficialRating,'
       'RunTimeTicks,Overview,Genres,ParentId,SeriesId,SeasonId,ProviderIds,ChildCount,'
@@ -75,6 +147,33 @@ final class CatalogApi {
         'Fields': '$cardFields,Chapters',
         'LegacyNextUp': 'true',
       });
+
+  Future<EmbyItem?> seriesNext(String seriesId) async {
+    final (next, recent) = await (
+      nextUp(seriesId: seriesId, limit: 1),
+      _list('/Users/$_userId/Items', {
+        'ParentId': seriesId,
+        'Recursive': 'true',
+        'IncludeItemTypes': 'Episode',
+        'SortBy': 'DatePlayed',
+        'SortOrder': 'Descending',
+        'Limit': '1',
+        'Fields': '$cardFields,Chapters',
+      }),
+    ).wait;
+    return pickNextEpisode(next.firstOrNull, recent);
+  }
+
+  static EmbyItem? pickNextEpisode(EmbyItem? nextUp, Iterable<EmbyItem> recent) {
+    EmbyItem? latest;
+    for (final e in recent) {
+      final played = e.lastPlayedDate;
+      if (played == null) continue;
+      if (latest == null || played.isAfter(latest.lastPlayedDate!)) latest = e;
+    }
+    if (latest != null && latest.resumePosition != null) return latest;
+    return nextUp;
+  }
 
   Future<List<EmbyItem>> continueWatching({int limit = 24}) async {
     final (inProgress, next) = await (resume(limit: limit), nextUp(limit: limit)).wait;
@@ -135,7 +234,8 @@ final class CatalogApi {
       'Fields': cardFields,
       ..._imageArgs,
     });
-    return _localize([for (final raw in json) if (raw is Map) EmbyItem.fromJson(raw.cast<String, dynamic>())]);
+    return _localize(
+        await _visible([for (final raw in json) if (raw is Map) EmbyItem.fromJson(raw.cast<String, dynamic>())]));
   }
 
   Future<ItemPage> query({
@@ -192,8 +292,10 @@ final class CatalogApi {
       'EnableTotalRecordCount': 'true',
       ..._imageArgs,
     });
-    final items = _parse(json);
-    return ItemPage(localize ? await _localize(items) : items, (json['TotalRecordCount'] as num?)?.toInt() ?? 0);
+    final parsed = _parse(json);
+    final items = await _visible(parsed);
+    return ItemPage(localize ? await _localize(items) : items, (json['TotalRecordCount'] as num?)?.toInt() ?? 0,
+        scanned: parsed.length);
   }
 
   Future<Map<String, List<String>>> _providerIndex() {
@@ -263,7 +365,7 @@ final class CatalogApi {
   Future<EmbyItem?> episodeToPlay(EmbyItem show) async {
     final seriesId = show.isSeries ? show.id : show.seriesId;
     if (seriesId == null) return null;
-    final next = (await nextUp(seriesId: seriesId, limit: 1)).firstOrNull;
+    final next = await seriesNext(seriesId);
     if (next != null && (!show.isSeason || next.seasonId == show.id)) return next;
     final all = (await episodes(seriesId, seasonId: show.isSeason ? show.id : null)).where((e) => e.isPlayable);
     return all.where((e) => (e.parentIndexNumber ?? 1) > 0).firstOrNull ?? all.firstOrNull;
@@ -448,7 +550,7 @@ final class CatalogApi {
 
   Future<List<EmbyItem>> _list(String path, Map<String, String?> params) async {
     final json = await _janus.client.getJson(path, queryParameters: {...params, ..._imageArgs});
-    return _localize(_parse(json));
+    return _localize(await _visible(_parse(json)));
   }
 
   Future<EmbyItem> localize(EmbyItem item) async => await localizer?.localize(item) ?? item;

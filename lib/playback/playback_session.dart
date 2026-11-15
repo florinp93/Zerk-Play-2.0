@@ -8,6 +8,7 @@ import '../core/emby/models/emby_item.dart';
 import '../core/windows/native_window.dart';
 import '../core/emby/models/media_source.dart';
 import '../l10n/app_localizations.dart';
+import 'auto_crop.dart';
 import 'emby_playback_api.dart';
 import 'kept_display.dart';
 import 'language.dart';
@@ -109,6 +110,13 @@ final class PlaybackSession {
   _Current? _current;
 
   EmbyItem? get lastItem => _current?.item;
+
+  void resume() {
+    if (!_finishing) _player.setPaused(false);
+  }
+
+  Future<void> stop() => _finish(PlaybackEndReason.userExit);
+
   EmbyItem? _nextEpisode;
   bool _nextCancelled = false;
   bool _loading = false;
@@ -122,6 +130,9 @@ final class PlaybackSession {
   late int _transcodeBitrate = _settings.transcodeBitrate;
 
   String? _videoSignature;
+
+  final _autoCrop = AutoCrop();
+  CropDecision? _cropSent;
 
   Future<PlaybackEndReason> run(PlaybackRequest request) async {
     _eventsSub = _player.events.listen(_onEvent);
@@ -165,6 +176,8 @@ final class PlaybackSession {
     _nextEpisode = null;
     _nextCancelled = false;
     _videoSignature = null;
+    _autoCrop.reset();
+    _cropSent = null;
     _osd('next', null);
     _osd('video', null);
     _osd('chapters', null);
@@ -172,7 +185,7 @@ final class PlaybackSession {
     _osdState('loading', item);
 
     try {
-      final start = request.start ?? _sync?.startFor(item) ?? _resumePosition(item);
+      final start = request.start ?? _sync?.startFor(item) ?? item.resumePosition;
       _sync?.opening(item, title: _titles(item).$1, start: start ?? Duration.zero);
       var info = await _api.getPlaybackInfo(
         item.id,
@@ -627,7 +640,21 @@ final class PlaybackSession {
         if (arg != null) unawaited(_searchSubtitles(arg));
       case 'subdownload':
         if (arg != null) unawaited(_downloadSubtitle(arg));
+      case 'bars':
+        _onBars(arg);
     }
+  }
+
+  void _onBars(String? arg) {
+    final sample = BarSample.parse(arg);
+    if (sample == null || !_settings.autoCrop || _loading) return;
+    final decision = _autoCrop.add(sample, _player.state.value.position);
+    if (decision == _cropSent) return;
+    if (decision.crop != _cropSent?.crop) {
+      debugPrint('[session] black bars: crop ${decision.crop.toStringAsFixed(3)}${_autoCrop.locked ? ' (locked)' : ''}');
+    }
+    _cropSent = decision;
+    _osd('crop', decision.toJson());
   }
 
   List<Map<String, String>> _searchLanguages() {
@@ -962,12 +989,6 @@ final class PlaybackSession {
       unawaited(_api.stopTranscode(cur.stream.playSessionId));
     }
     if (!_done.isCompleted) _done.complete(reason);
-  }
-
-  Duration? _resumePosition(EmbyItem item) {
-    final ticks = item.playbackPositionTicks;
-    if (ticks == null || ticks <= 0 || item.isPlayed) return null;
-    return Duration(microseconds: ticks ~/ 10);
   }
 
   static String _friendlyError(L10n l10n, Object e) {

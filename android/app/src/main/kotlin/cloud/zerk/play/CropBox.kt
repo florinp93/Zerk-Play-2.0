@@ -7,8 +7,6 @@ import android.os.Handler
 import android.view.PixelCopy
 import android.view.SurfaceView
 import android.widget.FrameLayout
-import kotlin.math.abs
-import kotlin.math.min
 
 class CropBox(context: Context) : FrameLayout(context) {
     var crop = 0f
@@ -32,18 +30,11 @@ class CropBox(context: Context) : FrameLayout(context) {
     }
 }
 
-class BarDetector(private val surface: SurfaceView, private val handler: Handler, private val onCrop: (Float) -> Unit) {
-    private var seen: Float? = null
-    private var hits = 0
-    var applied = 0f
-        private set
-
-    fun reset() {
-        seen = null
-        hits = 0
-        applied = 0f
-    }
-
+class BarDetector(
+    private val surface: SurfaceView,
+    private val handler: Handler,
+    private val onBars: (top: Float, bottom: Float, dark: Boolean) -> Unit,
+) {
     fun sample() {
         if (Build.VERSION.SDK_INT < 24 || surface.width == 0 || !surface.holder.surface.isValid) return
         val bitmap = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888)
@@ -75,18 +66,7 @@ class BarDetector(private val surface: SurfaceView, private val handler: Handler
         while (top < limit && black(bitmap, top)) top++
         var bottom = 0
         while (bottom < limit && black(bitmap, h - 1 - bottom)) bottom++
-        if (top >= limit || bottom >= limit) return
-        var t = top.toFloat() / h
-        var b = bottom.toFloat() / h
-        if (t < 0.01f && b < 0.01f) { t = 0f; b = 0f }
-        if (abs(t - b) > 0.02f) return
-        val m = min(t, b)
-        val last = seen
-        if (last != null && abs(last - m) < 0.008f) hits++ else { seen = m; hits = 1 }
-        if (hits >= 2 && ((applied == 0f && m > 0f) || m < applied - 0.006f || (hits >= 4 && abs(m - applied) > 0.006f))) {
-            applied = m
-            onCrop(m)
-        }
+        onBars(top.toFloat() / h, bottom.toFloat() / h, top >= limit || bottom >= limit)
     }
 }
 

@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/host.dart';
+import 'home_rows.dart';
 
 
 const uiLanguages = {'en': 'English', 'ro': 'Română', 'fr': 'Français', 'de': 'Deutsch', 'es': 'Español', 'pl': 'Polski'};
@@ -50,10 +51,26 @@ enum LibraryView {
   list,
 }
 
+enum TextSize {
+  small(0.88),
+  medium(1.0),
+  large(1.2);
+
+  const TextSize(this.scale);
+
+  final double scale;
+}
+
 enum CollectionsView {
   covers,
 
   wide,
+}
+
+enum LauncherEpisodeArt {
+  series,
+
+  episode,
 }
 
 final class AppSettings {
@@ -67,6 +84,7 @@ final class AppSettings {
     this.hideAnimation = true,
     this.groupCollections = false,
     this.homeClock = false,
+    this.launcherEpisodeArt = LauncherEpisodeArt.series,
     this.acceptInvalidCertificates = false,
     this.versionPreferences = const {},
     this.uiLanguage = '',
@@ -84,6 +102,10 @@ final class AppSettings {
     this.libraryView = LibraryView.posters,
     this.homeCollections = const {},
     this.cardTrailers = true,
+    this.textSize = TextSize.medium,
+    this.homeRows = const {},
+    this.hiddenLibraries = const {},
+    this.libraryPicks = const {},
   });
 
   final String seerrUrl;
@@ -99,6 +121,7 @@ final class AppSettings {
   final bool hideAnimation;
   final bool groupCollections;
   final bool homeClock;
+  final LauncherEpisodeArt launcherEpisodeArt;
   final bool acceptInvalidCertificates;
 
   final Map<String, String> versionPreferences;
@@ -127,6 +150,29 @@ final class AppSettings {
   final Map<String, List<(String, String)>> homeCollections;
 
   final bool cardTrailers;
+
+  final TextSize textSize;
+
+  final Map<String, HomeRowLayout> homeRows;
+
+  final Map<String, List<String>> hiddenLibraries;
+
+  final Map<String, String> libraryPicks;
+
+  HomeRowLayout homeRowsOf(String userId) => homeRows[userId] ?? const HomeRowLayout();
+
+  AppSettings withHomeRows(String userId, HomeRowLayout layout) =>
+      copyWith(homeRows: {...homeRows, userId: layout}..removeWhere((_, v) => v.isDefault));
+
+  Set<String> hiddenLibrariesOf(String userId) => {...?hiddenLibraries[userId]};
+
+  AppSettings withHiddenLibraries(String userId, Set<String> ids) =>
+      copyWith(hiddenLibraries: {...hiddenLibraries, userId: ids.toList()..sort()}..removeWhere((_, v) => v.isEmpty));
+
+  String? libraryPickOf(String userId, String page) => libraryPicks['$userId/$page'];
+
+  AppSettings withLibraryPick(String userId, String page, String? libraryId) => copyWith(
+      libraryPicks: {...libraryPicks, '$userId/$page': libraryId ?? ''}..removeWhere((_, v) => v.isEmpty));
 
   List<(String, String)> homeCollectionsOf(String userId) => homeCollections[userId] ?? const [];
 
@@ -160,6 +206,7 @@ final class AppSettings {
     bool? hideAnimation,
     bool? groupCollections,
     bool? homeClock,
+    LauncherEpisodeArt? launcherEpisodeArt,
     bool? acceptInvalidCertificates,
     Map<String, String>? versionPreferences,
     String? uiLanguage,
@@ -177,6 +224,10 @@ final class AppSettings {
     LibraryView? libraryView,
     Map<String, List<(String, String)>>? homeCollections,
     bool? cardTrailers,
+    TextSize? textSize,
+    Map<String, HomeRowLayout>? homeRows,
+    Map<String, List<String>>? hiddenLibraries,
+    Map<String, String>? libraryPicks,
   }) =>
       AppSettings(
         seerrUrl: seerrUrl ?? this.seerrUrl,
@@ -188,6 +239,7 @@ final class AppSettings {
         hideAnimation: hideAnimation ?? this.hideAnimation,
         groupCollections: groupCollections ?? this.groupCollections,
         homeClock: homeClock ?? this.homeClock,
+        launcherEpisodeArt: launcherEpisodeArt ?? this.launcherEpisodeArt,
         acceptInvalidCertificates: acceptInvalidCertificates ?? this.acceptInvalidCertificates,
         versionPreferences: versionPreferences ?? this.versionPreferences,
         uiLanguage: uiLanguage ?? this.uiLanguage,
@@ -205,6 +257,10 @@ final class AppSettings {
         libraryView: libraryView ?? this.libraryView,
         homeCollections: homeCollections ?? this.homeCollections,
         cardTrailers: cardTrailers ?? this.cardTrailers,
+        textSize: textSize ?? this.textSize,
+        homeRows: homeRows ?? this.homeRows,
+        hiddenLibraries: hiddenLibraries ?? this.hiddenLibraries,
+        libraryPicks: libraryPicks ?? this.libraryPicks,
       );
 
   static Future<bool> exist() async => (await SharedPreferences.getInstance()).containsKey(_key);
@@ -227,6 +283,8 @@ final class AppSettings {
         hideAnimation: j['hideAnimation'] as bool? ?? true,
         groupCollections: j['groupCollections'] as bool? ?? false,
         homeClock: j['homeClock'] as bool? ?? false,
+        launcherEpisodeArt:
+            LauncherEpisodeArt.values.asNameMap()[j['launcherEpisodeArt']] ?? LauncherEpisodeArt.series,
         acceptInvalidCertificates: j['badCerts'] as bool? ?? false,
         versionPreferences: (j['versions'] as Map?)?.cast<String, String>() ?? const {},
         uiLanguage: j['uiLanguage'] as String? ?? '',
@@ -255,6 +313,19 @@ final class AppSettings {
             '$key': [for (final c in value as List) (c[0] as String, c[1] as String)],
         },
         cardTrailers: Host.isAndroid && j['cardTrailersV'] != 2 ? false : j['cardTrailers'] as bool? ?? !Host.isAndroid,
+        textSize: TextSize.values.asNameMap()[j['textSize']] ?? TextSize.medium,
+        homeRows: {
+          for (final MapEntry(:key, :value) in ((j['homeRows'] as Map?) ?? const {}).entries)
+            '$key': HomeRowLayout.fromJson(value),
+        },
+        hiddenLibraries: {
+          for (final MapEntry(:key, :value) in ((j['hiddenLibraries'] as Map?) ?? const {}).entries)
+            '$key': [for (final id in value as List) if (id is String) id],
+        },
+        libraryPicks: {
+          for (final MapEntry(:key, :value) in ((j['libraryPicks'] as Map?) ?? const {}).entries)
+            if (value is String) '$key': value,
+        },
       );
     } catch (_) {
       return AppSettings(cardTrailers: !Host.isAndroid);
@@ -275,6 +346,7 @@ final class AppSettings {
         'hideAnimation': hideAnimation,
         'groupCollections': groupCollections,
         'homeClock': homeClock,
+        'launcherEpisodeArt': launcherEpisodeArt.name,
         'badCerts': acceptInvalidCertificates,
         'versions': versionPreferences,
         'uiLanguage': uiLanguage,
@@ -295,6 +367,10 @@ final class AppSettings {
         },
         'cardTrailers': cardTrailers,
         'cardTrailersV': 2,
+        'textSize': textSize.name,
+        'homeRows': {for (final MapEntry(:key, :value) in homeRows.entries) key: value.toJson()},
+        'hiddenLibraries': hiddenLibraries,
+        'libraryPicks': libraryPicks,
       }),
     );
   }

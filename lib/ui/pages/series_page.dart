@@ -84,12 +84,12 @@ class _SeriesPageState extends State<SeriesPage> {
       final results = await Future.wait([
         c.item(widget.seriesId),
         c.seasons(widget.seriesId),
-        c.nextUp(seriesId: widget.seriesId, limit: 1),
+        c.seriesNext(widget.seriesId),
       ]);
       if (!mounted) return;
       final series = results[0] as EmbyItem;
       final seasons = _orderSeasons(results[1] as List<EmbyItem>);
-      final nextUp = (results[2] as List<EmbyItem>).firstOrNull;
+      final nextUp = results[2] as EmbyItem?;
 
       String? focusSeason = seasonId;
       EmbyItem? focusEpisode;

@@ -11,6 +11,9 @@ const double contentLeft = Zs.railCollapsed + 56;
 double posterGridCardWidth(double width, int columns) =>
     ((width - contentLeft - 120 - Zs.cardGap * (columns - 1)) / columns).clamp(100.0, 600.0);
 
+double captionSpace(BuildContext context, double base) =>
+    base + 48 * (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0.0, 2.0);
+
 class MediaRow extends StatefulWidget {
   const MediaRow({
     super.key,

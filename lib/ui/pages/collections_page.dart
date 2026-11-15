@@ -117,7 +117,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
               crossAxisCount: columns,
               mainAxisSpacing: 26,
               crossAxisSpacing: Zs.cardGap,
-              childAspectRatio: cardW / (cardW * 1.5 + 70),
+              childAspectRatio: cardW / (cardW * 1.5 + captionSpace(context, 70)),
             ),
             itemCount: items.length,
             itemBuilder: (context, i) => Align(

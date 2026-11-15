@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../app/app_services.dart';
@@ -28,9 +30,46 @@ final playbackActiveNotifier = ValueNotifier(false);
 bool get liveActive => _live;
 bool _live = false;
 
+final class _Active {
+  const _Active(this.stop, {this.itemId, this.resume});
+
+  final Future<void> Function() stop;
+  final String? Function()? itemId;
+  final VoidCallback? resume;
+}
+
+_Active? _active;
+Completer<void>? _ended;
+
 void _setPlaying(bool v) {
   _playing = v;
+  if (v) {
+    _ended = Completer<void>();
+  } else {
+    _active = null;
+    _ended?.complete();
+    _ended = null;
+  }
   playbackActiveNotifier.value = v;
+}
+
+String? get playingItemId => _active?.itemId?.call();
+
+bool resumePlayback() {
+  final resume = _active?.resume;
+  if (resume == null) return false;
+  resume();
+  return true;
+}
+
+Future<bool> stopPlayback() async {
+  if (!_playing) return true;
+  final active = _active;
+  final ended = _ended;
+  if (active == null || ended == null) return false;
+  await active.stop();
+  await ended.future;
+  return true;
 }
 
 Future<PlaybackOutcome?> playItem(
@@ -80,6 +119,7 @@ Future<PlaybackOutcome?> playItem(
         services.updateSettings(services.settings.copyWith(versionPreferences: prefs));
       },
     );
+    _active = _Active(session.stop, itemId: () => session.lastItem?.id ?? full.id, resume: session.resume);
     final reason = await session.run(PlaybackRequest(
       full,
       start: start,
@@ -130,6 +170,7 @@ Future<void> playShared(BuildContext context, LiveShare share, {ZapList? zap, in
       zap: zap,
       channel: channel,
     );
+    _active = _Active(session.stop);
     await session.run(share.first);
   } finally {
     _live = false;

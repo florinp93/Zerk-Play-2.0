@@ -4,10 +4,12 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import '../../app/app_services.dart';
 import '../../app/app_settings.dart';
 import '../../core/emby/models/emby_item.dart';
-import '../../data/catalog_api.dart' show CatalogApi;
+import '../../data/catalog_api.dart' show CatalogApi, ServerLibrary;
 import '../../data/collection_index.dart';
+import '../../data/libraries.dart';
 import '../../l10n/l10n.dart';
 import '../core/artwork.dart';
+import '../core/navigation.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
@@ -19,7 +21,22 @@ import '../widgets/side_panel.dart';
 import 'details_parts.dart';
 import 'routes.dart';
 
-enum LibraryKind { movies, shows, favorites }
+enum LibraryKind { movies, shows, favorites, folder }
+
+bool opensAsFolder(EmbyItem item) => item.isFolder && !item.isSeries && !item.isSeason && !item.isCollection;
+
+void openFolder(BuildContext context, String id, String title) => Navigator.of(context).push(
+    tvRoute(LibraryPage(kind: LibraryKind.folder, parentId: id, title: title), name: 'folder:$id'));
+
+void openLibrary(BuildContext context, ServerLibrary library) {
+  final kind = Libraries.isMovies(library)
+      ? LibraryKind.movies
+      : Libraries.isShows(library)
+          ? LibraryKind.shows
+          : LibraryKind.folder;
+  Navigator.of(context).push(tvRoute(LibraryPage(kind: kind, parentId: library.id, title: library.name),
+      name: 'library:${library.id}'));
+}
 
 enum _Sort {
   name('SortName', false),
@@ -47,9 +64,12 @@ enum _Sort {
 enum _Watched { all, unwatched, watched, favorites }
 
 class LibraryPage extends StatefulWidget {
-  const LibraryPage({super.key, required this.kind});
+  const LibraryPage({super.key, required this.kind, this.parentId, this.title});
 
   final LibraryKind kind;
+
+  final String? parentId;
+  final String? title;
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
@@ -58,34 +78,103 @@ class LibraryPage extends StatefulWidget {
 class _LibraryPageState extends State<LibraryPage> {
   static const _pageSize = 120;
 
-  _Sort _sort = _Sort.added;
+  late _Sort _sort = widget.kind == LibraryKind.folder ? _Sort.name : _Sort.added;
   late _Watched _watched = widget.kind == LibraryKind.favorites ? _Watched.favorites : _Watched.all;
   String? _genre;
   List<String> _genres = const [];
 
   final _items = <EmbyItem>[];
   int _total = -1;
+  int _offset = 0;
+  int _serverTotal = -1;
+  int _hiddenTotal = 0;
   bool _loading = false;
   int _generation = 0;
   final _grid = RevealController(margin: 120);
 
-  List<String> get _types => switch (widget.kind) {
+  late final AppServices _services = AppServicesScope.read(context);
+  String? _picked;
+
+  bool get _pickable =>
+      widget.parentId == null && (widget.kind == LibraryKind.movies || widget.kind == LibraryKind.shows);
+
+  String get _pickKey => widget.kind.name;
+
+  String? get _parentId => widget.parentId ?? _picked;
+
+  List<ServerLibrary> _choices(AppServices s) =>
+      _pickable ? Libraries.ofKind(s.knownLibraries, s.hiddenLibraries, shows: widget.kind == LibraryKind.shows) : const [];
+
+  List<String>? get _types => switch (widget.kind) {
         LibraryKind.movies => const ['Movie'],
         LibraryKind.shows => const ['Series'],
         LibraryKind.favorites => const ['Movie', 'Series'],
+        LibraryKind.folder => null,
+      };
+
+  String? get _filters => switch (_watched) {
+        _Watched.all => null,
+        _Watched.unwatched => 'IsUnplayed',
+        _Watched.watched => 'IsPlayed',
+        _Watched.favorites => 'IsFavorite',
       };
 
   @override
   void initState() {
     super.initState();
+    if (_pickable && _services.isSignedIn) _picked = _services.settings.libraryPickOf(_services.janus.session.userId, _pickKey);
     _reload();
-    AppServicesScope.read(context).catalog.genres(types: _types).then((g) {
+    _loadGenres();
+    _services.libraryChanged.addListener(_onLibraryChanged);
+    if (_pickable && _services.isSignedIn) _services.libraries().then((_) => _checkPick());
+  }
+
+  void _loadGenres() {
+    if (widget.kind == LibraryKind.folder) return;
+    _services.catalog.genres(parentId: _parentId, types: _types).then((g) {
       if (mounted) setState(() => _genres = g);
     }).catchError((_) {});
   }
 
+  void _onLibraryChanged() {
+    if (!mounted) return;
+    if (_pickable && _services.isSignedIn) _services.libraries().then((_) => _checkPick());
+    _reload();
+  }
+
+  void _checkPick() {
+    if (!mounted || _picked == null) return;
+    if (Libraries.pickOrNull(_picked, _choices(_services)) != null) return;
+    setState(() => _picked = null);
+    _reload();
+    _loadGenres();
+  }
+
+  Future<void> _pickLibrary() async {
+    final l10n = context.l10n;
+    final choices = _choices(_services);
+    final chosen = await showSidePanel<String>(context, title: l10n.navLibrary, options: [
+      PanelOption(value: '', title: l10n.allLibraries, selected: _picked == null),
+      for (final l in choices) PanelOption(value: l.id, title: l.name, selected: l.id == _picked),
+    ]);
+    if (chosen == null || !mounted) return;
+    final next = chosen.isEmpty ? null : chosen;
+    if (next == _picked) return;
+    setState(() {
+      _picked = next;
+      _genre = null;
+      _genres = const [];
+    });
+    _reload();
+    _loadGenres();
+    if (_services.isSignedIn) {
+      await _services.updateSettings(_services.settings.withLibraryPick(_services.janus.session.userId, _pickKey, next));
+    }
+  }
+
   @override
   void dispose() {
+    _services.libraryChanged.removeListener(_onLibraryChanged);
     _grid.dispose();
     super.dispose();
   }
@@ -94,43 +183,53 @@ class _LibraryPageState extends State<LibraryPage> {
     setState(() {
       _items.clear();
       _total = -1;
+      _offset = 0;
+      _serverTotal = -1;
+      _hiddenTotal = 0;
       _generation++;
     });
     if (_grid.hasClients) _grid.jumpTo(0);
+    _loading = false;
     _loadMore();
   }
 
   Future<void> _loadMore() async {
-    if (_loading || (_total >= 0 && _items.length >= _total)) return;
+    if (_loading || (_serverTotal >= 0 && _offset >= _serverTotal)) return;
     _loading = true;
     final generation = _generation;
-    final settings = AppServicesScope.read(context).settings;
+    final settings = _services.settings;
     if (_grouped(settings)) return _loadGrouped(generation);
     try {
-      final page = await AppServicesScope.read(context).catalog.query(
-            collapseBoxSets: _grouped(settings),
-            types: _types,
-            sortBy: _sort.field,
-            descending: _sort.descending,
-            start: _items.length,
-            limit: _pageSize,
-            genres: _genre == null ? null : [_genre!],
-            filters: switch (_watched) {
-              _Watched.all => null,
-              _Watched.unwatched => 'IsUnplayed',
-              _Watched.watched => 'IsPlayed',
-              _Watched.favorites => 'IsFavorite',
-            },
-          );
+      final catalog = _services.catalog;
+      final genres = _genre == null ? null : [_genre!];
+      final first = _offset == 0;
+      final (page, hidden) = await (
+        catalog.query(
+          parentId: _parentId,
+          recursive: widget.kind != LibraryKind.folder,
+          types: _types,
+          sortBy: _sort.field,
+          descending: _sort.descending,
+          start: _offset,
+          limit: _pageSize,
+          genres: genres,
+          filters: _filters,
+        ),
+        first && _parentId == null ? catalog.hiddenTotal(types: _types, filters: _filters, genres: genres) : Future.value(_hiddenTotal),
+      ).wait;
       if (!mounted || generation != _generation) return;
       setState(() {
-        _items.addAll(page.items);
-        _total = page.total;
+        _items.addAll(widget.kind == LibraryKind.folder ? page.items.where(_browsable) : page.items);
+        _offset += page.fetched;
+        _serverTotal = page.fetched == 0 ? _offset : page.total;
+        _hiddenTotal = hidden;
+        _total = _offset >= _serverTotal ? _items.length : (_serverTotal - hidden).clamp(_items.length, _serverTotal);
       });
+      if (page.items.length < 40 && _offset < _serverTotal) Future.microtask(_loadMore);
     } catch (e) {
       debugPrint('[library] $e');
     } finally {
-      _loading = false;
+      if (generation == _generation) _loading = false;
     }
   }
 
@@ -147,6 +246,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Future<void> _loadGrouped(int generation) async {
     try {
       final page = await AppServicesScope.read(context).catalog.query(
+            parentId: _parentId,
             types: _types,
             sortBy: 'SortName',
             limit: 5000,
@@ -174,6 +274,7 @@ class _LibraryPageState extends State<LibraryPage> {
       setState(() {
         _items.addAll(items);
         _total = items.length;
+        _offset = _serverTotal = items.length;
       });
     } catch (e) {
       debugPrint('[library] grouped: $e');
@@ -237,6 +338,12 @@ class _LibraryPageState extends State<LibraryPage> {
     if (chosen != null && chosen != current) await services.updateSettings(services.settings.copyWith(libraryView: chosen));
   }
 
+  static const _unplayable = {'Audio', 'MusicAlbum', 'MusicArtist', 'Photo', 'PhotoAlbum', 'Book', 'AudioBook', 'Playlist'};
+
+  static bool _browsable(EmbyItem item) => !_unplayable.contains(item.type);
+
+  static String _short(String text) => text.length <= 22 ? text : '${text.substring(0, 21).trimRight()}…';
+
   static String _viewLabel(L10n l10n, LibraryView v) => switch (v) {
         LibraryView.posters => l10n.viewPosters,
         LibraryView.cards => l10n.viewCards,
@@ -259,7 +366,7 @@ class _LibraryPageState extends State<LibraryPage> {
     }
     if (i > _items.length - 40) _loadMore();
     final item = _items[i];
-    void open() => openItem(context, item);
+    void open() => opensAsFolder(item) ? openFolder(context, item.id, item.name) : openItem(context, item);
     return switch (view) {
       LibraryView.posters => Align(
           alignment: Alignment.topLeft,
@@ -287,12 +394,16 @@ class _LibraryPageState extends State<LibraryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final title = switch (widget.kind) {
-      LibraryKind.movies => l10n.movies,
-      LibraryKind.shows => l10n.shows,
-      LibraryKind.favorites => l10n.favorites,
-    };
     final services = AppServicesScope.of(context);
+    final choices = _choices(services);
+    final pickedName = [for (final l in choices) if (l.id == _picked) l.name].firstOrNull;
+    final title = widget.title ??
+        switch (widget.kind) {
+          LibraryKind.movies => l10n.movies,
+          LibraryKind.shows => l10n.shows,
+          LibraryKind.favorites => l10n.favorites,
+          LibraryKind.folder => l10n.libraries,
+        };
     final view = services.settings.libraryView;
     final columns = switch (view) {
       LibraryView.posters => services.settings.posterSize.columns,
@@ -303,25 +414,36 @@ class _LibraryPageState extends State<LibraryPage> {
       Padding(
         padding: const EdgeInsets.only(left: contentLeft, top: 70, right: 120, bottom: 26),
         child: Row(children: [
-          Text(title, style: Zt.headline),
+          Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: Zt.headline)),
           const SizedBox(width: 18),
           if (_total >= 0) Text('$_total', style: Zt.title.copyWith(color: Zc.textFaint)),
           const Spacer(),
           FocusZone(
             debugLabel: 'library-toolbar',
             child: Row(children: [
+              if (choices.length > 1 || _picked != null) ...[
+                TvButton(
+                  label: _short(pickedName ?? l10n.allLibraries),
+                  icon: Icons.video_library_outlined,
+                  primary: _picked != null,
+                  onSelect: _pickLibrary,
+                ),
+                const SizedBox(width: 14),
+              ],
               TvButton(
                 label: _sort.label(l10n),
                 icon: Icons.sort_rounded,
                 onSelect: () => _pick(l10n.sortBy, {for (final s in _Sort.values) s: s.label(l10n)}, _sort, (v) => _sort = v),
               ),
-              const SizedBox(width: 14),
-              TvButton(
-                label: _genre ?? l10n.allGenres,
-                icon: Icons.category_outlined,
-                onSelect: () => _pick<String>(l10n.genre, {'': l10n.allGenres, for (final g in _genres) g: g}, _genre ?? '',
-                    (v) => _genre = v.isEmpty ? null : v),
-              ),
+              if (widget.kind != LibraryKind.folder) ...[
+                const SizedBox(width: 14),
+                TvButton(
+                  label: _genre ?? l10n.allGenres,
+                  icon: Icons.category_outlined,
+                  onSelect: () => _pick<String>(l10n.genre, {'': l10n.allGenres, for (final g in _genres) g: g}, _genre ?? '',
+                      (v) => _genre = v.isEmpty ? null : v),
+                ),
+              ],
               if (widget.kind != LibraryKind.favorites) ...[
               const SizedBox(width: 14),
               TvButton(
@@ -382,8 +504,8 @@ class _LibraryPageState extends State<LibraryPage> {
                       mainAxisSpacing: 26,
                       crossAxisSpacing: Zs.cardGap,
                       childAspectRatio: switch (view) {
-                        LibraryView.posters => cardW / (cardW * 1.5 + 70),
-                        LibraryView.cards => cardW / (cardW * 9 / 16 + 76),
+                        LibraryView.posters => cardW / (cardW * 1.5 + captionSpace(context, 70)),
+                        LibraryView.cards => cardW / (cardW * 9 / 16 + captionSpace(context, 76)),
                         LibraryView.list => cardW / _ListRow.height,
                       },
                     ),
@@ -441,7 +563,9 @@ class _ListRow extends StatelessWidget {
               ],
               if (item.overview != null) ...[
                 const SizedBox(height: 10),
-                Text(item.overview!, maxLines: 2, overflow: TextOverflow.ellipsis, style: Zt.body.copyWith(fontSize: 20)),
+                Flexible(
+                  child: Text(item.overview!, maxLines: 2, overflow: TextOverflow.ellipsis, style: Zt.body.copyWith(fontSize: 20)),
+                ),
               ],
             ]),
           ),

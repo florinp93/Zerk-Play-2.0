@@ -83,17 +83,14 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private var anamorphic = 1f
     private var autoCrop = false
     private var videoAspect = 0f
-    private var cropRuns = 0
+    private var cropIntervalMs = 2_000L
 
     private val cropTicker = object : Runnable {
         override fun run() {
             val exo = player ?: return
-            if (!autoCrop) return
-            if (exo.isPlaying) {
-                detector?.sample()
-                cropRuns++
-            }
-            main.postDelayed(this, if (cropRuns < 8) 2_000 else 15_000)
+            if (!autoCrop || cropIntervalMs <= 0) return
+            if (exo.isPlaying) detector?.sample()
+            main.postDelayed(this, cropIntervalMs)
         }
     }
 
@@ -238,6 +235,16 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                     restartCropDetection()
                     result.success(null)
                 }
+                "crop" -> {
+                    if (autoCrop) applyCrop((call.argument<Number>("fraction") ?: 0).toFloat())
+                    val interval = (call.argument<Number>("intervalMs") ?: 0).toLong()
+                    if (interval != cropIntervalMs) {
+                        cropIntervalMs = interval
+                        main.removeCallbacks(cropTicker)
+                        if (autoCrop && interval > 0 && player != null) main.postDelayed(cropTicker, interval)
+                    }
+                    result.success(null)
+                }
                 "matchRefresh" -> result.success(DisplayModes.match(activity, (call.argument<Number>("fps") ?: 0).toDouble()))
                 "stats" -> result.success(stats())
                 "subtitleStyle" -> {
@@ -357,7 +364,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         this.surface = surface
         this.frame = frame
         this.cropBox = box
-        this.detector = BarDetector(surface, main) { applyCrop(it) }
+        this.detector = BarDetector(surface, main) { top, bottom, dark ->
+            emit(mapOf("event" to "bars", "top" to top.toDouble(), "bottom" to bottom.toDouble(), "dark" to dark))
+        }
         this.subtitles = subtitles
         this.subtitleShadow = shadow
         subtitlePadding = (subtitleStyle["bottomPaddingFraction"] as? Number)?.toFloat() ?: (40f / 720)
@@ -396,7 +405,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private fun restartCropDetection() {
         main.removeCallbacks(cropTicker)
-        cropRuns = 0
+        cropIntervalMs = 2_000L
         if (autoCrop && player != null) main.postDelayed(cropTicker, 2_000)
     }
 
@@ -482,7 +491,6 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         pendingSub = sub ?: 0
         pendingExternalId = null
         announceLoaded = true
-        detector?.reset()
         applyCrop(0f)
         restartCropDetection()
         main.removeCallbacks(reenableAudio)

@@ -397,6 +397,8 @@ class _DetailsPageState extends State<DetailsPage> {
                 TvButton(
                   label: l10n.favorite,
                   icon: item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  iconColor: item.isFavorite ? Zc.favorite : null,
+                  focusedIconColor: item.isFavorite ? Zc.favoriteOnLight : null,
                   collapsed: true,
                   onSelect: _toggleFavorite,
                 ),

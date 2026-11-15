@@ -17,6 +17,7 @@ import '../data/title_tags.dart';
 import '../data/tmdb_api.dart';
 import '../data/user_profile.dart';
 import '../data/emby_live_tv.dart';
+import '../data/libraries.dart';
 import '../data/title_ratings.dart';
 import '../data/xtream/live_catalog.dart';
 import '../data/xtream/xtream.dart';
@@ -51,6 +52,7 @@ final class AppServices extends ChangeNotifier {
     HubLink.changed.addListener(_detectHub);
     _rebuildSeerr();
     _rebuildMetadata();
+    _syncHidden();
     _warmLiveTv();
     unawaited(_detectEmbyTv());
   }
@@ -70,7 +72,43 @@ final class AppServices extends ChangeNotifier {
 
   final libraryChanged = ValueNotifier<int>(0);
 
-  void markLibraryChanged() => libraryChanged.value++;
+  void markLibraryChanged() {
+    _librariesLoad = null;
+    catalog.forgetHiddenContent();
+    libraryChanged.value++;
+  }
+
+  void _syncHidden() => catalog.hiddenLibraries = hiddenLibraries;
+
+  List<ServerLibrary>? _libraries;
+  Future<List<ServerLibrary>>? _librariesLoad;
+
+  List<ServerLibrary> get knownLibraries => _libraries ?? const [];
+
+  Set<String> get hiddenLibraries =>
+      isSignedIn ? _settings.hiddenLibrariesOf(janus.session.userId) : const <String>{};
+
+  List<ServerLibrary> get visibleLibraries => Libraries.visible(knownLibraries, hiddenLibraries);
+
+  Future<List<ServerLibrary>> libraries() => _librariesLoad ??= () async {
+        try {
+          final views = await catalog.views();
+          final before = [for (final l in knownLibraries) '${l.id}:${l.name}'].join('|');
+          _libraries = views;
+          if (before != [for (final l in views) '${l.id}:${l.name}'].join('|')) notifyListeners();
+          return views;
+        } catch (e) {
+          debugPrint('[libraries] $e');
+          _librariesLoad = null;
+          return knownLibraries;
+        }
+      }();
+
+  void _forgetLibraries() {
+    _libraries = null;
+    _librariesLoad = null;
+    _syncHidden();
+  }
 
   SeerrApi? get seerr => _seerr;
 
@@ -224,10 +262,12 @@ final class AppServices extends ChangeNotifier {
     final metadataChanged =
         next.tmdbApiKey != _settings.tmdbApiKey || next.metadataLanguage != _settings.metadataLanguage;
     final recommendationsChanged = next.hideAnimation != _settings.hideAnimation;
+    final hiddenBefore = hiddenLibraries;
     final xtreamChanged = next.xtreamUrl != _settings.xtreamUrl || next.xtreamAccounts.length != _settings.xtreamAccounts.length ||
         next.xtreamAccounts.indexed.any((e) => e.$2 != _settings.xtreamAccounts[e.$1]) ||
         next.playlistUrl != _settings.playlistUrl || next.playlistGuideUrl != _settings.playlistGuideUrl;
     _settings = next;
+    _syncHidden();
     UiSounds.enabled = next.sounds;
     RecommendationFilter.hideAnimation = next.hideAnimation;
     _rebuildSeerr();
@@ -236,12 +276,15 @@ final class AppServices extends ChangeNotifier {
     await next.save();
     notifyListeners();
     if (xtreamChanged) unawaited(_detectEmbyTv());
-    if (metadataChanged || recommendationsChanged) markLibraryChanged();
+    final hiddenNow = hiddenLibraries;
+    final hiddenChanged = hiddenNow.length != hiddenBefore.length || !hiddenNow.containsAll(hiddenBefore);
+    if (metadataChanged || recommendationsChanged || hiddenChanged) markLibraryChanged();
   }
 
   Future<void> signIn(
       {required String server, ServerKind kind = ServerKind.emby, required String username, required String password}) async {
     await janus.login(serverUrl: server, kind: kind, username: username, password: password);
+    _forgetLibraries();
     HubLink.droppedMessage = null;
     catalog.collections?.invalidate();
     try {
@@ -299,6 +342,7 @@ final class AppServices extends ChangeNotifier {
     together.leave();
     profiles.clear();
     await janus.logout();
+    _forgetLibraries();
     _embyTvAvailable = false;
     _detectHub();
     notifyListeners();

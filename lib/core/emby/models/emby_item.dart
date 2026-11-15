@@ -204,7 +204,7 @@ final class EmbyItem {
 
   Duration? get resumePosition {
     final t = playbackPositionTicks;
-    if (t == null || t <= 0 || isPlayed) return null;
+    if (t == null || t <= 0) return null;
     return Duration(microseconds: t ~/ 10);
   }
 

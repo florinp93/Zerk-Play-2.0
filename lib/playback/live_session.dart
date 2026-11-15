@@ -360,6 +360,11 @@ final class LiveSession {
     Timer(const Duration(milliseconds: 1500), () => unawaited(_finish()));
   }
 
+  Future<void> stop() {
+    _userExit = true;
+    return _finish();
+  }
+
   Future<void> _finish() async {
     if (_finishing) return;
     _finishing = true;
