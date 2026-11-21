@@ -6,6 +6,7 @@ import '../../data/release_info.dart';
 import '../../data/seerr_api.dart';
 import '../../l10n/l10n.dart';
 import '../core/artwork.dart';
+import '../core/effects.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
@@ -108,6 +109,41 @@ class PosterCard extends StatelessWidget {
   }
 }
 
+class AlbumCard extends StatelessWidget {
+  const AlbumCard({super.key, required this.item, this.onSelect, this.autofocus = false, this.width = Zs.posterWidth});
+
+  final EmbyItem item;
+  final VoidCallback? onSelect;
+  final bool autofocus;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = AppServicesScope.read(context).catalog;
+    return TvFocusable(
+      autofocus: autofocus,
+      onSelect: onSelect,
+      builder: (context, focused) => SizedBox(
+        width: width,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          FocusFrame(
+            focused: focused,
+            child: SizedBox.square(
+              dimension: width,
+              child: NetImage(
+                url: catalog.albumCover(item, width: width * 1.5),
+                width: width,
+                fallback: TitleArt(title: item.name, subtitle: item.albumArtist, icon: Icons.album_rounded),
+              ),
+            ),
+          ),
+          _FocusCaption(focused: focused, title: item.name, subtitle: item.albumArtist ?? item.productionYear?.toString()),
+        ]),
+      ),
+    );
+  }
+}
+
 class _Sheets extends StatelessWidget {
   const _Sheets({required this.width, required this.lift, required this.focused});
 
@@ -123,7 +159,7 @@ class _Sheets extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-            boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2))],
+            boxShadow: Effects.reduced ? null : const [BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2))],
           ),
         );
     return SizedBox(
@@ -198,7 +234,7 @@ class _Corner extends StatelessWidget {
         decoration: BoxDecoration(
           color: Zc.accent,
           borderRadius: BorderRadius.circular(17),
-          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
+          boxShadow: Effects.reduced ? null : const [BoxShadow(color: Colors.black54, blurRadius: 8)],
         ),
         child: child,
       );

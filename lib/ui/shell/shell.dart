@@ -24,6 +24,7 @@ import '../pages/discover_page.dart';
 import '../pages/emby_live_tv_page.dart';
 import '../pages/home_page.dart';
 import '../pages/libraries_page.dart';
+import '../pages/favorites_page.dart';
 import '../pages/library_page.dart';
 import '../pages/live_tv_page.dart';
 import '../pages/my_list_page.dart';
@@ -83,6 +84,12 @@ class Shell extends StatefulWidget {
 
   @override
   State<Shell> createState() => _ShellState();
+
+  static void Function(ShellTab tab)? _go;
+
+  static void goHome() => go(ShellTab.home);
+
+  static void go(ShellTab tab) => _go?.call(tab);
 }
 
 class _ShellState extends State<Shell> {
@@ -100,6 +107,9 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    Shell._go = (tab) {
+      if (mounted && _tab != tab) _select(tab);
+    };
     if (kReleaseMode && Updater.supported) {
       Future.delayed(const Duration(seconds: 5), () => mounted ? checkForUpdate(context) : null);
     }
@@ -225,6 +235,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    Shell._go = null;
     unawaited(_roomSub?.cancel());
     playbackActiveNotifier.removeListener(_onPlayback);
     _services.libraryChanged.removeListener(_scheduleTvHome);
@@ -360,7 +371,7 @@ class _ShellState extends State<Shell> {
     ShellTab.search => const SearchPage(),
     ShellTab.movies => const LibraryPage(kind: LibraryKind.movies),
     ShellTab.shows => const LibraryPage(kind: LibraryKind.shows),
-    ShellTab.favorites => const LibraryPage(kind: LibraryKind.favorites),
+    ShellTab.favorites => const FavoritesPage(),
     ShellTab.collections => const CollectionsPage(),
     ShellTab.libraries => const LibrariesPage(),
     ShellTab.discover => const DiscoverPage(),

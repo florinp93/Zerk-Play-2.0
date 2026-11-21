@@ -157,6 +157,7 @@ final class MpvBackend implements PlayerBackend {
         'muted': l.muted,
         'press_back': l.pressBackToReturn,
         'skip_intro': l.skipIntro,
+        'skip_credits': l.skipCredits,
         'up_next': l.upNext,
         'starts_in': l.startsIn('{n}'),
         'intro_skipped': l.introSkipped,

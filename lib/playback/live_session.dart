@@ -120,7 +120,8 @@ final class LiveSession {
       'seekBack': settings.seekBackSeconds,
       'scope': settings.scopeScreen,
       'anamorphic': settings.anamorphic,
-      'autoSkipIntro': false,
+      'skipIntro': 'off',
+      'skipCredits': 'off',
       'versionsTitle': l10n.liveChannels,
       'zap': zap != null,
     });

@@ -20,7 +20,8 @@ class CollectionsPage extends StatefulWidget {
 }
 
 class _CollectionsPageState extends State<CollectionsPage> {
-  late final Future<List<EmbyItem>> _load = AppServicesScope.read(context).catalog.allCollections();
+  Future<List<EmbyItem>>? _load;
+  Object? _loadedFor;
   final _grid = RevealController(margin: 120);
 
   @override
@@ -34,6 +35,10 @@ class _CollectionsPageState extends State<CollectionsPage> {
     final services = AppServicesScope.of(context);
     final settings = services.settings;
     final covers = settings.collectionsView == CollectionsView.covers;
+    if (_loadedFor != settings.collectionsSource) {
+      _loadedFor = settings.collectionsSource;
+      _load = services.catalog.allCollections();
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.only(left: contentLeft, top: 70, right: 120, bottom: 30),

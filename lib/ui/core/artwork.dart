@@ -17,6 +17,16 @@ extension Artwork on CatalogApi {
     return null;
   }
 
+  Uri? albumCover(EmbyItem item, {double width = 300}) {
+    final w = width.round();
+    if (item.primaryImageTag != null) return image(item.id, ImageKind.primary, tag: item.primaryImageTag, width: w);
+    final album = item.albumId;
+    if (album != null && item.albumPrimaryImageTag != null) {
+      return image(album, ImageKind.primary, tag: item.albumPrimaryImageTag, width: w);
+    }
+    return null;
+  }
+
   Uri? landscape(EmbyItem item, {double width = 400, bool preferEpisodeStill = true}) {
     final w = (width * 1.5).round();
     if (item.isEpisode && preferEpisodeStill) {

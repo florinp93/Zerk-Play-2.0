@@ -78,7 +78,7 @@ class _Caption extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(SubtitleStyle.boxPadding * unit),
           color: Color(SubtitleStyle.boxColor(settings)),
-          child: Text(text, textAlign: TextAlign.center, style: style.copyWith(color: const Color(SubtitleStyle.textColor))),
+          child: Text(text, textAlign: TextAlign.center, style: style.copyWith(color: Color(settings.subtitleColor))),
         ),
       );
     }
@@ -99,7 +99,7 @@ class _Caption extends StatelessWidget {
         offset: Offset(shadow, shadow),
         child: layer(const Color(SubtitleStyle.shadowColor), const Color(SubtitleStyle.shadowColor)),
       ),
-      layer(const Color(SubtitleStyle.textColor), const Color(SubtitleStyle.outlineColor)),
+      layer(Color(settings.subtitleColor), const Color(SubtitleStyle.outlineColor)),
     ]);
   }
 }

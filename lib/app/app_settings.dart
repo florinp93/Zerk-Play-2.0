@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/host.dart';
+import '../data/catalog_api.dart';
 import 'home_rows.dart';
 
 
@@ -61,6 +62,10 @@ enum TextSize {
   final double scale;
 }
 
+enum ReduceEffects { auto, on, off }
+
+enum ContinueWatchingAction { details, play }
+
 enum CollectionsView {
   covers,
 
@@ -99,6 +104,9 @@ final class AppSettings {
     this.startFullScreen = false,
     this.posterSize = PosterSize.medium,
     this.collectionsView = CollectionsView.covers,
+    this.reduceEffects = ReduceEffects.auto,
+    this.collectionsSource = CollectionsSource.both,
+    this.continueWatchingAction = ContinueWatchingAction.details,
     this.libraryView = LibraryView.posters,
     this.homeCollections = const {},
     this.cardTrailers = true,
@@ -145,6 +153,9 @@ final class AppSettings {
   final bool startFullScreen;
   final PosterSize posterSize;
   final CollectionsView collectionsView;
+  final ReduceEffects reduceEffects;
+  final CollectionsSource collectionsSource;
+  final ContinueWatchingAction continueWatchingAction;
   final LibraryView libraryView;
 
   final Map<String, List<(String, String)>> homeCollections;
@@ -221,6 +232,9 @@ final class AppSettings {
     bool? startFullScreen,
     PosterSize? posterSize,
     CollectionsView? collectionsView,
+    ReduceEffects? reduceEffects,
+    CollectionsSource? collectionsSource,
+    ContinueWatchingAction? continueWatchingAction,
     LibraryView? libraryView,
     Map<String, List<(String, String)>>? homeCollections,
     bool? cardTrailers,
@@ -254,6 +268,9 @@ final class AppSettings {
         startFullScreen: startFullScreen ?? this.startFullScreen,
         posterSize: posterSize ?? this.posterSize,
         collectionsView: collectionsView ?? this.collectionsView,
+        reduceEffects: reduceEffects ?? this.reduceEffects,
+        collectionsSource: collectionsSource ?? this.collectionsSource,
+        continueWatchingAction: continueWatchingAction ?? this.continueWatchingAction,
         libraryView: libraryView ?? this.libraryView,
         homeCollections: homeCollections ?? this.homeCollections,
         cardTrailers: cardTrailers ?? this.cardTrailers,
@@ -307,6 +324,10 @@ final class AppSettings {
         startFullScreen: j['startFullScreen'] as bool? ?? false,
         posterSize: PosterSize.values.asNameMap()[j['posterSize']] ?? PosterSize.medium,
         collectionsView: CollectionsView.values.asNameMap()[j['collectionsView']] ?? CollectionsView.covers,
+        reduceEffects: ReduceEffects.values.asNameMap()[j['reduceEffects']] ?? ReduceEffects.auto,
+        collectionsSource: CollectionsSource.values.asNameMap()[j['collectionsSource']] ?? CollectionsSource.both,
+        continueWatchingAction:
+            ContinueWatchingAction.values.asNameMap()[j['continueWatchingAction']] ?? ContinueWatchingAction.details,
         libraryView: LibraryView.values.asNameMap()[j['libraryView']] ?? LibraryView.posters,
         homeCollections: {
           for (final MapEntry(:key, :value) in ((j['homeCollections'] as Map?) ?? const {}).entries)
@@ -361,6 +382,9 @@ final class AppSettings {
         'startFullScreen': startFullScreen,
         'posterSize': posterSize.name,
         'collectionsView': collectionsView.name,
+        'reduceEffects': reduceEffects.name,
+        'collectionsSource': collectionsSource.name,
+        'continueWatchingAction': continueWatchingAction.name,
         'libraryView': libraryView.name,
         'homeCollections': {
           for (final MapEntry(:key, :value) in homeCollections.entries) key: [for (final (id, name) in value) [id, name]],

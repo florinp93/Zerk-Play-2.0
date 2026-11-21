@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
+import '../../app/app_settings.dart';
 import '../../app/home_rows.dart';
 import '../../core/emby/models/emby_item.dart';
 import '../../data/catalog_api.dart';
@@ -668,7 +669,9 @@ class _HomePageState extends State<HomePage> {
                 : item.productionYear?.toString(),
         preferEpisodeStill: false,
         onFocus: () => _focusData(item),
-        onSelect: () => openItem(context, item),
+        onSelect: () => AppServicesScope.read(context).settings.continueWatchingAction == ContinueWatchingAction.play
+            ? _play(item)
+            : openItem(context, item),
         onMenu: () => _play(item),
         onPlay: () => _play(item),
       );

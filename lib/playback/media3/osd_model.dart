@@ -115,7 +115,10 @@ final class OsdModel extends ChangeNotifier {
   String? versionsTitle;
 
   bool zap = false;
-  bool autoSkipIntro = false;
+
+  Uri? cover;
+  String skipIntro = 'button';
+  String skipCredits = 'button';
 
   double subtitleScale = 1;
 
@@ -148,6 +151,7 @@ final class OsdModel extends ChangeNotifier {
     switch (command) {
       case 'state':
         phase = m['phase'] as String? ?? phase;
+        if (phase == 'loading') cover = null;
         title = m['title'] as String? ?? '';
         subtitle = m['subtitle'] as String? ?? '';
         message = m['message'] as String?;
@@ -170,6 +174,8 @@ final class OsdModel extends ChangeNotifier {
         creditsStart = secs(m['creditsStart']);
       case 'chapters':
         chapters = OsdChapter.list(data);
+      case 'cover':
+        cover = switch (Uri.tryParse(data as String? ?? '')) { final u? when u.hasScheme => u, _ => null };
       case 'trickplay':
         trickplay = data is Trickplay ? data : null;
       case 'next':
@@ -192,7 +198,8 @@ final class OsdModel extends ChangeNotifier {
           setAspect?.call(aspectMode);
         }
         versionsTitle = m['versionsTitle'] as String?;
-        autoSkipIntro = m['autoSkipIntro'] == true;
+        skipIntro = m['skipIntro'] as String? ?? 'button';
+        skipCredits = m['skipCredits'] as String? ?? 'button';
         zap = m['zap'] == true;
         subtitleSearch = m['subtitleSearch'] == true;
         subtitleLanguages = OsdChoice.list(m['subLanguages']);

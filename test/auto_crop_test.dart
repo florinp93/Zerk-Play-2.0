@@ -49,23 +49,42 @@ void main() {
     expect(f.crop.bars, closeTo(0.126, 1e-9));
   });
 
-  test('steady 16:9 is never cropped and detection stops once settled', () {
+  test('steady 16:9 stays uncropped and slows down once settled', () {
     final f = Feed();
     var d = f.run(bars(0), 30);
     expect(d.crop, 0);
     expect(d.interval, AutoCrop.searchInterval);
     d = f.run(bars(0.004), 40);
     expect(d.crop, 0);
-    expect(d.interval, Duration.zero);
-    expect(f.crop.locked, isTrue);
-    d = f.run(bars(0.12), 10);
-    expect(d.crop, 0);
+    expect(d.interval, AutoCrop.idleInterval);
+    expect(f.crop.locked, isFalse);
   });
 
-  test('a long dark-edged scene in a settled 16:9 show does not crop', () {
+  test('a dark-edged scene in a settled 16:9 show does not crop', () {
     final f = Feed();
     f.run(bars(0), 70);
-    expect(f.run(bars(0.1), 5).crop, 0);
+    expect(f.run(bars(0.1), AutoCrop.lateConfirmations - 1, seconds: 8).crop, 0);
+  });
+
+  test('a long full-frame opening still crops the scope film after it', () {
+    final f = Feed();
+    f.run(bars(0), 100);
+    expect(f.run(bars(scope), AutoCrop.lateConfirmations, seconds: 8).crop, closeTo(scope - AutoCrop.edge, 1e-9));
+  });
+
+  test('one stray narrower reading does not shrink the crop', () {
+    final f = Feed();
+    f.run(bars(scope), 3);
+    expect(f.add(bars(imax)).crop, closeTo(scope - AutoCrop.edge, 1e-9));
+    expect(f.add(bars(scope)).crop, closeTo(scope - AutoCrop.edge, 1e-9));
+    expect(f.crop.locked, isFalse);
+  });
+
+  test('a settled crop is checked less often', () {
+    final f = Feed();
+    f.run(bars(scope), 3);
+    expect(f.crop.decision.interval, AutoCrop.watchInterval);
+    expect(f.run(bars(scope), 70).interval, AutoCrop.idleInterval);
   });
 
   test('opening logos then a scope film still crops', () {
@@ -79,7 +98,7 @@ void main() {
     final f = Feed();
     f.run(bars(scope), 3);
     expect(f.crop.decision.crop, closeTo(scope - AutoCrop.edge, 1e-9));
-    expect(f.add(bars(imax)).crop, closeTo(imax - AutoCrop.edge, 1e-9));
+    expect(f.run(bars(imax), AutoCrop.shrinkConfirmations).crop, closeTo(imax - AutoCrop.edge, 1e-9));
     expect(f.crop.locked, isTrue);
     final crops = <double>{};
     for (var i = 0; i < 20; i++) {
@@ -93,8 +112,8 @@ void main() {
   test('picture opening up further than the lock loosens again at once', () {
     final f = Feed();
     f.run(bars(scope), 3);
-    f.add(bars(imax));
-    expect(f.add(bars(0)).crop, 0);
+    f.run(bars(imax), AutoCrop.shrinkConfirmations);
+    expect(f.run(bars(0), AutoCrop.shrinkConfirmations).crop, 0);
     expect(f.crop.decision.interval, Duration.zero);
   });
 
@@ -110,7 +129,7 @@ void main() {
     final f = Feed();
     f.run(bars(imax), 3);
     expect(f.run(bars(scope), 3).crop, closeTo(scope - AutoCrop.edge, 1e-9));
-    expect(f.add(bars(imax)).crop, closeTo(imax - AutoCrop.edge, 1e-9));
+    expect(f.run(bars(imax), AutoCrop.shrinkConfirmations).crop, closeTo(imax - AutoCrop.edge, 1e-9));
     expect(f.run(bars(scope), 30).crop, closeTo(imax - AutoCrop.edge, 1e-9));
   });
 

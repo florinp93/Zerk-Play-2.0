@@ -6,6 +6,7 @@ import '../../app/app_services.dart';
 import '../../l10n/l10n.dart';
 import '../../playback/sync/watch_together.dart';
 import '../core/ui_sounds.dart';
+import '../core/effects.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
@@ -194,7 +195,7 @@ class _TogetherButtonState extends State<TogetherButton> {
                     decoration: BoxDecoration(
                       color: bg,
                       borderRadius: BorderRadius.circular(32),
-                      boxShadow: focused ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
+                      boxShadow: focused && !Effects.reduced ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (room == null)

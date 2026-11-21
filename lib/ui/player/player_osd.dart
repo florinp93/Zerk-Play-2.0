@@ -113,6 +113,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
 
   bool _introSkipped = false;
   bool _nextCancelled = false;
+  bool _creditsDone = false;
+  bool _creditsHover = false;
   String _lastPhase = '';
 
   late final _countdown = AnimationController(vsync: this)
@@ -158,8 +160,9 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     if (model.phase == 'loading' && _lastPhase != 'loading') {
       _introSkipped = false;
       _nextCancelled = false;
+      _creditsDone = false;
       _nextChoice = 0;
-      _nextHover = _introHover = false;
+      _nextHover = _introHover = _creditsHover = false;
       _stopCountdown();
     }
     _lastPhase = model.phase;
@@ -169,7 +172,11 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
   void _onState() {
     if (!widget.controls) return;
     final s = state;
-    if (model.autoSkipIntro && _inIntro(s.position) && !_introSkipped) _skipIntro();
+    if (model.skipIntro == 'auto' && _inIntro(s.position) && !_introSkipped) _skipIntro();
+    if (model.skipCredits == 'auto' && _inCredits(s) && !_creditsDone && model.phase == 'playing') {
+      _creditsDone = true;
+      model.next != null ? _playNext() : model.send('credits');
+    }
     final nextUp = _nextVisible(s);
     if (nextUp && model.next!.autoplay && !_countdownStarted) _startCountdown(model.next!.countdown);
     if (!nextUp && _countdownStarted) _stopCountdown();
@@ -177,7 +184,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       if (s.paused && _countdown.isAnimating) _countdown.stop();
       if (!s.paused && !_countdown.isAnimating) _countdown.forward();
     }
-    final shown = (spinner: s.buffering && !s.paused, intro: _introVisible(s), next: nextUp);
+    final shown = (spinner: s.buffering && !s.paused, intro: _introVisible(s) || _creditsVisible(s), next: nextUp);
     final tracking = DateTime.now().isBefore(_miniUntil) || shown.intro || shown.next;
     if (!_visible && !tracking && shown == _hiddenShown) return;
     _hiddenShown = shown;
@@ -250,12 +257,30 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     model.seekTo(end);
   }
 
-  bool _introVisible(PlayerState s) => model.phase == 'playing' && _inIntro(s.position) && !_introSkipped;
+  bool _introVisible(PlayerState s) =>
+      model.skipIntro == 'button' && model.phase == 'playing' && _inIntro(s.position) && !_introSkipped;
+
+  Duration? get _creditsStart => model.skipCredits == 'off' ? null : model.creditsStart;
+
+  bool _inCredits(PlayerState s) {
+    final start = _creditsStart;
+    return start != null && s.duration > Duration.zero && s.position >= start &&
+        s.position < s.duration - const Duration(seconds: 2);
+  }
+
+  bool _creditsVisible(PlayerState s) =>
+      model.skipCredits == 'button' && model.next == null && !_creditsDone && model.phase == 'playing' && _inCredits(s);
+
+  void _skipCredits() {
+    _creditsDone = true;
+    _creditsHover = false;
+    model.send('credits');
+  }
 
   bool _nextVisible(PlayerState s) {
     if (model.next == null || _nextCancelled || model.phase != 'playing' || s.duration <= Duration.zero) return false;
     if (_introVisible(s)) return false;
-    final from = model.creditsStart ?? s.duration - const Duration(seconds: 30);
+    final from = _creditsStart ?? s.duration - const Duration(seconds: 30);
     return s.position >= from;
   }
 
@@ -615,6 +640,9 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       if (_introVisible(state)) {
         UiSounds.play(UiSound.select);
         _skipIntro();
+      } else if (_creditsVisible(state)) {
+        UiSounds.play(UiSound.select);
+        _skipCredits();
       } else if (_nextVisible(state)) {
         _nextChoice == 0 ? _playNext() : _cancelNext();
       } else if (model.zap) {
@@ -727,6 +755,19 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 onTap: _onSurfaceTap,
               ),
             ),
+          if (!loading && !error && model.cover != null)
+            Center(
+              child: FractionallySizedBox(
+                heightFactor: 0.5,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(Zs.radius),
+                    child: NetImage(url: model.cover, width: 540, fadeDuration: Duration.zero),
+                  ),
+                ),
+              ),
+            ),
           if (!loading && !error && s.buffering && !s.paused)
             const Center(child: SizedBox(width: 72, height: 72, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 5))),
           if (!loading && !error)
@@ -750,6 +791,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 onEnter: (_) => setState(() => _introHover = true),
                 onExit: (_) => setState(() => _introHover = false),
                 child: _SkipIntroPill(
+                  label: context.l10n.skipIntro,
                   start: model.introStart!,
                   end: model.introEnd!,
                   position: s.position,
@@ -757,6 +799,26 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                   onTap: () {
                     UiSounds.play(UiSound.select);
                     _skipIntro();
+                  },
+                ),
+              ),
+            ),
+          if (!loading && !error && _creditsVisible(s))
+            Positioned(
+              right: 96,
+              bottom: 300,
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _creditsHover = true),
+                onExit: (_) => setState(() => _creditsHover = false),
+                child: _SkipIntroPill(
+                  label: context.l10n.skipCredits,
+                  start: model.creditsStart!,
+                  end: s.duration,
+                  position: s.position,
+                  lit: !_visible || _creditsHover,
+                  onTap: () {
+                    UiSounds.play(UiSound.select);
+                    _skipCredits();
                   },
                 ),
               ),
@@ -1254,8 +1316,10 @@ class _Badge extends StatelessWidget {
 }
 
 class _SkipIntroPill extends StatelessWidget {
-  const _SkipIntroPill({required this.start, required this.end, required this.position, required this.lit, required this.onTap});
+  const _SkipIntroPill(
+      {required this.label, required this.start, required this.end, required this.position, required this.lit, required this.onTap});
 
+  final String label;
   final Duration start;
   final Duration end;
   final Duration position;
@@ -1300,7 +1364,7 @@ class _SkipIntroPill extends StatelessWidget {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.fast_forward_rounded, color: lit ? Zc.accent : Colors.white, size: 30),
                   const SizedBox(width: 12),
-                  Text(context.l10n.skipIntro, style: Zt.label.copyWith(color: fg, fontSize: 22)),
+                  Text(label, style: Zt.label.copyWith(color: fg, fontSize: 22)),
                   const SizedBox(width: 16),
                   Text(
                     _fmt(left.isNegative ? Duration.zero : left),

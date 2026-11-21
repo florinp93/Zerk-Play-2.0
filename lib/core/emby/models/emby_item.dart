@@ -68,6 +68,10 @@ final class EmbyItem {
     this.parentThumbItemId,
     this.parentThumbImageTag,
     this.seriesPrimaryImageTag,
+    this.album,
+    this.albumId,
+    this.albumArtist,
+    this.albumPrimaryImageTag,
     this.seriesId,
     this.seriesName,
     this.seasonId,
@@ -167,6 +171,11 @@ final class EmbyItem {
   final List<MediaSourceInfo> mediaSources;
   final int? partCount;
 
+  final String? album;
+  final String? albumId;
+  final String? albumArtist;
+  final String? albumPrimaryImageTag;
+
   final int? introStartTicks;
   final int? introEndTicks;
   final int? creditsStartTicks;
@@ -192,9 +201,11 @@ final class EmbyItem {
   bool get isCollection => type == 'BoxSet';
 
   bool get isChannel => type == 'TvChannel';
+  bool get isAudio => type == 'Audio';
+  bool get isMusicAlbum => type == 'MusicAlbum';
 
   bool get isVirtual => locationType == 'Virtual';
-  bool get isPlayable => !isFolder && !isVirtual && !isSeries && !isSeason && !isCollection;
+  bool get isPlayable => !isFolder && !isVirtual && !isSeries && !isSeason && !isCollection && !isMusicAlbum;
 
   bool get hasVersions => mediaSources.length > 1;
 
@@ -259,7 +270,8 @@ final class EmbyItem {
       parentBackdropItemId: parentBackdropItemId, parentBackdropImageTags: parentBackdropImageTags,
       parentLogoItemId: parentLogoItemId, parentLogoImageTag: parentLogoImageTag,
       parentThumbItemId: parentThumbItemId, parentThumbImageTag: parentThumbImageTag,
-      seriesPrimaryImageTag: seriesPrimaryImageTag, seriesId: seriesId,
+      seriesPrimaryImageTag: seriesPrimaryImageTag, album: album, albumId: albumId, albumArtist: albumArtist,
+      albumPrimaryImageTag: albumPrimaryImageTag, seriesId: seriesId,
       seriesName: seriesName ?? this.seriesName, seasonId: seasonId,
       seasonName: seasonName ?? this.seasonName, parentId: parentId, indexNumber: indexNumber,
       indexNumberEnd: indexNumberEnd, parentIndexNumber: parentIndexNumber,
@@ -333,6 +345,10 @@ final class EmbyItem {
       parentThumbItemId: _str(json['ParentThumbItemId']),
       parentThumbImageTag: _str(json['ParentThumbImageTag']),
       seriesPrimaryImageTag: _str(json['SeriesPrimaryImageTag']),
+      album: _str(json['Album']),
+      albumId: _str(json['AlbumId']),
+      albumArtist: _str(json['AlbumArtist']) ?? _strings(json['Artists']).firstOrNull,
+      albumPrimaryImageTag: _str(json['AlbumPrimaryImageTag']),
       seriesId: _str(json['SeriesId']),
       seriesName: _str(json['SeriesName']),
       seasonId: _str(json['SeasonId']),

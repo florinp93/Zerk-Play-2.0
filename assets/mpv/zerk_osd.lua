@@ -39,7 +39,7 @@ local L = {
   search_subtitles = "Search subtitles", searching = "Searching…", no_subtitles_found = "No subtitles found",
   playback_info = "Playback info", playback_info_detail = "Codecs, bitrate, dropped frames",
   hdr_on = "HDR ON", tone_mapped = "TONE-MAPPED", muted = "Muted", press_back = "Press Back to return",
-  skip_intro = "Skip intro", up_next = "Up next", starts_in = "Starts in {n} s", intro_skipped = "Intro skipped",
+  skip_intro = "Skip intro", skip_credits = "Skip credits", up_next = "Up next", starts_in = "Starts in {n} s", intro_skipped = "Intro skipped",
   play_now = "Play now", keep_watching = "Keep watching",
   mute = "Mute", unmute = "Unmute",
   stereo_downmix = "Stereo downmix", stereo_downmix_detail = "Clearer voices on TV speakers", on = "On",
@@ -110,7 +110,7 @@ local S = {
   toast = nil, toast_until = 0, toast_img = nil,
   vol_until = 0,
   flash_icon = nil, flash_until = 0,
-  seek_fwd = 10, seek_back = 10, auto_skip_intro = false,
+  seek_fwd = 10, seek_back = 10, skip_intro = "button", skip_credits = "button", credits_done = false,
   video = nil, aspect = "auto", default_aspect = "auto",
   scope = 0, anamorphic = 1, autocrop = false, crop = nil, margin = 0, crop_box = nil, full_ratio = nil,
   hits = {},
@@ -209,17 +209,41 @@ local function skip_intro()
   end
 end
 
+local function intro_visible(pos)
+  return S.skip_intro == "button" and in_intro(pos) and not S.intro_skipped
+end
+
+local function credits_start()
+  if S.skip_credits == "off" then return nil end
+  return S.seg.creditsStart
+end
+
+local function in_credits(pos)
+  local start, dur = credits_start(), duration()
+  return start ~= nil and dur > 0 and pos >= start and pos < dur - 2
+end
+
+local function credits_visible(pos)
+  return S.skip_credits == "button" and not S.next_up and not S.credits_done and in_credits(pos)
+end
+
+local function skip_credits()
+  S.credits_done = true
+  send("credits")
+end
+
 local function next_visible(pos)
   if not S.next_up or S.next_cancelled then return false end
   local dur = duration()
-  local start = S.seg.creditsStart or (dur > 120 and dur - 30) or nil
+  local start = credits_start() or (dur > 120 and dur - 30) or nil
   return start ~= nil and pos >= start
 end
 
 local activate_button
 
 local function card_action(pos)
-  if in_intro(pos) and not S.intro_skipped then skip_intro(); return true end
+  if intro_visible(pos) then skip_intro(); return true end
+  if credits_visible(pos) then skip_credits(); return true end
   if next_visible(pos) then send("next"); return true end
   return false
 end
@@ -450,7 +474,9 @@ local function schedule_crop(interval)
   if crop_timer then crop_timer:kill(); crop_timer = nil end
   crop_interval = interval
   if not S.autocrop or not interval or interval <= 0 then return end
-  crop_timer = mp.add_periodic_timer(interval, function() if not prop("pause", false) then detect_bars() end end)
+  crop_timer = mp.add_periodic_timer(interval, function()
+    if not prop("pause", false) and not prop("seeking", false) then detect_bars() end
+  end)
 end
 
 local function settings_items()
@@ -876,11 +902,10 @@ end
 
 local label_w
 
-local function draw_skip_intro(out, pos)
+local function draw_skip_pill(out, pos, label, a, b)
   local lit_now = not S.visible or (S.pointer and S.hover == "card")
-  local a, b = S.seg.introStart, S.seg.introEnd
   local played = clamp((pos - a) / math.max(0.001, b - a), 0, 1)
-  local label, left = tr("skip_intro"), fmt_time(math.max(0, b - pos))
+  local left = fmt_time(math.max(0, b - pos))
   local h = 64
   local w = R(22 + 30 + 12 + label_w(label, 24) + 16 + label_w(left, 22) + 28)
   local x, y = W - 80 - w, H - 330 - h
@@ -1094,8 +1119,10 @@ render = function()
 
   local still = false
   if not S.panel then
-    if in_intro(pos) and not S.intro_skipped then
-      draw_skip_intro(out, pos)
+    if intro_visible(pos) then
+      draw_skip_pill(out, pos, tr("skip_intro"), S.seg.introStart, S.seg.introEnd)
+    elseif credits_visible(pos) then
+      draw_skip_pill(out, pos, tr("skip_credits"), credits_start(), duration())
     elseif next_visible(pos) then
       local n = S.next_up
       if S.next_last and not prop("pause", false) then S.next_elapsed = S.next_elapsed + (t - S.next_last) end
@@ -1156,7 +1183,7 @@ local function wanted_interval()
   local pos = prop("time-pos", 0)
   if next_visible(pos) and S.next_up and S.next_up.autoplay then return 0.04 end
   if S.visible or S.panel or S.scrub or t < S.mini_until or t < S.toast_until or t < S.vol_until
-    or in_intro(pos) or next_visible(pos) then return 0.25 end
+    or intro_visible(pos) or credits_visible(pos) or next_visible(pos) then return 0.25 end
   return nil
 end
 
@@ -1289,7 +1316,7 @@ local function on_key(name)
     end
 
     if not S.visible then
-      local next_up = next_visible(pos) and not (in_intro(pos) and not S.intro_skipped)
+      local next_up = next_visible(pos) and not intro_visible(pos)
       if next_up and (name == "left" or name == "right") then S.next_choice = name == "left" and 1 or 2
       elseif name == "left" then seek_relative(-S.seek_back)
       elseif name == "right" then seek_relative(S.seek_fwd)
@@ -1509,7 +1536,7 @@ mp.register_script_message("state", function(raw)
   if S.phase == "playing" and was ~= "playing" then
     crop_interval = nil
     schedule_crop(2)
-    S.intro_skipped, S.next_cancelled, S.next_fired = false, false, false
+    S.intro_skipped, S.next_cancelled, S.next_fired, S.credits_done = false, false, false, false
     S.next_elapsed, S.next_last, S.next_choice = 0, nil, 1
     S.panel, S.scrub = nil, nil
     show()
@@ -1550,9 +1577,13 @@ mp.register_script_message("trick-image", function(raw)
   refresh()
 end)
 
+mp.register_script_message("cover", function(url)
+  if url and url ~= "" then mp.commandv("video-add", url, "select", "cover", "", "yes") end
+end)
+
 mp.register_script_message("segments", function(raw)
   S.seg = json(raw) or {}
-  S.intro_skipped = false
+  S.intro_skipped, S.credits_done = false, false
   refresh()
 end)
 
@@ -1579,7 +1610,8 @@ mp.register_script_message("config", function(raw)
   local c = json(raw) or {}
   S.seek_fwd = c.seekForward or S.seek_fwd
   S.seek_back = c.seekBack or S.seek_back
-  S.auto_skip_intro = c.autoSkipIntro or false
+  S.skip_intro = c.skipIntro or "button"
+  S.skip_credits = c.skipCredits or "button"
   S.versions_title = c.versionsTitle
   S.zap = c.zap or false
   S.sub_search = c.subtitleSearch or false
@@ -1631,9 +1663,13 @@ end)
 local last_pos_render = 0
 mp.observe_property("time-pos", "number", function(_, pos)
   if not pos then return end
-  if S.auto_skip_intro and not S.intro_skipped and in_intro(pos) then
+  if S.skip_intro == "auto" and not S.intro_skipped and in_intro(pos) then
     skip_intro()
     S.toast, S.toast_until = tr("intro_skipped"), now() + 2
+  end
+  if S.skip_credits == "auto" and not S.credits_done and S.phase == "playing" and in_credits(pos) then
+    S.credits_done = true
+    if S.next_up then send("next") else send("credits") end
   end
   if now() - last_pos_render > 0.5 then
     last_pos_render = now()

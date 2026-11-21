@@ -6,6 +6,8 @@ import 'collection_index.dart';
 import 'libraries.dart';
 import 'metadata_localizer.dart';
 
+enum CollectionsSource { both, tmdb, server }
+
 final class LibraryView {
   const LibraryView({required this.id, required this.name, this.collectionType, this.imageTag});
 
@@ -39,6 +41,7 @@ final class CatalogApi {
   MetadataLocalizer? localizer;
 
   CollectionIndex? collections;
+  CollectionsSource collectionsSource = CollectionsSource.both;
 
   String get _userId => _janus.session.userId;
 
@@ -416,17 +419,25 @@ final class CatalogApi {
 
   Future<List<EmbyItem>> allCollections({bool recent = false, int limit = 500}) async {
     final index = collections;
-    if (index != null) {
-      final list = recent ? await index.recent(limit: limit) : await index.all();
-      return [for (final c in list.take(limit)) c.item];
-    }
-    final page = await query(
-      types: ['BoxSet'],
-      sortBy: recent ? 'DateLastContentAdded,SortName' : 'SortName',
-      descending: recent,
-      limit: limit,
-    );
-    return page.items;
+    const none = <EmbyItem>[];
+    final (tmdb, server) = await (
+      index != null && collectionsSource != CollectionsSource.server
+          ? (recent ? index.recent(limit: limit) : index.all()).then((list) => [for (final c in list.take(limit)) c.item])
+          : Future.value(none),
+      index == null || collectionsSource != CollectionsSource.tmdb
+          ? query(
+              types: ['BoxSet'],
+              sortBy: recent ? 'DateLastContentAdded,SortName' : 'SortName',
+              descending: recent,
+              limit: limit,
+            ).then((page) => page.items)
+          : Future.value(none),
+    ).wait;
+    if (tmdb.isEmpty || server.isEmpty) return [...tmdb, ...server];
+    final onServer = {for (final b in server) ?b.tmdbId};
+    final merged = [...server, ...tmdb.where((c) => !onServer.contains(c.tmdbId))];
+    if (!recent) merged.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return merged.take(limit).toList();
   }
 
   Future<({EmbyItem collection, List<EmbyItem> films, int? total})?> collectionOf(EmbyItem movie) async {

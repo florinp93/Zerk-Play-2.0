@@ -25,7 +25,8 @@ import 'versions.dart';
 import 'webhook.dart';
 
 final class PlaybackRequest {
-  const PlaybackRequest(this.item, {this.start, this.audioIndex, this.subtitleIndex, this.mediaSourceId});
+  const PlaybackRequest(this.item,
+      {this.start, this.audioIndex, this.subtitleIndex, this.mediaSourceId, this.queue = const []});
 
   final EmbyItem item;
 
@@ -34,6 +35,8 @@ final class PlaybackRequest {
 
   final int? subtitleIndex;
   final String? mediaSourceId;
+
+  final List<EmbyItem> queue;
 }
 
 enum PlaybackEndReason { userExit, finished, error }
@@ -69,6 +72,7 @@ final class PlaybackSession {
     Map<String, String> versionPreferences = const {},
     this.onVersionChosen,
     this.artwork,
+    this.cover,
     this.localize,
     this.together,
     this.avatarOf,
@@ -80,6 +84,8 @@ final class PlaybackSession {
   final void Function(String scope, String preferenceKey)? onVersionChosen;
 
   final ({Uri? backdrop, Uri? logo, Uri? still}) Function(EmbyItem item)? artwork;
+
+  final Uri? Function(EmbyItem item)? cover;
 
   final Future<EmbyItem> Function(EmbyItem item)? localize;
 
@@ -106,6 +112,8 @@ final class PlaybackSession {
   final _sticky = StickyLanguages();
   StreamSubscription<PlayerEvent>? _eventsSub;
   Timer? _progressTimer;
+  int _ticks = 0;
+  Duration _lastPosition = Duration.zero;
 
   _Current? _current;
 
@@ -118,6 +126,7 @@ final class PlaybackSession {
   Future<void> stop() => _finish(PlaybackEndReason.userExit);
 
   EmbyItem? _nextEpisode;
+  List<EmbyItem> _queue = const [];
   bool _nextCancelled = false;
   bool _loading = false;
   bool _finishing = false;
@@ -135,6 +144,7 @@ final class PlaybackSession {
   CropDecision? _cropSent;
 
   Future<PlaybackEndReason> run(PlaybackRequest request) async {
+    _queue = request.queue;
     _eventsSub = _player.events.listen(_onEvent);
     _player.state.addListener(_onState);
     if (together?.room != null) {
@@ -158,7 +168,8 @@ final class PlaybackSession {
       'autoCrop': _settings.autoCrop,
       'defaultAspect': _settings.defaultAspect,
       'anamorphic': _settings.anamorphic,
-      'autoSkipIntro': _settings.skipIntroAutomatically,
+      'skipIntro': _settings.skipIntro.name,
+      'skipCredits': _settings.skipCredits.name,
       'subtitleSearch': true,
       'subLanguages': _searchLanguages(),
     });
@@ -178,6 +189,7 @@ final class PlaybackSession {
     _videoSignature = null;
     _autoCrop.reset();
     _cropSent = null;
+    _lastPosition = Duration.zero;
     _osd('next', null);
     _osd('video', null);
     _osd('chapters', null);
@@ -217,7 +229,8 @@ final class PlaybackSession {
       };
 
       final streamSubs = _player.streamSubtitles;
-      var stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode);
+      var stream = _api.resolve(item.id, info,
+          mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode, audio: item.isAudio);
       final serverTracks = stream.method != PlayMethod.transcode &&
           !_player.selectsFileTracks &&
           _needsServerTracks(source, audioIndex, subtitleIndex, streamSubtitles: streamSubs);
@@ -233,7 +246,8 @@ final class PlaybackSession {
           enableDirectStream: !transcode && !serverTracks,
         );
         source = info.mediaSources.firstWhere((m) => m.id == source.id, orElse: () => info.mediaSources.first);
-        stream = _api.resolve(item.id, info, mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode);
+        stream = _api.resolve(item.id, info,
+            mediaSourceId: source.id, streamSubtitles: streamSubs, transcode: transcode, audio: item.isAudio);
       }
       await _prepareHdr(VersionInfo(source).hdr != null);
       if (_finishing) return;
@@ -312,21 +326,25 @@ final class PlaybackSession {
     _sendTracks();
     _sendVersions();
     _sendQuality();
-    unawaited(_sendSegments(cur));
-    unawaited(_sendChapters(cur));
-    unawaited(_sendTrickplay(cur));
-    final hz = _settings.matchRefreshRate ? await _matchRefreshRate(cur) : null;
-    if (_settings.matchRefreshRate) debugPrint('[session] refresh rate match: ${hz == null ? 'no change' : '$hz Hz'}');
-    unawaited(_sendVideo(cur, announce: true, refreshHz: hz));
+    if (cur.item.isAudio) {
+      final art = cover?.call(cur.item);
+      if (art != null) _osd('cover', art.toString());
+    } else {
+      unawaited(_sendSegments(cur));
+      unawaited(_sendChapters(cur));
+      unawaited(_sendTrickplay(cur));
+      final hz = _settings.matchRefreshRate ? await _matchRefreshRate(cur) : null;
+      if (_settings.matchRefreshRate) debugPrint('[session] refresh rate match: ${hz == null ? 'no change' : '$hz Hz'}');
+      unawaited(_sendVideo(cur, announce: true, refreshHz: hz));
+    }
 
     if (!cur.reportedStart) {
       cur.reportedStart = true;
       _webhook.send('play', cur.item, position: ps.position, extra: {'method': cur.stream.method.wire, 'hdr': ps.videoTransfer == 'pq' || ps.videoTransfer == 'hlg'});
       unawaited(_report(_api.reportStart, eventName: null));
       _progressTimer?.cancel();
-      _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        unawaited(_report(_api.reportProgress, eventName: 'TimeUpdate'));
-      });
+      _ticks = 0;
+      _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_tick()));
     }
   }
 
@@ -440,8 +458,8 @@ final class PlaybackSession {
     final cur = _current;
     if (cur == null) return;
     final position = _player.state.value.position;
-    await _report(_api.reportStopped, eventName: null);
     _progressTimer?.cancel();
+    await _reportStop();
     if (cur.stream.method == PlayMethod.transcode) {
       unawaited(_api.stopTranscode(cur.stream.playSessionId));
     }
@@ -513,8 +531,8 @@ final class PlaybackSession {
     _toast(l10n.versionToast(VersionInfo(target).label));
 
     final position = _player.state.value.position;
-    await _report(_api.reportStopped, eventName: null);
     _progressTimer?.cancel();
+    await _reportStop();
     if (cur.stream.method == PlayMethod.transcode) unawaited(_api.stopTranscode(cur.stream.playSessionId));
     await _play(PlaybackRequest(
       cur.item,
@@ -526,6 +544,11 @@ final class PlaybackSession {
   }
 
   void _prefetchNext(EmbyItem item) {
+    if (_queue.isNotEmpty) {
+      final at = _queue.indexWhere((q) => q.id == item.id);
+      _nextEpisode = at >= 0 && at + 1 < _queue.length ? _queue[at + 1] : null;
+      return;
+    }
     if (!item.isEpisode) return;
     _api.nextEpisode(item).then((next) async {
       if (next == null) return null;
@@ -551,8 +574,8 @@ final class PlaybackSession {
     if (next == null || cur == null || _loading) return;
     final pos = _player.state.value.position;
     final dur = _player.state.value.duration;
-    await _report(_api.reportStopped, eventName: null);
     _progressTimer?.cancel();
+    await _reportStop();
     if (dur > Duration.zero && pos.inMilliseconds > dur.inMilliseconds * 0.8) {
       unawaited(_api.markPlayed(cur.item.id).catchError((_) {}));
     }
@@ -575,8 +598,8 @@ final class PlaybackSession {
     }
     if (_finishing) return;
     final cur = _current;
-    await _report(_api.reportStopped, eventName: null);
     _progressTimer?.cancel();
+    await _reportStop();
     if (cur != null && cur.stream.method == PlayMethod.transcode) unawaited(_api.stopTranscode(cur.stream.playSessionId));
     await _play(PlaybackRequest(item));
   }
@@ -617,6 +640,9 @@ final class PlaybackSession {
     switch (name) {
       case 'back':
         unawaited(_finish(PlaybackEndReason.userExit));
+      case 'credits':
+        debugPrint('[session] credits skipped, ending as watched');
+        unawaited(_finish(PlaybackEndReason.finished));
       case 'audio':
         final i = int.tryParse(arg ?? '');
         if (i != null) unawaited(_switchAudio(i));
@@ -756,6 +782,7 @@ final class PlaybackSession {
   void _onState() {
     final s = _player.state.value;
     if (_current == null || _loading) return;
+    if (s.position > Duration.zero) _lastPosition = s.position;
     final signature = '${s.videoTransfer}|${s.dolbyVision}';
     if (s.videoTransfer != null && signature != _videoSignature) {
       _videoSignature = signature;
@@ -767,7 +794,7 @@ final class PlaybackSession {
       unawaited(_report(_api.reportProgress, eventName: s.paused ? 'Pause' : 'Unpause'));
     }
     if (s.ended && !_finishing) {
-      if (_nextEpisode != null && !_nextCancelled && _settings.autoPlayNextEpisode) {
+      if (_nextEpisode != null && !_nextCancelled && (_settings.autoPlayNextEpisode || _queue.isNotEmpty)) {
         unawaited(_playNext());
       } else {
         unawaited(_finish(PlaybackEndReason.finished));
@@ -792,6 +819,7 @@ final class PlaybackSession {
 
   (String, String) _titles(EmbyItem item) {
     if (item.isChannel) return (item.name, item.overview ?? '');
+    if (item.isAudio) return (item.name, [item.albumArtist, item.album].whereType<String>().join('  ·  '));
     if (item.isEpisode) {
       final code = item.episodeCode;
       return (item.seriesName ?? item.name, [code, item.name].whereType<String>().join('  '));
@@ -923,19 +951,42 @@ final class PlaybackSession {
     if (parts.isNotEmpty) _toast(parts.join('  ·  '));
   }
 
+  Future<void> _tick() async {
+    final report = _snapshot('TimeUpdate');
+    if (report == null) return;
+    _ticks++;
+    unawaited(_api.rememberPosition(report));
+    try {
+      await _api.reportProgress(report);
+      if (_ticks % 6 == 1) debugPrint('[session] progress ${report.position} sent');
+    } catch (e) {
+      debugPrint('[session] progress ${report.position} failed: $e');
+    }
+  }
+
+  Future<void> _reportStop() async {
+    final report = _snapshot(null);
+    if (report != null) await _api.reportStoppedKept(report);
+  }
+
   Future<void> _report(Future<void> Function(PlaybackReport) send, {required String? eventName}) async {
     final report = _snapshot(eventName);
     if (report != null) await _send(send, report);
   }
 
-  PlaybackReport? _snapshot(String? eventName) {
+  PlaybackReport? _snapshot(String? eventName, {bool atEnd = false}) {
     final cur = _current;
     if (cur == null) return null;
     final s = _player.state.value;
+    final position = atEnd && s.duration > Duration.zero
+        ? s.duration
+        : s.position > Duration.zero || _lastPosition < const Duration(seconds: 5)
+            ? s.position
+            : _lastPosition;
     return PlaybackReport(
       itemId: cur.item.id,
       stream: cur.stream,
-      position: s.position,
+      position: position,
       isPaused: s.paused,
       isMuted: s.muted,
       volume: s.volume.round(),
@@ -949,7 +1000,7 @@ final class PlaybackSession {
     try {
       await send(report);
     } catch (e) {
-      debugPrint('[session] report failed: $e');
+      debugPrint('[session] ${report.eventName ?? 'report'} at ${report.position} failed: $e');
     }
   }
 
@@ -960,7 +1011,8 @@ final class PlaybackSession {
     _progressTimer?.cancel();
     _sync?.dispose(stopRoom: reason == PlaybackEndReason.userExit && !_closedByRoom);
     final cur = _current;
-    final stopped = cur != null && cur.reportedStart ? _snapshot(null) : null;
+    final stopped = cur != null && cur.reportedStart ? _snapshot(null, atEnd: reason == PlaybackEndReason.finished) : null;
+    final stopping = stopped == null ? null : _api.reportStoppedKept(stopped);
     if (cur != null && cur.reportedStart) _webhook.send('stop', cur.item, position: _player.state.value.position, extra: {'reason': reason.name});
     final volume = _player.state.value.volume;
     if (volume != _settings.volume) unawaited(PlayerSettings.load().then((p) => p.copyWith(volume: volume).save()));
@@ -982,8 +1034,9 @@ final class PlaybackSession {
       }
     }
 
-    if (stopped != null) {
-      await _send(_api.reportStopped, stopped).timeout(const Duration(seconds: 4), onTimeout: () {});
+    if (stopping != null) {
+      final saved = await stopping.timeout(const Duration(seconds: 10), onTimeout: () => false);
+      debugPrint('[session] stopped at ${stopped!.position}: ${saved ? 'saved' : 'not confirmed, kept for retry'}');
     }
     if (cur != null && cur.stream.method == PlayMethod.transcode) {
       unawaited(_api.stopTranscode(cur.stream.playSessionId));

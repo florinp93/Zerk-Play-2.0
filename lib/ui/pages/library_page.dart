@@ -19,9 +19,10 @@ import '../widgets/media_row.dart';
 import '../widgets/net_image.dart';
 import '../widgets/side_panel.dart';
 import 'details_parts.dart';
+import 'music_pages.dart';
 import 'routes.dart';
 
-enum LibraryKind { movies, shows, favorites, folder }
+enum LibraryKind { movies, shows, folder }
 
 bool opensAsFolder(EmbyItem item) => item.isFolder && !item.isSeries && !item.isSeason && !item.isCollection;
 
@@ -29,6 +30,7 @@ void openFolder(BuildContext context, String id, String title) => Navigator.of(c
     tvRoute(LibraryPage(kind: LibraryKind.folder, parentId: id, title: title), name: 'folder:$id'));
 
 void openLibrary(BuildContext context, ServerLibrary library) {
+  if (Libraries.isMusic(library)) return openMusicLibrary(context, library);
   final kind = Libraries.isMovies(library)
       ? LibraryKind.movies
       : Libraries.isShows(library)
@@ -79,7 +81,7 @@ class _LibraryPageState extends State<LibraryPage> {
   static const _pageSize = 120;
 
   late _Sort _sort = widget.kind == LibraryKind.folder ? _Sort.name : _Sort.added;
-  late _Watched _watched = widget.kind == LibraryKind.favorites ? _Watched.favorites : _Watched.all;
+  _Watched _watched = _Watched.all;
   String? _genre;
   List<String> _genres = const [];
 
@@ -108,7 +110,6 @@ class _LibraryPageState extends State<LibraryPage> {
   List<String>? get _types => switch (widget.kind) {
         LibraryKind.movies => const ['Movie'],
         LibraryKind.shows => const ['Series'],
-        LibraryKind.favorites => const ['Movie', 'Series'],
         LibraryKind.folder => null,
       };
 
@@ -401,7 +402,6 @@ class _LibraryPageState extends State<LibraryPage> {
         switch (widget.kind) {
           LibraryKind.movies => l10n.movies,
           LibraryKind.shows => l10n.shows,
-          LibraryKind.favorites => l10n.favorites,
           LibraryKind.folder => l10n.libraries,
         };
     final view = services.settings.libraryView;
@@ -444,7 +444,6 @@ class _LibraryPageState extends State<LibraryPage> {
                       (v) => _genre = v.isEmpty ? null : v),
                 ),
               ],
-              if (widget.kind != LibraryKind.favorites) ...[
               const SizedBox(width: 14),
               TvButton(
                 label: switch (_watched) {
@@ -461,7 +460,6 @@ class _LibraryPageState extends State<LibraryPage> {
                   _Watched.favorites: l10n.favorites,
                 }, _watched, (v) => _watched = v),
               ),
-              ],
               if (widget.kind == LibraryKind.movies) ...[
                 const SizedBox(width: 14),
                 TvButton(

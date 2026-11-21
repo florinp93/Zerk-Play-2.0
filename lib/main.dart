@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app/app_services.dart';
 import 'core/host.dart';
 import 'core/log/app_log.dart';
+import 'core/log/dev_script.dart';
 import 'core/log/perf_bench.dart';
 import 'playback/kept_display.dart';
 import 'playback/media3/media3_smoke.dart';
@@ -19,6 +20,7 @@ import 'l10n/l10n.dart';
 import 'ui/core/gamepad.dart';
 import 'ui/core/input_mode.dart';
 import 'ui/core/navigation.dart';
+import 'ui/core/screen_shape.dart';
 import 'ui/core/system_keyboard.dart';
 import 'ui/core/tv_scale.dart';
 import 'ui/core/ui_sounds.dart';
@@ -35,6 +37,7 @@ Future<void> main(List<String> args) async {
   WidgetsBinding.instance.addPostFrameCallback((_) => AppLog.mark('first frame'));
   if (Host.isWindows) await _initWindow();
   final services = await AppServices.create();
+  await PlayerSettings.load();
   if (Host.isDesktop && services.settings.startFullScreen) {
     debugPrint('[app] starting in full screen');
     await NativeWindow.setFullScreen(true);
@@ -51,6 +54,7 @@ Future<void> main(List<String> args) async {
     child: ZerkApp(
       initialTab: initialTab,
       bench: args.contains('--bench'),
+      script: args.where((a) => a.startsWith('--script=')).map((a) => a.substring(9)).firstOrNull,
       playerSmoke: args.contains('--player-smoke'),
       trailerSmoke: args.contains('--trailer-smoke'),
     ),
@@ -79,6 +83,7 @@ class ZerkApp extends StatefulWidget {
     super.key,
     this.initialTab = ShellTab.home,
     this.bench = false,
+    this.script,
     this.playerSmoke = false,
     this.trailerSmoke = false,
   });
@@ -86,6 +91,7 @@ class ZerkApp extends StatefulWidget {
   final ShellTab initialTab;
 
   final bool bench;
+  final String? script;
 
   final bool playerSmoke;
 
@@ -131,7 +137,8 @@ class _ZerkAppState extends State<ZerkApp> {
     if (widget.trailerSmoke) {
       WidgetsBinding.instance.addPostFrameCallback((_) => runTrailerSmoke(_navigator.currentState!));
     }
-    if (widget.bench || route == '/dev-bench') unawaited(PerfBench.run(_navigator));
+    if (widget.bench || route == '/dev-bench') unawaited(PerfBench.run(() => _navigator.currentState));
+    if (widget.script != null) unawaited(DevScript.run(widget.script!, () => _navigator.currentState));
   }
 
   @override
@@ -154,13 +161,18 @@ class _ZerkAppState extends State<ZerkApp> {
       navigatorKey: _navigator,
       navigatorObservers: [LogNavigatorObserver()],
       builder: (context, child) => InputModeDetector(
-        child: TvScale(
-          textScale: services.settings.textSize.scale,
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.f11): () => unawaited(NativeWindow.toggleFullScreen()),
-            },
-            child: BackKeys(navigatorKey: _navigator, child: ZoneNavigation(child: child!)),
+        child: ScreenShape(
+          child: TvScale(
+            textScale: services.settings.textSize.scale,
+            child: CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.f11): () => unawaited(NativeWindow.toggleFullScreen()),
+              },
+              child: BackKeys(
+                navigatorKey: _navigator,
+                child: RepaintBoundary(key: DevScript.boundary, child: ZoneNavigation(child: child!)),
+              ),
+            ),
           ),
         ),
       ),

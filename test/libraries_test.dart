@@ -18,12 +18,13 @@ void main() {
   List<String> ids(List<ServerLibrary> list) => [for (final l in list) l.id];
 
   group('Libraries', () {
-    test('music, books and live TV are left out', () {
-      expect(ids(Libraries.visible(all, const {})), ['m', 'k', 's', 'a', 'x', 'h', 'b']);
+    test('books and live TV are left out, music is shown', () {
+      expect(ids(Libraries.visible(all, const {})), ['m', 'k', 's', 'a', 'x', 'h', 'b', 'u']);
+      expect(Libraries.hasLatest(music), isFalse);
     });
 
     test('hidden libraries are left out', () {
-      expect(ids(Libraries.visible(all, {'k', 'x'})), ['m', 's', 'a', 'h', 'b']);
+      expect(ids(Libraries.visible(all, {'k', 'x'})), ['m', 's', 'a', 'h', 'b', 'u']);
     });
 
     test('pickers list only libraries of their kind that are shown', () {
@@ -40,7 +41,7 @@ void main() {
     });
 
     test('other libraries are the browsable ones that are not movies or shows', () {
-      expect([for (final l in all) if (Libraries.isOther(l)) l.id], ['x', 'h', 'b']);
+      expect([for (final l in all) if (Libraries.isOther(l)) l.id], ['x', 'h', 'b', 'u']);
       expect([for (final l in all) if (Libraries.hasLatest(l)) l.id], ['m', 'k', 's', 'a', 'x', 'h']);
     });
   });

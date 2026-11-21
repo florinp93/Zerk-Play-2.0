@@ -69,6 +69,10 @@
   "@requestFolder": {"placeholders": {"name": {"type": "String"}}},
   "sendLogs": "Send logs to the developer",
   "sendLogsHint": "Uploads the logs from this and the last session so a problem can be looked at. You get a code to share on Discord.",
+  "perfTest": "Run a performance test",
+  "perfTestHint": "Moves around Home and opens a title for about a minute to measure how smooth the app is on this device. Don't press anything until it says it's finished, then send logs.",
+  "perfTestStarting": "Performance test starting. Don't press anything for about a minute.",
+  "perfTestDone": "Performance test finished. Send logs from Settings → Diagnostics to share the results.",
   "sendLogsSending": "Sending logs…",
   "sendLogsDoneTitle": "Logs sent",
   "sendLogsDoneBody": "Share this code on Discord so your logs can be found:",
@@ -183,7 +187,21 @@
   "smoothMotion": "Smooth motion",
   "smoothMotionHint": "Resample to the display clock with frame interpolation. Needs a capable GPU.",
   "autoPlayNext": "Play next episode automatically",
-  "autoSkipIntro": "Skip intros automatically",
+  "skipIntroSetting": "Skip intro",
+  "skipCreditsSetting": "Skip credits",
+  "skipCreditsHint": "When credits start: the next episode card or a Skip credits button, skip them right away, or let them play.",
+  "skipModeOff": "Off",
+  "skipModeButton": "Show button",
+  "skipModeAuto": "Automatically",
+  "skipCredits": "Skip credits",
+  "reduceEffects": "Reduce effects",
+  "reduceEffectsHint": "Turns off the moving backdrop, glows and shadows so menus stay smooth on slower TV devices. Automatic turns it on for devices with little memory.",
+  "reduceEffectsAuto": "Automatic",
+  "reduceEffectsOn": "On",
+  "reduceEffectsOff": "Off",
+  "continueWatchingAction": "Selecting Continue watching",
+  "continueWatchingOpenDetails": "Opens details",
+  "continueWatchingPlay": "Resumes playing",
   "seekStep": "Seek step",
   "secondsCount": "{count, plural, =1{1 second} other{{count} seconds}}",
   "@secondsCount": {
@@ -1546,6 +1564,45 @@
         "type": "String"
       },
       "season": {
+        "type": "int"
+      }
+    }
+  },
+  "markSeasonWatched": "Mark {season} watched",
+  "@markSeasonWatched": {
+    "placeholders": {
+      "season": {
+        "type": "String"
+      }
+    }
+  },
+  "markSeasonUnwatched": "Mark {season} unwatched",
+  "@markSeasonUnwatched": {
+    "placeholders": {
+      "season": {
+        "type": "String"
+      }
+    }
+  },
+  "favoritesEmpty": "Nothing here yet. Press the heart on a movie, show or episode to add it.",
+  "subtitleColor": "Subtitle colour",
+  "colorWhite": "White",
+  "colorYellow": "Yellow",
+  "colorLightGrey": "Light grey",
+  "colorCyan": "Cyan",
+  "colorGreen": "Green",
+  "collectionsSource": "Collections",
+  "collectionsSourceHint": "Movie series from TMDB, the collections on your server, or both.",
+  "collectionsSourceBoth": "TMDB and server",
+  "collectionsSourceTmdb": "TMDB only",
+  "collectionsSourceServer": "Server only",
+  "noAlbums": "No albums in this library.",
+  "shuffle": "Shuffle",
+  "sortArtist": "Artist",
+  "trackCount": "{count, plural, =1{1 track} other{{count} tracks}}",
+  "@trackCount": {
+    "placeholders": {
+      "count": {
         "type": "int"
       }
     }

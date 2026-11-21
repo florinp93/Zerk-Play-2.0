@@ -5,6 +5,7 @@ import '../../core/host.dart';
 import '../../core/pick_image.dart';
 import '../../data/user_profile.dart';
 import '../../l10n/l10n.dart';
+import '../core/effects.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
@@ -152,7 +153,7 @@ class _AvatarChoice extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: focused ? Colors.white : (selected ? Zc.accent : Colors.transparent),
-              boxShadow: focused ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
+              boxShadow: focused && !Effects.reduced ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
             ),
             child: UserAvatar(url: url, name: label, size: _size),
           ),

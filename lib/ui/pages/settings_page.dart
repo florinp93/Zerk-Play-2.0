@@ -10,7 +10,9 @@ import '../../app/release.dart';
 import '../../core/host.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/log_upload.dart';
+import '../../core/log/perf_bench.dart';
 import '../../core/windows/native_window.dart';
+import '../../data/catalog_api.dart' show CollectionsSource;
 import '../../data/xtream/live_catalog.dart';
 import '../../data/xtream/xtream.dart';
 import '../../data/metadata_localizer.dart';
@@ -27,6 +29,7 @@ import '../core/tv_home.dart';
 import '../core/ui_sounds.dart';
 import '../focus/focus_zone.dart';
 import '../focus/tv_focusable.dart';
+import '../shell/shell.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/exit_app.dart';
@@ -99,6 +102,21 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool _sendingLogs = false;
+
+  Future<void> _runPerfTest(BuildContext context) async {
+    if (PerfBench.running) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final l10n = context.l10n;
+    showToast(context, l10n.perfTestStarting, duration: const Duration(seconds: 4));
+    await Future<void>.delayed(const Duration(seconds: 4));
+    Shell.goHome();
+    await PerfBench.run(() => navigator.mounted ? navigator : null, settleMs: 3000);
+    final overlay = navigator.overlay?.context;
+    if (overlay != null && overlay.mounted) {
+      UiSounds.play(UiSound.select);
+      showToast(overlay, l10n.perfTestDone, duration: const Duration(seconds: 6));
+    }
+  }
 
   Future<void> _sendLogs(BuildContext context) async {
     if (_sendingLogs) return;
@@ -211,8 +229,19 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SettingToggleRow(title: l10n.autoPlayNext, value: p.autoPlayNextEpisode,
               onChanged: (v) => _savePlayer(p.copyWith(autoPlayNextEpisode: v))),
-          SettingToggleRow(title: l10n.autoSkipIntro, value: p.skipIntroAutomatically,
-              onChanged: (v) => _savePlayer(p.copyWith(skipIntroAutomatically: v))),
+          SettingChoiceRow<SkipMode>(
+            title: l10n.skipIntroSetting,
+            value: p.skipIntro,
+            options: {SkipMode.off: l10n.skipModeOff, SkipMode.button: l10n.skipModeButton, SkipMode.auto: l10n.skipModeAuto},
+            onChanged: (v) => _savePlayer(p.copyWith(skipIntro: v)),
+          ),
+          SettingChoiceRow<SkipMode>(
+            title: l10n.skipCreditsSetting,
+            subtitle: l10n.skipCreditsHint,
+            value: p.skipCredits,
+            options: {SkipMode.off: l10n.skipModeOff, SkipMode.button: l10n.skipModeButton, SkipMode.auto: l10n.skipModeAuto},
+            onChanged: (v) => _savePlayer(p.copyWith(skipCredits: v)),
+          ),
           SettingHeader(l10n.settingsGroupSeeking),
           SettingChoiceRow<int>(
             title: l10n.seekForwardStep,
@@ -371,6 +400,18 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SubtitlePreview(settings: p),
           SettingChoiceRow<int>(
+            title: l10n.subtitleColor,
+            value: p.subtitleColor,
+            options: {
+              SubtitleStyle.white: l10n.colorWhite,
+              SubtitleStyle.yellow: l10n.colorYellow,
+              SubtitleStyle.lightGrey: l10n.colorLightGrey,
+              SubtitleStyle.cyan: l10n.colorCyan,
+              SubtitleStyle.green: l10n.colorGreen,
+            },
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleColor: v)),
+          ),
+          SettingChoiceRow<int>(
             title: l10n.subtitlePosition,
             subtitle: l10n.subtitlePositionHint,
             value: p.subtitleBottomMargin,
@@ -446,6 +487,17 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => services.updateSettings(app.copyWith(startFullScreen: v)),
             ),
           SettingToggleRow(title: l10n.navigationSounds, value: app.sounds, onChanged: (v) => services.updateSettings(app.copyWith(sounds: v))),
+          SettingChoiceRow<ReduceEffects>(
+            title: l10n.reduceEffects,
+            subtitle: l10n.reduceEffectsHint,
+            value: app.reduceEffects,
+            options: {
+              ReduceEffects.auto: l10n.reduceEffectsAuto,
+              ReduceEffects.on: l10n.reduceEffectsOn,
+              ReduceEffects.off: l10n.reduceEffectsOff,
+            },
+            onChanged: (v) => services.updateSettings(app.copyWith(reduceEffects: v)),
+          ),
           SettingHeader(l10n.settingsGroupLayout),
           SettingChoiceRow<TextSize>(
             title: l10n.textSize,
@@ -466,6 +518,17 @@ class _SettingsPageState extends State<SettingsPage> {
             value: app.posterSize,
             options: {PosterSize.small: l10n.sizeSmall, PosterSize.medium: l10n.sizeNormal, PosterSize.large: l10n.sizeLarge},
             onChanged: (v) => services.updateSettings(app.copyWith(posterSize: v)),
+          ),
+          SettingChoiceRow<CollectionsSource>(
+            title: l10n.collectionsSource,
+            subtitle: l10n.collectionsSourceHint,
+            value: app.collectionsSource,
+            options: {
+              CollectionsSource.both: l10n.collectionsSourceBoth,
+              CollectionsSource.tmdb: l10n.collectionsSourceTmdb,
+              CollectionsSource.server: l10n.collectionsSourceServer,
+            },
+            onChanged: (v) => services.updateSettings(app.copyWith(collectionsSource: v)),
           ),
           SettingChoiceRow<CollectionsView>(
             title: l10n.collectionsViewSetting,
@@ -506,6 +569,16 @@ class _SettingsPageState extends State<SettingsPage> {
               }(),
               icon: Icons.chevron_right_rounded,
               onSelect: () => Navigator.of(context).push(tvRoute<void>(const HomeRowsPage(), name: 'settings/home-rows')),
+            ),
+          if (services.isSignedIn)
+            SettingChoiceRow<ContinueWatchingAction>(
+              title: l10n.continueWatchingAction,
+              value: app.continueWatchingAction,
+              options: {
+                ContinueWatchingAction.details: l10n.continueWatchingOpenDetails,
+                ContinueWatchingAction.play: l10n.continueWatchingPlay,
+              },
+              onChanged: (v) => services.updateSettings(app.copyWith(continueWatchingAction: v)),
             ),
           if (services.isSignedIn)
             SettingActionRow(
@@ -758,6 +831,12 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.outbox_rounded,
               onSelect: () => _sendLogs(context),
             ),
+          SettingActionRow(
+            title: l10n.perfTest,
+            subtitle: l10n.perfTestHint,
+            icon: Icons.speed_rounded,
+            onSelect: () => _runPerfTest(context),
+          ),
           if (!Updater.playStore)
             SettingActionRow(
               title: l10n.checkForUpdates,

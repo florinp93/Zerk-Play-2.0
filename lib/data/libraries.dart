@@ -2,7 +2,7 @@ import '../core/emby/models/emby_item.dart';
 import 'catalog_api.dart';
 
 abstract final class Libraries {
-  static const unsupported = {'music', 'books', 'audiobooks', 'livetv', 'photos', 'playlists', 'games'};
+  static const unsupported = {'books', 'audiobooks', 'livetv', 'photos', 'playlists', 'games'};
 
   static bool isMovies(ServerLibrary l) => l.collectionType == 'movies';
 
@@ -10,9 +10,11 @@ abstract final class Libraries {
 
   static bool isCollections(ServerLibrary l) => l.collectionType == 'boxsets';
 
+  static bool isMusic(ServerLibrary l) => l.collectionType == 'music';
+
   static bool browsable(ServerLibrary l) => !unsupported.contains(l.collectionType?.toLowerCase());
 
-  static bool hasLatest(ServerLibrary l) => browsable(l) && !isCollections(l);
+  static bool hasLatest(ServerLibrary l) => browsable(l) && !isCollections(l) && !isMusic(l);
 
   static bool isOther(ServerLibrary l) => browsable(l) && !isMovies(l) && !isShows(l);
 

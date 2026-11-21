@@ -9,7 +9,12 @@ abstract final class SubtitleStyle {
   static const outline = 2.0;
   static const shadow = 2.0;
 
-  static const textColor = 0xFFFFFFFF;
+  static const white = 0xFFFFFFFF;
+  static const yellow = 0xFFFFE14D;
+  static const lightGrey = 0xFFD6D6D6;
+  static const cyan = 0xFF7FE8FF;
+  static const green = 0xFF8CF29B;
+  static const colors = [white, yellow, lightGrey, cyan, green];
   static const outlineColor = 0xFF000000;
   static const shadowColor = 0xFF000000;
 
@@ -41,7 +46,7 @@ abstract final class SubtitleStyle {
         'sub-font': 'Arial',
         'sub-bold': 'no',
         'sub-font-size': fontSize.toStringAsFixed(0),
-        'sub-color': _mpvColor(textColor),
+        'sub-color': _mpvColor(s.subtitleColor),
         if (s.subtitleBackground) ...{
           'sub-border-style': 'opaque-box',
           'sub-border-color': _mpvColor(boxColor(s)),
@@ -65,7 +70,7 @@ abstract final class SubtitleStyle {
         'textSizeFraction': fontSize / reference * s.subtitleScale,
         'bottomPaddingFraction': s.subtitleBottomMargin / reference,
         'shadowOffsetFraction': shadow / reference * s.subtitleScale,
-        'textColor': textColor,
+        'textColor': s.subtitleColor,
         'outlineColor': outlineColor,
         'shadowColor': shadowColor,
         'background': s.subtitleBackground,

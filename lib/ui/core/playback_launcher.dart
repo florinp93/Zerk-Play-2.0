@@ -79,6 +79,7 @@ Future<PlaybackOutcome?> playItem(
   String? mediaSourceId,
   int? audioIndex,
   int? subtitleIndex,
+  List<EmbyItem> queue = const [],
 }) async {
   if (_playing) return null;
   _setPlaying(true);
@@ -88,9 +89,11 @@ Future<PlaybackOutcome?> playItem(
     final navigator = Navigator.of(context, rootNavigator: true);
     TrailerController.suspendAll();
     await TrailerPlayer.stopAll();
+    final resent = await services.playback.flushPendingStops().timeout(const Duration(seconds: 3), onTimeout: () => {});
     final target = item.isSeries || item.isSeason ? await services.catalog.episodeToPlay(item) : item;
     if (target == null) return null;
-    final full = target.mediaSources.isNotEmpty || target.isChannel ? target : await services.catalog.item(target.id);
+    final stale = resent.contains(target.id) && start == null;
+    final full = (target.mediaSources.isNotEmpty || target.isChannel) && !stale ? target : await services.catalog.item(target.id);
     final settings = await PlayerSettings.load();
     final acceptBadCerts = services.settings.acceptInvalidCertificates;
     final session = PlaybackSession(
@@ -106,6 +109,7 @@ Future<PlaybackOutcome?> playItem(
         logo: services.catalog.logo(item),
         still: services.catalog.landscape(item, width: 640),
       ),
+      cover: (item) => services.catalog.albumCover(item, width: 800),
       localize: services.catalog.localize,
       together: services.together,
       avatarOf: (member) => memberAvatar(services, member),
@@ -126,6 +130,7 @@ Future<PlaybackOutcome?> playItem(
       mediaSourceId: mediaSourceId,
       audioIndex: audioIndex,
       subtitleIndex: subtitleIndex,
+      queue: queue,
     ));
     services.markLibraryChanged();
     return PlaybackOutcome(reason, session.lastItem ?? full);

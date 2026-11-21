@@ -1,9 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'subtitle_style.dart';
 import 'transcode_quality.dart';
+
+enum SkipMode { off, button, auto }
 
 enum SubtitleMode {
   off,
@@ -44,8 +47,10 @@ final class PlayerSettings {
     this.overrideAssStyles = false,
     this.subtitleBackground = false,
     this.subtitleBackgroundOpacity = 0.6,
+    this.subtitleColor = SubtitleStyle.white,
     this.volume = 100,
-    this.skipIntroAutomatically = false,
+    this.skipIntro = SkipMode.button,
+    this.skipCredits = SkipMode.button,
     this.autoPlayNextEpisode = true,
     this.seekForwardSeconds = 10,
     this.seekBackSeconds = 10,
@@ -95,8 +100,10 @@ final class PlayerSettings {
   final bool subtitleBackground;
 
   final double subtitleBackgroundOpacity;
+  final int subtitleColor;
   final double volume;
-  final bool skipIntroAutomatically;
+  final SkipMode skipIntro;
+  final SkipMode skipCredits;
   final bool autoPlayNextEpisode;
   final int seekForwardSeconds;
   final int seekBackSeconds;
@@ -157,8 +164,10 @@ final class PlayerSettings {
     bool? overrideAssStyles,
     bool? subtitleBackground,
     double? subtitleBackgroundOpacity,
+    int? subtitleColor,
     double? volume,
-    bool? skipIntroAutomatically,
+    SkipMode? skipIntro,
+    SkipMode? skipCredits,
     bool? autoPlayNextEpisode,
     int? seekForwardSeconds,
     int? seekBackSeconds,
@@ -198,8 +207,10 @@ final class PlayerSettings {
       overrideAssStyles: overrideAssStyles ?? this.overrideAssStyles,
       subtitleBackground: subtitleBackground ?? this.subtitleBackground,
       subtitleBackgroundOpacity: subtitleBackgroundOpacity ?? this.subtitleBackgroundOpacity,
+      subtitleColor: subtitleColor ?? this.subtitleColor,
       volume: volume ?? this.volume,
-      skipIntroAutomatically: skipIntroAutomatically ?? this.skipIntroAutomatically,
+      skipIntro: skipIntro ?? this.skipIntro,
+      skipCredits: skipCredits ?? this.skipCredits,
       autoPlayNextEpisode: autoPlayNextEpisode ?? this.autoPlayNextEpisode,
       seekForwardSeconds: seekForwardSeconds ?? this.seekForwardSeconds,
       seekBackSeconds: seekBackSeconds ?? this.seekBackSeconds,
@@ -241,8 +252,10 @@ final class PlayerSettings {
         'assOverride': overrideAssStyles,
         'subBg': subtitleBackground,
         'subBgOpacity': subtitleBackgroundOpacity,
+        'subColor': subtitleColor,
         'volume': volume,
-        'autoSkipIntro': skipIntroAutomatically,
+        'skipIntro': skipIntro.name,
+        'skipCredits': skipCredits.name,
         'autoNext': autoPlayNextEpisode,
         'seekForward': seekForwardSeconds,
         'seekBack': seekBackSeconds,
@@ -296,8 +309,11 @@ final class PlayerSettings {
       overrideAssStyles: pick('assOverride', d.overrideAssStyles),
       subtitleBackground: pick('subBg', d.subtitleBackground),
       subtitleBackgroundOpacity: pick('subBgOpacity', d.subtitleBackgroundOpacity),
+      subtitleColor: SubtitleStyle.colors.contains(j['subColor']) ? j['subColor'] as int : d.subtitleColor,
       volume: pick('volume', d.volume),
-      skipIntroAutomatically: pick('autoSkipIntro', d.skipIntroAutomatically),
+      skipIntro: SkipMode.values.asNameMap()[j['skipIntro']] ??
+          (j['autoSkipIntro'] == true ? SkipMode.auto : d.skipIntro),
+      skipCredits: SkipMode.values.asNameMap()[j['skipCredits']] ?? d.skipCredits,
       autoPlayNextEpisode: pick('autoNext', d.autoPlayNextEpisode),
       seekForwardSeconds: pick('seekForward', pick('seekStep', d.seekForwardSeconds)),
       seekBackSeconds: pick('seekBack', pick('seekStep', d.seekBackSeconds)),
@@ -323,19 +339,26 @@ final class PlayerSettings {
 
   static const _key = 'player.settings.v2';
 
+  static final screen = ValueNotifier((scope: 0.0, anamorphic: 1.0));
+
+  void _publishScreen() => screen.value = (scope: scopeScreen, anamorphic: anamorphic);
+
   static Future<PlayerSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
-    if (raw == null) return const PlayerSettings();
-    try {
-      return PlayerSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      return const PlayerSettings();
+    var settings = const PlayerSettings();
+    if (raw != null) {
+      try {
+        settings = PlayerSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      } catch (_) {}
     }
+    settings._publishScreen();
+    return settings;
   }
 
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(toJson()));
+    _publishScreen();
   }
 }

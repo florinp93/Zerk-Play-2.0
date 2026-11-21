@@ -24,6 +24,7 @@ import '../data/xtream/xtream.dart';
 import '../playback/emby_playback_api.dart';
 import '../playback/sync/watch_together.dart';
 import '../services/janus/janus_service.dart';
+import '../ui/core/effects.dart';
 import '../ui/core/ui_sounds.dart';
 import 'app_settings.dart';
 import 'hub_link.dart';
@@ -78,7 +79,10 @@ final class AppServices extends ChangeNotifier {
     libraryChanged.value++;
   }
 
-  void _syncHidden() => catalog.hiddenLibraries = hiddenLibraries;
+  void _syncHidden() {
+    catalog.hiddenLibraries = hiddenLibraries;
+    catalog.collectionsSource = _settings.collectionsSource;
+  }
 
   List<ServerLibrary>? _libraries;
   Future<List<ServerLibrary>>? _librariesLoad;
@@ -171,6 +175,7 @@ final class AppServices extends ChangeNotifier {
     await HubLink.load();
     if (settings.acceptInvalidCertificates) trustAllCertificates();
     UiSounds.enabled = settings.sounds;
+    Effects.apply(settings.reduceEffects);
     RecommendationFilter.hideAnimation = settings.hideAnimation;
 
     final janus = JanusService(
@@ -200,6 +205,7 @@ final class AppServices extends ChangeNotifier {
       unawaited(services.playback.registerCapabilities().catchError((Object e) {
         debugPrint('[emby] capabilities: $e');
       }));
+      unawaited(services.playback.flushPendingStops());
     }
     if (HubLink.due) unawaited(services.refreshHub());
     services._hubTimer = Timer.periodic(const Duration(minutes: 30), (_) {
@@ -269,6 +275,7 @@ final class AppServices extends ChangeNotifier {
     _settings = next;
     _syncHidden();
     UiSounds.enabled = next.sounds;
+    Effects.apply(next.reduceEffects);
     RecommendationFilter.hideAnimation = next.hideAnimation;
     _rebuildSeerr();
     if (metadataChanged) _rebuildMetadata();

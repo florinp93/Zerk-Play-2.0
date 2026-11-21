@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/emby/emby_api_exception.dart';
 import '../core/emby/models/emby_item.dart';
 import '../core/emby/models/media_source.dart';
 import '../core/host.dart';
 import '../services/janus/janus_service.dart';
 import 'device_profile.dart';
 import 'media3/device_caps.dart';
+import 'pending_stops.dart';
 import 'player_settings.dart';
 import 'trickplay.dart';
 
@@ -246,6 +248,7 @@ final class EmbyPlaybackApi {
     String? mediaSourceId,
     bool streamSubtitles = false,
     bool transcode = false,
+    bool audio = false,
   }) {
     final source = info.mediaSources.firstWhere(
       (m) => m.id == mediaSourceId,
@@ -259,7 +262,7 @@ final class EmbyPlaybackApi {
       final containers = (source.container ?? (live != null ? 'ts' : 'mkv')).split(',');
       final container = containers.contains('mp4') ? 'mp4' : containers.first;
       return ResolvedStream(
-        url: _janus.client.buildUri('/Videos/$itemId/stream.$container', queryParameters: {
+        url: _janus.client.buildUri('/${audio ? 'Audio' : 'Videos'}/$itemId/stream.$container', queryParameters: {
           'Static': 'true',
           'MediaSourceId': source.id,
           'LiveStreamId': ?live,
@@ -367,8 +370,62 @@ final class EmbyPlaybackApi {
   Future<void> reportProgress(PlaybackReport r) => _janus.client
       .postNoContent('/Sessions/Playing/Progress', body: r.toJson(_janus.session.deviceId));
 
-  Future<void> reportStopped(PlaybackReport r) => _janus.client
-      .postNoContent('/Sessions/Playing/Stopped', body: r.toJson(_janus.session.deviceId));
+  String get _owner => '${_janus.session.serverUrl}|${_janus.session.userId}';
+
+  PendingStop _pending(PlaybackReport r) =>
+      PendingStop(owner: _owner, body: r.toJson(_janus.session.deviceId), at: DateTime.now());
+
+  Future<void> rememberPosition(PlaybackReport r) async {
+    try {
+      await PendingStops.put(_pending(r));
+    } catch (e) {
+      debugPrint('[session] could not keep position: $e');
+    }
+  }
+
+  Future<bool> reportStoppedKept(PlaybackReport r) async {
+    final pending = _pending(r);
+    await rememberPosition(r);
+    try {
+      await _janus.client.postNoContent('/Sessions/Playing/Stopped', body: pending.body);
+      await PendingStops.remove(pending);
+      return true;
+    } catch (e) {
+      debugPrint('[session] stop report failed, kept for retry: $e');
+      return false;
+    }
+  }
+
+  Future<Set<String>> flushPendingStops() async {
+    final sent = <String>{};
+    if (!_janus.isAuthenticated) return sent;
+    final mine = (await PendingStops.load()).where((s) => s.owner == _owner).toList();
+    for (final stop in mine) {
+      try {
+        final userId = _janus.session.userId;
+        final json = _jellyfin
+            ? await _janus.client.getJson('/Items/${stop.itemId}', queryParameters: {'userId': userId})
+            : await _janus.client.getJson('/Users/$userId/Items/${stop.itemId}');
+        final last = DateTime.tryParse('${(json['UserData'] as Map?)?['LastPlayedDate']}');
+        if (last != null && last.isAfter(stop.at.add(const Duration(minutes: 1)))) {
+          debugPrint('[session] dropping kept position for ${stop.itemId}: played elsewhere since');
+        } else {
+          await _janus.client.postNoContent('/Sessions/Playing/Stopped', body: stop.body);
+          sent.add(stop.itemId);
+          debugPrint('[session] sent kept position for ${stop.itemId} '
+              '(${Duration(microseconds: ((stop.body['PositionTicks'] as num?) ?? 0) ~/ 10)}) from ${stop.at}');
+        }
+        await PendingStops.remove(stop);
+      } on EmbyApiException catch (e) {
+        debugPrint('[session] kept position for ${stop.itemId} refused: $e');
+        if (e.statusCode == 404 || e.statusCode == 400) await PendingStops.remove(stop);
+      } catch (e) {
+        debugPrint('[session] kept positions not sent yet: $e');
+        return sent;
+      }
+    }
+    return sent;
+  }
 
   Future<void> stopTranscode(String playSessionId) async {
     try {

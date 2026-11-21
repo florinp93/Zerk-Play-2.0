@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/effects.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
 
@@ -32,7 +33,9 @@ class FocusFrame extends StatelessWidget {
         curve: Zm.curve,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: focused ? [BoxShadow(color: glowColor.withValues(alpha: 0.45), blurRadius: 36, spreadRadius: 2)] : null,
+          boxShadow: focused && !Effects.reduced
+              ? [BoxShadow(color: glowColor.withValues(alpha: 0.45), blurRadius: 36, spreadRadius: 2)]
+              : null,
         ),
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
@@ -182,7 +185,7 @@ class TvButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(32),
-              boxShadow: focused ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
+              boxShadow: focused && !Effects.reduced ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
             ),
             child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
               if (icon != null) Icon(icon, color: ic, size: 30),
@@ -232,7 +235,7 @@ class ExpandingPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(32),
-          boxShadow: focused ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
+          boxShadow: focused && !Effects.reduced ? [BoxShadow(color: Colors.white.withValues(alpha: 0.25), blurRadius: 24)] : null,
         ),
         child: AnimatedSize(
           duration: Zm.fast,

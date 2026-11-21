@@ -28,6 +28,8 @@ class NetImageProvider extends ImageProvider<NetImageProvider> {
     );
   }
 
+  Future<ui.Codec> codec(ImageDecoderCallback decode) => _load(decode);
+
   Future<ui.Codec> _load(ImageDecoderCallback decode) async {
     final bytes = await _bytes();
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);

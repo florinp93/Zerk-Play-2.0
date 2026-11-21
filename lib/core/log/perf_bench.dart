@@ -13,20 +13,36 @@ import '../host.dart';
 abstract final class PerfBench {
   static final _timings = <FrameTiming>[];
   static bool _recording = false;
+  static bool _listening = false;
+  static bool running = false;
 
-  static Future<void> run(GlobalKey<NavigatorState> navigator) async {
-    if (kReleaseMode) return;
-    SchedulerBinding.instance.addTimingsCallback((t) {
-      if (_recording) _timings.addAll(t);
-    });
+  static Future<void> run(NavigatorState? Function() navigator, {int settleMs = 10000}) async {
+    if (running) return;
+    running = true;
+    try {
+      await _run(navigator, settleMs);
+    } finally {
+      _recording = false;
+      running = false;
+    }
+  }
+
+  static Future<void> _run(NavigatorState? Function() navigator, int settleMs) async {
+    if (!_listening) {
+      _listening = true;
+      SchedulerBinding.instance.addTimingsCallback((t) {
+        if (_recording) _timings.addAll(t);
+      });
+    }
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
     String size(Size s) => '${s.width.round()}x${s.height.round()}';
-    debugPrint('[bench] view ${size(view.physicalSize)} dpr ${view.devicePixelRatio} display ${size(view.display.size)}; '
-        'waiting for Home');
+    final mode = kReleaseMode ? 'release' : kProfileMode ? 'profile' : 'debug';
+    debugPrint('[bench] $mode build, view ${size(view.physicalSize)} dpr ${view.devicePixelRatio} '
+        'display ${size(view.display.size)}${_memory()}; waiting for Home');
     while (HomePage.firstLoad.value) {
       await _wait(200);
     }
-    await _wait(10000);
+    await _wait(settleMs);
     InputMode.useDpad();
 
     await _scenario('idle_home', () => _wait(10000));
@@ -69,7 +85,7 @@ abstract final class PerfBench {
       await _wait(12000);
     });
     await _scenario('details_back', () async {
-      await navigator.currentState?.maybePop();
+      await navigator()?.maybePop();
       await _wait(4000);
     });
     debugPrint('[bench] done');
@@ -105,6 +121,19 @@ abstract final class PerfBench {
     return 'frames=${frames.length} build=${pct(frames.map((f) => f.buildDuration))} '
         'raster=${pct(frames.map((f) => f.rasterDuration))} total=${pct(frames.map((f) => f.totalSpan))} '
         'over16=$over16 over33=$over33';
+  }
+
+  static String _memory() {
+    if (!Host.isAndroid && !Host.isLinux) return '';
+    try {
+      final info = File('/proc/meminfo').readAsStringSync();
+      int? kb(String key) => int.tryParse(RegExp('$key:' r'\s+(\d+)').firstMatch(info)?.group(1) ?? '');
+      final total = kb('MemTotal'), available = kb('MemAvailable');
+      if (total == null) return '';
+      return ', ram ${total ~/ 1024} MB${available == null ? '' : ' (${available ~/ 1024} MB free)'}';
+    } catch (_) {
+      return '';
+    }
   }
 
   static int? _cpuMs() {

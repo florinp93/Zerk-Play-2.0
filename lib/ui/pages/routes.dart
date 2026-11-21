@@ -5,6 +5,7 @@ import '../../data/seerr_api.dart';
 import '../core/navigation.dart';
 import 'collection_page.dart';
 import 'details_page.dart';
+import 'music_pages.dart';
 import 'person_page.dart';
 import 'request_page.dart';
 import 'series_page.dart';
@@ -17,6 +18,8 @@ Route<void> itemRoute(EmbyItem item) {
   if (item.isSeason && item.seriesId != null) {
     return tvRoute(SeriesPage(seriesId: item.seriesId!, initialSeasonId: item.id), name: 'series:${item.seriesId}');
   }
+  if (item.isMusicAlbum) return albumRoute(item.id);
+  if (item.isAudio && item.albumId != null) return albumRoute(item.albumId!);
   if (item.isCollection) {
     final key = item.id.isEmpty ? 'tmdb${item.tmdbId}' : item.id;
     return tvRoute(CollectionPage(collection: item), name: 'collection:$key');

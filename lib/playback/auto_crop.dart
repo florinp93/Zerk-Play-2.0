@@ -48,16 +48,21 @@ final class AutoCrop {
   static const maxBars = 0.23;
   static const asymmetry = 0.02;
   static const confirmations = 3;
+  static const lateConfirmations = 6;
+  static const shrinkConfirmations = 2;
   static const settle = Duration(minutes: 2);
   static const searchInterval = Duration(seconds: 3);
   static const watchInterval = Duration(seconds: 2);
+  static const idleInterval = Duration(seconds: 8);
 
   double _bars = 0;
   bool _locked = false;
   bool _probing = false;
   double _probeFrom = 0;
   Duration? _since;
+  Duration _at = Duration.zero;
   final _run = <double>[];
+  final _lower = <double>[];
 
   double get bars => _bars;
 
@@ -65,10 +70,16 @@ final class AutoCrop {
 
   double get crop => _bars <= 0 ? 0 : math.max(0, _bars - edge);
 
+  bool get _settled {
+    final since = _since;
+    return since != null && _at - since >= settle;
+  }
+
   Duration get interval {
     if (_probing) return searchInterval;
-    if (_bars > 0) return watchInterval;
-    return _locked ? Duration.zero : searchInterval;
+    if (_bars > 0) return _settled ? idleInterval : watchInterval;
+    if (_locked) return Duration.zero;
+    return _settled ? idleInterval : searchInterval;
   }
 
   CropDecision get decision => CropDecision(crop, interval);
@@ -79,10 +90,22 @@ final class AutoCrop {
     _probing = false;
     _probeFrom = 0;
     _since = null;
+    _at = Duration.zero;
     _run.clear();
+    _lower.clear();
+  }
+
+  static void _collect(List<double> run, double m) {
+    run.add(m);
+    if (run.reduce(math.max) - run.reduce(math.min) > tolerance) {
+      run
+        ..clear()
+        ..add(m);
+    }
   }
 
   CropDecision add(BarSample s, Duration at) {
+    _at = at;
     if (s.clipped) {
       if (_bars > 0) {
         _probeFrom = _bars;
@@ -91,6 +114,7 @@ final class AutoCrop {
         _locked = true;
         _since = null;
         _run.clear();
+        _lower.clear();
       }
       return decision;
     }
@@ -107,30 +131,29 @@ final class AutoCrop {
       return decision;
     }
     if (m < _bars - tolerance) {
-      _bars = m;
+      _collect(_lower, m);
+      if (_lower.length < shrinkConfirmations) return decision;
+      _bars = _lower.reduce(math.min);
       _locked = true;
       _since = at;
       _run.clear();
+      _lower.clear();
       return decision;
     }
+    _lower.clear();
     if (m <= _bars + tolerance) {
       _run.clear();
       final since = _since;
       if (since == null || at < since) {
         _since = at;
-      } else if (at - since >= settle) {
+      } else if (at - since >= settle && _bars > 0) {
         _locked = true;
       }
       return decision;
     }
     if (_locked) return decision;
-    _run.add(m);
-    if (_run.reduce(math.max) - _run.reduce(math.min) > tolerance) {
-      _run
-        ..clear()
-        ..add(m);
-    }
-    if (_run.length >= confirmations) {
+    _collect(_run, m);
+    if (_run.length >= (_bars <= 0 && _settled ? lateConfirmations : confirmations)) {
       _bars = _run.reduce(math.min);
       _since = at;
       _run.clear();

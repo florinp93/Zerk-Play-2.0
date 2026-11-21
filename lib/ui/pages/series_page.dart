@@ -193,6 +193,34 @@ class _SeriesPageState extends State<SeriesPage> {
     }
   }
 
+  Future<void> _toggleFavorite() async {
+    final series = _series!;
+    final services = AppServicesScope.read(context);
+    try {
+      await services.catalog.setFavorite(series.id, !series.isFavorite);
+      setState(() => _series = series.copyWithUserData(isFavorite: !series.isFavorite));
+      services.markLibraryChanged();
+    } catch (_) {
+      UiSounds.play(UiSound.error);
+    }
+  }
+
+  EmbyItem? get _selectedSeason => _seasons.where((s) => s.id == _seasonId).firstOrNull;
+
+  Future<void> _toggleSeasonWatched() async {
+    final season = _selectedSeason;
+    if (season == null) return;
+    final services = AppServicesScope.read(context);
+    try {
+      await services.catalog.setPlayed(season.id, !season.isPlayed);
+      services.markLibraryChanged();
+      _episodes.remove(season.id);
+      await _load(seasonId: season.id);
+    } catch (_) {
+      UiSounds.play(UiSound.error);
+    }
+  }
+
   int? get _reportSeason => _seasons.where((s) => s.id == _seasonId).firstOrNull?.indexNumber;
 
   Future<void> _reportProblem() async {
@@ -217,6 +245,7 @@ class _SeriesPageState extends State<SeriesPage> {
     final l10n = context.l10n;
     final size = MediaQuery.sizeOf(context);
     final episodes = _seasonId == null ? null : _episodes[_seasonId];
+    final selectedSeason = _seasons.length > 1 ? _selectedSeason : null;
     final next = _nextUp;
     final playLabel = next == null
         ? l10n.play
@@ -272,6 +301,21 @@ class _SeriesPageState extends State<SeriesPage> {
                   icon: series.isPlayed ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
                   collapsed: true,
                   onSelect: _toggleWatched,
+                ),
+                if (selectedSeason != null)
+                  TvButton(
+                    label: _seasonLabel(l10n, selectedSeason),
+                    icon: selectedSeason.isPlayed ? Icons.playlist_add_check_rounded : Icons.playlist_play_rounded,
+                    collapsed: true,
+                    onSelect: _toggleSeasonWatched,
+                  ),
+                TvButton(
+                  label: l10n.favorite,
+                  icon: series.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  iconColor: series.isFavorite ? Zc.favorite : null,
+                  focusedIconColor: series.isFavorite ? Zc.favoriteOnLight : null,
+                  collapsed: true,
+                  onSelect: _toggleFavorite,
                 ),
                 if (canReportProblem(s) && series.tmdbId != null && _reportSeason != null)
                   TvButton(label: l10n.reportProblem, icon: Icons.report_problem_outlined, collapsed: true, onSelect: _reportProblem),
@@ -372,6 +416,11 @@ class _SeriesPageState extends State<SeriesPage> {
         ),
       ),
     );
+  }
+
+  static String _seasonLabel(L10n l10n, EmbyItem season) {
+    final name = season.indexNumber == 0 ? l10n.specials : season.name;
+    return season.isPlayed ? l10n.markSeasonUnwatched(name) : l10n.markSeasonWatched(name);
   }
 
   static String? _years(L10n l10n, EmbyItem s) {
