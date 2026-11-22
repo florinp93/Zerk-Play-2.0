@@ -770,5 +770,8 @@
   "countdownDays": "{count, plural, =1{Mâine} few{În {count} zile} other{În {count} de zile}}",
   "countdownToday": "Apare azi",
   "countdownOut": "A apărut",
-  "eventSpotlightRow": "{event}: în prim-plan"
+  "openEvent": "Deschide evenimentul",
+  "watchNext": "Vezi următorul",
+  "watchNextTitle": "Urmează: {title}",
+  "eventProgress": "{watched} din {total} văzute"
 }

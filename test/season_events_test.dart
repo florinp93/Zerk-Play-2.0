@@ -59,10 +59,10 @@ void main() {
   });
 
   test('home row ids round-trip', () {
-    expect(HomeRows.eventOf(HomeRows.eventSpotlight('abc')), (event: 'abc', row: null));
-    expect(HomeRows.eventOf(HomeRows.eventRow('abc', 1)), (event: 'abc', row: 1));
-    expect(HomeRows.eventOf('event:abc:0'), isNull);
+    expect(HomeRows.eventOf(HomeRows.event('abc')), 'abc');
+    expect(HomeRows.eventOf('event:abc:spot'), isNull);
+    expect(HomeRows.eventOf('event:'), isNull);
     expect(HomeRows.eventOf('latest:abc'), isNull);
-    expect(HomeRows.generated(HomeRows.eventRow('abc', 0)), isNull);
+    expect(HomeRows.generated(HomeRows.event('abc')), isNull);
   });
 }

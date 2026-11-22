@@ -276,6 +276,20 @@ enum RevealMode {
   anchored,
 }
 
+class RevealBox extends StatefulWidget {
+  const RevealBox({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<RevealBox> createState() => _RevealBoxState();
+}
+
+class _RevealBoxState extends State<RevealBox> {
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class RevealController extends ScrollController {
   RevealController({this.mode = RevealMode.minimal, this.anchor = 0, this.margin = 48, super.initialScrollOffset});
 
@@ -294,8 +308,15 @@ void revealFocused(BuildContext context, {Duration duration = const Duration(mil
       break;
     }
   }
+  final box = context.findAncestorStateOfType<_RevealBoxState>();
   while (scrollable != null && target != null && target.attached) {
     final position = scrollable.position;
+    if (box != null &&
+        box.mounted &&
+        axisDirectionToAxis(position.axisDirection) == Axis.vertical &&
+        Scrollable.maybeOf(box.context) == scrollable) {
+      target = box.context.findRenderObject() ?? target;
+    }
     final viewport = RenderAbstractViewport.maybeOf(target);
     if (viewport == null) break;
     final controller = scrollable.widget.controller;

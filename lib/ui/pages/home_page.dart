@@ -22,12 +22,13 @@ import '../theme/tokens.dart';
 import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/cinema_loader.dart';
-import '../widgets/event_spotlight.dart';
+import '../widgets/event_panel.dart';
 import '../widgets/media_row.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/mixed_cards.dart';
 import '../widgets/mood_shelf.dart';
 import '../widgets/trailer.dart';
+import 'event_page.dart';
 import 'hero.dart';
 import 'home_rows_page.dart';
 import 'title_extras.dart';
@@ -36,7 +37,7 @@ import 'routes.dart';
 enum _Kind {
   cards,
 
-  spotlight,
+  event,
 
   continueWatching,
   collections,
@@ -294,16 +295,15 @@ class _HomePageState extends State<HomePage> {
     final r = s.recommender;
     Future<MixedItems> items(Future<ItemPage> page) async => (await page).items;
 
-    if (HomeRows.eventOf(id) case (:final event, :final row)) {
+    if (HomeRows.eventOf(id) case final event?) {
       final e = s.activeEvents.where((x) => x.id == event).firstOrNull;
       if (e == null) return const [];
-      final loader = s.eventLoader;
-      if (row == null) {
-        return [_Row((l) => e.name, () => loader.spotlight(e), kind: _Kind.spotlight, recommends: false)];
-      }
-      if (row >= e.rows.length) return const [];
-      final r = e.rows[row];
-      return [_Row((l) => r.title, () => loader.row(r), recommends: false)];
+      return [
+        _Row((l) => e.name, () async {
+          final content = await s.eventLoader.content(e);
+          return content.total == 0 && content.target == null ? const [] : [content];
+        }, kind: _Kind.event, recommends: false),
+      ];
     }
 
     if (HomeRows.libraryOf(id) case final libraryId?) {
@@ -532,12 +532,12 @@ class _HomePageState extends State<HomePage> {
     _hero.set(
         switch (data) {
           final EmbyItem item => HeroInfo.fromItem(l10n, AppServicesScope.read(context), item),
-          final SpotlightCardData s => HeroInfo(
-              key: 'event:${s.event.id}',
-              title: s.spotlight.title,
-              backdrop: s.backdrop,
-              overview: s.spotlight.text,
-              meta: [s.event.name, countdownLabel(l10n, s.spotlight, DateTime.now())],
+          final EventContent e => HeroInfo(
+              key: 'event:${e.event.id}',
+              title: e.title,
+              backdrop: e.backdrop,
+              overview: e.event.spotlight?.text,
+              meta: [e.event.name, countdownLabel(l10n, e.event.spotlight, DateTime.now())],
             ),
           _ => HeroInfo.fromRequest(l10n, data as SeerrMedia),
         },
@@ -631,7 +631,7 @@ class _HomePageState extends State<HomePage> {
         final (cardW, areaH) = switch (row.kind) {
           _Kind.collections => (560.0, 560 * 0.42 + 44),
           _Kind.continueWatching => (Zs.landscapeWidth, cardAreaHeight(CardStyle.landscape)),
-          _Kind.spotlight => (eventSpotlightWidth, eventSpotlightHeight + 44),
+          _Kind.event => (cardWidth(CardStyle.poster), cardAreaHeight(CardStyle.poster) + 40),
           _ => (cardWidth(row.style), cardAreaHeight(row.style)),
         };
         if (snap.data == null && !snap.hasError) {
@@ -650,6 +650,24 @@ class _HomePageState extends State<HomePage> {
           scheduleMicrotask(() {
             if (mounted) _focusData(firstItem, immediate: true);
           });
+        }
+
+        if (items.first case final EventContent content) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: Zs.rowGap),
+            child: EventPanel(
+              content: content,
+              autofocus: first,
+              onOpen: () => Navigator.of(context).push(eventRoute(content.event)),
+              onOpenItem: (item) => switch (item) {
+                final EmbyItem i => openItem(context, i),
+                final SeerrMedia m => openRequest(context, m),
+                _ => null,
+              },
+              onFocusEvent: () => _focusData(content),
+              onFocusItem: _focusData,
+            ),
+          );
         }
 
         return Padding(
@@ -675,18 +693,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _card(_Row row, Object data, {required int rank, required bool autofocus}) {
-    if (data is SpotlightCardData) {
-      return EventSpotlightCard(
-        data: data,
-        autofocus: autofocus,
-        onFocus: () => _focusData(data),
-        onSelect: switch (data.target) {
-          final EmbyItem item => () => openItem(context, item),
-          final SeerrMedia media => () => openRequest(context, media),
-          _ => null,
-        },
-      );
-    }
     if (row.kind == _Kind.collections && data is EmbyItem) {
       return CollectionCard(item: data, autofocus: autofocus, onFocus: () => _focusData(data), onSelect: () => openItem(context, data));
     }

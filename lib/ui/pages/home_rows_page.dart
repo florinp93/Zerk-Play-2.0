@@ -22,10 +22,7 @@ List<HomeRowDef> homeRowDefaults(AppServices s) {
   final at = defaults.indexWhere((d) => d.id == HomeRows.nextUp) + 1;
   return [
     ...defaults.take(at),
-    for (final e in s.activeEvents) ...[
-      if (e.spotlight != null) HomeRowDef(HomeRows.eventSpotlight(e.id)),
-      for (final (i, _) in e.rows.indexed) HomeRowDef(HomeRows.eventRow(e.id, i)),
-    ],
+    for (final e in s.activeEvents) HomeRowDef(HomeRows.event(e.id)),
     ...defaults.skip(at),
   ];
 }
@@ -36,11 +33,7 @@ HomeRowLayout homeRowLayout(AppServices s) =>
 String homeRowLabel(L10n l, String id,
     {Map<String, ServerLibrary> libraries = const {}, List<SeasonEvent> events = const []}) {
   if (HomeRows.libraryOf(id) case final library?) return l.latestIn(libraries[library]?.name ?? library);
-  if (HomeRows.eventOf(id) case (:final event, :final row)) {
-    final e = events.where((x) => x.id == event).firstOrNull;
-    if (e == null) return event;
-    return row == null ? l.eventSpotlightRow(e.name) : e.rows[row].title;
-  }
+  if (HomeRows.eventOf(id) case final event?) return events.where((x) => x.id == event).firstOrNull?.name ?? event;
   if (HomeRows.generated(id) case (:final kind, :final index)) {
     final name = switch (kind) {
       HomeRows.becauseMovie => l.homeRowBecauseMovie,

@@ -146,14 +146,42 @@ final class SeasonEvent {
   static List<SeasonEvent> active(List<SeasonEvent> events, DateTime now) => [for (final e in events) if (e.activeOn(now)) e];
 }
 
-final class SpotlightCardData {
-  const SpotlightCardData({required this.event, required this.backdrop, this.target});
+final class EventContent {
+  EventContent({required this.event, required this.backdrop, required this.target, required this.rows});
 
   final SeasonEvent event;
   final Uri? backdrop;
   final Object? target;
+  final List<(EventRow, MixedItems)> rows;
 
-  EventSpotlight get spotlight => event.spotlight!;
+  String get title => event.spotlight?.title ?? event.name;
+
+  static String _key(Object i) => i is EmbyItem ? i.id : (i as SeerrMedia).key;
+
+  late final List<Object> titles = () {
+    final seen = <String>{};
+    return [
+      for (final (_, items) in rows)
+        for (final i in items)
+          if (seen.add(_key(i))) i,
+    ];
+  }();
+
+  int get total => titles.length;
+
+  int get watched => titles.where((i) => i is EmbyItem && i.isPlayed).length;
+
+  double get progress => total == 0 ? 0 : watched / total;
+
+  MixedItems get _order => rows.isEmpty ? const [] : rows.map((r) => r.$2).reduce((a, b) => b.length > a.length ? b : a);
+
+  EmbyItem? get next => _order.whereType<EmbyItem>().where((i) => !i.isPlayed).firstOrNull;
+
+  MixedItems upNext({int limit = 20}) {
+    final order = _order;
+    final from = order.indexWhere((i) => i is! EmbyItem || !i.isPlayed);
+    return from < 0 ? const [] : order.skip(from).take(limit).toList();
+  }
 }
 
 final class SeasonEventLoader {
@@ -255,12 +283,16 @@ final class SeasonEventLoader {
     return [...items]..sort((a, b) => name(a).compareTo(name(b)));
   }
 
-  Future<MixedItems> spotlight(SeasonEvent event) async {
-    final s = event.spotlight;
-    if (s == null) return const [];
+  Future<EventContent> content(SeasonEvent event) async {
+    final rows = Future.wait([
+      for (final r in event.rows) row(r).catchError((Object e) {
+        debugPrint('[events] ${r.title}: $e');
+        return const <Object>[];
+      }),
+    ]);
     Object? target;
-    Uri? backdrop = s.image;
-    final ref = s.tmdb;
+    Uri? backdrop = event.spotlight?.image;
+    final ref = event.spotlight?.tmdb;
     if (ref != null && tmdb != null) {
       try {
         final media = (await _details([ref])).firstOrNull;
@@ -273,6 +305,12 @@ final class SeasonEventLoader {
       }
     }
     if (target is SeerrMedia && !requests) target = null;
-    return [SpotlightCardData(event: event, backdrop: backdrop, target: target)];
+    final loaded = await rows;
+    return EventContent(
+      event: event,
+      backdrop: backdrop,
+      target: target,
+      rows: [for (final (i, r) in event.rows.indexed) (r, loaded[i])],
+    );
   }
 }

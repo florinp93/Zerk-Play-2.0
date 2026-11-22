@@ -770,5 +770,8 @@
   "countdownDays": "{count, plural, =1{Morgen} other{In {count} Tagen}}",
   "countdownToday": "Ab heute",
   "countdownOut": "Jetzt erschienen",
-  "eventSpotlightRow": "{event}: Spotlight"
+  "openEvent": "Event öffnen",
+  "watchNext": "Als Nächstes",
+  "watchNextTitle": "Als Nächstes: {title}",
+  "eventProgress": "{watched} von {total} gesehen"
 }

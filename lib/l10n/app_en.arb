@@ -1619,11 +1619,24 @@
   },
   "countdownToday": "Out today",
   "countdownOut": "Out now",
-  "eventSpotlightRow": "{event}: spotlight",
-  "@eventSpotlightRow": {
+  "openEvent": "Open event",
+  "watchNext": "Watch next",
+  "watchNextTitle": "Next: {title}",
+  "@watchNextTitle": {
     "placeholders": {
-      "event": {
+      "title": {
         "type": "String"
+      }
+    }
+  },
+  "eventProgress": "{watched} of {total} watched",
+  "@eventProgress": {
+    "placeholders": {
+      "watched": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
       }
     }
   }
