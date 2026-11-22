@@ -85,7 +85,12 @@ class EventPanel extends StatelessWidget {
     return RevealBox(
       child: Padding(
         padding: const EdgeInsets.only(left: contentLeft - 24, right: 48),
-        child: DecoratedBox(
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Zs.radius * 2),
+            border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Zs.radius * 2),
             gradient: LinearGradient(
@@ -96,7 +101,6 @@ class EventPanel extends StatelessWidget {
                 Color.lerp(Zc.background, accent, 0.10)!.withValues(alpha: 0.82),
               ],
             ),
-            border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 26, 0, 10),
