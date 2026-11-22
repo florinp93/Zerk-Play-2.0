@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../app/app_services.dart';
 import '../../l10n/l10n.dart';
 import '../../playback/mpv/mpv_backend.dart';
 import '../../playback/player_backend.dart';
@@ -76,6 +78,12 @@ abstract final class DevScript {
         case 'focus':
           final focus = FocusManager.instance.primaryFocus;
           debugPrint('[script] focus: ${focus?.debugLabel ?? focus?.context?.widget.runtimeType ?? 'none'}');
+        case 'events':
+          final nav = navigator();
+          if (nav != null && nav.mounted) {
+            AppServicesScope.read(nav.context).showTestEvents(jsonDecode(File(arg).readAsStringSync()));
+          }
+          await _wait(1500);
         case 'shot':
           await _shot('$outDir${Platform.pathSeparator}$arg.png');
         case 'quit':

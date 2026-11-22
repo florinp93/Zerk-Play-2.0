@@ -40,6 +40,20 @@ abstract final class HomeRows {
   static const genre = 'genre';
 
   static const latestPrefix = 'latest:';
+  static const eventPrefix = 'event:';
+
+  static String eventSpotlight(String eventId) => '$eventPrefix$eventId:spot';
+
+  static String eventRow(String eventId, int index) => '$eventPrefix$eventId:${index + 1}';
+
+  static ({String event, int? row})? eventOf(String id) {
+    if (!id.startsWith(eventPrefix)) return null;
+    final parts = id.substring(eventPrefix.length).split(':');
+    if (parts.length != 2) return null;
+    if (parts[1] == 'spot') return (event: parts[0], row: null);
+    final n = int.tryParse(parts[1]);
+    return n == null || n < 1 ? null : (event: parts[0], row: n - 1);
+  }
 
   static String latestIn(String libraryId) => '$latestPrefix$libraryId';
 

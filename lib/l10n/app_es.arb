@@ -766,5 +766,9 @@
   "noAlbums": "No hay álbumes en esta biblioteca.",
   "shuffle": "Aleatorio",
   "sortArtist": "Artista",
-  "trackCount": "{count, plural, =1{1 pista} other{{count} pistas}}"
+  "trackCount": "{count, plural, =1{1 pista} other{{count} pistas}}",
+  "countdownDays": "{count, plural, =1{Mañana} other{En {count} días}}",
+  "countdownToday": "Sale hoy",
+  "countdownOut": "Ya disponible",
+  "eventSpotlightRow": "{event}: destacado"
 }

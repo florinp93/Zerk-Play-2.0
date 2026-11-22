@@ -766,5 +766,9 @@
   "noAlbums": "Brak albumów w tej bibliotece.",
   "shuffle": "Losowo",
   "sortArtist": "Wykonawca",
-  "trackCount": "{count, plural, =1{1 utwór} few{{count} utwory} many{{count} utworów} other{{count} utworu}}"
+  "trackCount": "{count, plural, =1{1 utwór} few{{count} utwory} many{{count} utworów} other{{count} utworu}}",
+  "countdownDays": "{count, plural, =1{Jutro} few{Za {count} dni} many{Za {count} dni} other{Za {count} dnia}}",
+  "countdownToday": "Premiera dziś",
+  "countdownOut": "Już dostępne",
+  "eventSpotlightRow": "{event}: wyróżnienie"
 }

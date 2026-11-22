@@ -12,6 +12,7 @@ import '../data/catalog_api.dart';
 import '../data/collection_index.dart';
 import '../data/metadata_localizer.dart';
 import '../data/recommendations.dart';
+import '../data/season_events.dart';
 import '../data/seerr_api.dart';
 import '../data/title_tags.dart';
 import '../data/tmdb_api.dart';
@@ -208,13 +209,37 @@ final class AppServices extends ChangeNotifier {
       unawaited(services.playback.flushPendingStops());
     }
     if (HubLink.due) unawaited(services.refreshHub());
+    services._eventsKey = [for (final e in services.activeEvents) e.id].join(',');
     services._hubTimer = Timer.periodic(const Duration(minutes: 30), (_) {
       if (HubLink.due) unawaited(services.refreshHub());
+      services._checkEvents();
     });
     return services;
   }
 
   Timer? _hubTimer;
+
+  Object? _testEvents;
+
+  List<SeasonEvent> get activeEvents =>
+      SeasonEvent.active(SeasonEvent.list(_testEvents ?? HubLink.config?.json['events']), DateTime.now());
+
+  void showTestEvents(Object? json) {
+    _testEvents = json;
+    _checkEvents();
+  }
+
+  SeasonEventLoader get eventLoader =>
+      SeasonEventLoader(catalog: catalog, recommender: recommender, tmdb: tmdb, requests: seerr != null);
+
+  String _eventsKey = '';
+
+  void _checkEvents() {
+    final key = [for (final e in activeEvents) e.id].join(',');
+    if (key == _eventsKey) return;
+    _eventsKey = key;
+    notifyListeners();
+  }
 
   @override
   void dispose() {

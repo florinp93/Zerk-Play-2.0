@@ -766,5 +766,9 @@
   "noAlbums": "Nu sunt albume în această bibliotecă.",
   "shuffle": "Amestecat",
   "sortArtist": "Artist",
-  "trackCount": "{count, plural, =1{1 piesă} few{{count} piese} other{{count} de piese}}"
+  "trackCount": "{count, plural, =1{1 piesă} few{{count} piese} other{{count} de piese}}",
+  "countdownDays": "{count, plural, =1{Mâine} few{În {count} zile} other{În {count} de zile}}",
+  "countdownToday": "Apare azi",
+  "countdownOut": "A apărut",
+  "eventSpotlightRow": "{event}: în prim-plan"
 }

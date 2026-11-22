@@ -4,6 +4,7 @@ import '../../app/app_services.dart';
 import '../../app/home_rows.dart';
 import '../../data/catalog_api.dart' show ServerLibrary;
 import '../../data/libraries.dart';
+import '../../data/season_events.dart';
 import '../../l10n/l10n.dart';
 import '../focus/focus_zone.dart';
 import '../theme/tokens.dart';
@@ -11,18 +12,35 @@ import '../widgets/common.dart';
 import '../widgets/media_row.dart';
 import '../widgets/setting_rows.dart';
 
-List<HomeRowDef> homeRowDefaults(AppServices s) => HomeRows.defaults(
-      seerr: s.seerr != null,
-      moods: s.tmdb != null,
-      tags: s.tmdb != null,
-      libraries: [for (final l in s.visibleLibraries) if (Libraries.hasLatest(l)) l.id],
-    );
+List<HomeRowDef> homeRowDefaults(AppServices s) {
+  final defaults = HomeRows.defaults(
+    seerr: s.seerr != null,
+    moods: s.tmdb != null,
+    tags: s.tmdb != null,
+    libraries: [for (final l in s.visibleLibraries) if (Libraries.hasLatest(l)) l.id],
+  );
+  final at = defaults.indexWhere((d) => d.id == HomeRows.nextUp) + 1;
+  return [
+    ...defaults.take(at),
+    for (final e in s.activeEvents) ...[
+      if (e.spotlight != null) HomeRowDef(HomeRows.eventSpotlight(e.id)),
+      for (final (i, _) in e.rows.indexed) HomeRowDef(HomeRows.eventRow(e.id, i)),
+    ],
+    ...defaults.skip(at),
+  ];
+}
 
 HomeRowLayout homeRowLayout(AppServices s) =>
     s.isSignedIn ? s.settings.homeRowsOf(s.janus.session.userId) : const HomeRowLayout();
 
-String homeRowLabel(L10n l, String id, {Map<String, ServerLibrary> libraries = const {}}) {
+String homeRowLabel(L10n l, String id,
+    {Map<String, ServerLibrary> libraries = const {}, List<SeasonEvent> events = const []}) {
   if (HomeRows.libraryOf(id) case final library?) return l.latestIn(libraries[library]?.name ?? library);
+  if (HomeRows.eventOf(id) case (:final event, :final row)) {
+    final e = events.where((x) => x.id == event).firstOrNull;
+    if (e == null) return event;
+    return row == null ? l.eventSpotlightRow(e.name) : e.rows[row].title;
+  }
   if (HomeRows.generated(id) case (:final kind, :final index)) {
     final name = switch (kind) {
       HomeRows.becauseMovie => l.homeRowBecauseMovie,
@@ -115,7 +133,7 @@ class _HomeRowsPageState extends State<HomeRowsPage> {
                 Row(key: ValueKey(row.id), children: [
                   Expanded(
                     child: SettingToggleRow(
-                      title: homeRowLabel(l10n, row.id, libraries: libraries),
+                      title: homeRowLabel(l10n, row.id, libraries: libraries, events: services.activeEvents),
                       subtitle: switch (row.id) {
                         HomeRows.nextUp => l10n.homeRowNextUpHint,
                         HomeRows.homeCollections =>

@@ -1608,5 +1608,23 @@
         "type": "int"
       }
     }
+  },
+  "countdownDays": "{count, plural, =1{Tomorrow} other{In {count} days}}",
+  "@countdownDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "countdownToday": "Out today",
+  "countdownOut": "Out now",
+  "eventSpotlightRow": "{event}: spotlight",
+  "@eventSpotlightRow": {
+    "placeholders": {
+      "event": {
+        "type": "String"
+      }
+    }
   }
 }

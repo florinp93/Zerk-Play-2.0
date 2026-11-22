@@ -766,5 +766,9 @@
   "noAlbums": "Keine Alben in dieser Bibliothek.",
   "shuffle": "Zufällig",
   "sortArtist": "Interpret",
-  "trackCount": "{count, plural, =1{1 Titel} other{{count} Titel}}"
+  "trackCount": "{count, plural, =1{1 Titel} other{{count} Titel}}",
+  "countdownDays": "{count, plural, =1{Morgen} other{In {count} Tagen}}",
+  "countdownToday": "Ab heute",
+  "countdownOut": "Jetzt erschienen",
+  "eventSpotlightRow": "{event}: Spotlight"
 }

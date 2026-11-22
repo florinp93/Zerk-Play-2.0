@@ -9,6 +9,7 @@ import '../../core/emby/models/emby_item.dart';
 import '../../data/catalog_api.dart';
 import '../../data/libraries.dart';
 import '../../data/recommendations.dart';
+import '../../data/season_events.dart';
 import '../../data/seerr_api.dart';
 import '../../data/taste_profile.dart';
 import '../../data/title_tags.dart';
@@ -21,6 +22,7 @@ import '../theme/tokens.dart';
 import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/cinema_loader.dart';
+import '../widgets/event_spotlight.dart';
 import '../widgets/media_row.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/mixed_cards.dart';
@@ -33,6 +35,8 @@ import 'routes.dart';
 
 enum _Kind {
   cards,
+
+  spotlight,
 
   continueWatching,
   collections,
@@ -290,6 +294,18 @@ class _HomePageState extends State<HomePage> {
     final r = s.recommender;
     Future<MixedItems> items(Future<ItemPage> page) async => (await page).items;
 
+    if (HomeRows.eventOf(id) case (:final event, :final row)) {
+      final e = s.activeEvents.where((x) => x.id == event).firstOrNull;
+      if (e == null) return const [];
+      final loader = s.eventLoader;
+      if (row == null) {
+        return [_Row((l) => e.name, () => loader.spotlight(e), kind: _Kind.spotlight, recommends: false)];
+      }
+      if (row >= e.rows.length) return const [];
+      final r = e.rows[row];
+      return [_Row((l) => r.title, () => loader.row(r), recommends: false)];
+    }
+
     if (HomeRows.libraryOf(id) case final libraryId?) {
       final library = libraries[libraryId];
       if (library == null) return const [];
@@ -514,9 +530,17 @@ class _HomePageState extends State<HomePage> {
   void _focusData(Object data, {bool immediate = false}) {
     final l10n = context.l10n;
     _hero.set(
-        data is EmbyItem
-            ? HeroInfo.fromItem(l10n, AppServicesScope.read(context), data)
-            : HeroInfo.fromRequest(l10n, data as SeerrMedia),
+        switch (data) {
+          final EmbyItem item => HeroInfo.fromItem(l10n, AppServicesScope.read(context), item),
+          final SpotlightCardData s => HeroInfo(
+              key: 'event:${s.event.id}',
+              title: s.spotlight.title,
+              backdrop: s.backdrop,
+              overview: s.spotlight.text,
+              meta: [s.event.name, countdownLabel(l10n, s.spotlight, DateTime.now())],
+            ),
+          _ => HeroInfo.fromRequest(l10n, data as SeerrMedia),
+        },
         immediate: immediate);
   }
 
@@ -607,6 +631,7 @@ class _HomePageState extends State<HomePage> {
         final (cardW, areaH) = switch (row.kind) {
           _Kind.collections => (560.0, 560 * 0.42 + 44),
           _Kind.continueWatching => (Zs.landscapeWidth, cardAreaHeight(CardStyle.landscape)),
+          _Kind.spotlight => (eventSpotlightWidth, eventSpotlightHeight + 44),
           _ => (cardWidth(row.style), cardAreaHeight(row.style)),
         };
         if (snap.data == null && !snap.hasError) {
@@ -650,6 +675,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _card(_Row row, Object data, {required int rank, required bool autofocus}) {
+    if (data is SpotlightCardData) {
+      return EventSpotlightCard(
+        data: data,
+        autofocus: autofocus,
+        onFocus: () => _focusData(data),
+        onSelect: switch (data.target) {
+          final EmbyItem item => () => openItem(context, item),
+          final SeerrMedia media => () => openRequest(context, media),
+          _ => null,
+        },
+      );
+    }
     if (row.kind == _Kind.collections && data is EmbyItem) {
       return CollectionCard(item: data, autofocus: autofocus, onFocus: () => _focusData(data), onSelect: () => openItem(context, data));
     }
