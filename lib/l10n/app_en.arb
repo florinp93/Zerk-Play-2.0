@@ -1360,7 +1360,9 @@
     }
   },
   "autoCrop": "Remove black bars",
-  "autoCropHint": "Looks at the picture while it plays and crops black bars burned into the video at the top and bottom, so wide films fill a scope screen or a zoomed picture.",
+  "autoCropHint": "Looks at the picture while it plays and crops black bars burned into the video at the top and bottom, so wide films fill a scope screen or a zoomed picture. At start only measures once and then stops checking; Continuous keeps following films that change shape, like IMAX.",
+  "autoCropStart": "At start only",
+  "autoCropContinuous": "Continuous",
   "defaultAspect": "Default picture size",
   "defaultAspectHint": "What every video starts with. You can still change it from the player settings.",
   "anamorphicLens": "Anamorphic lens",

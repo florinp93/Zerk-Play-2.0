@@ -8,6 +8,8 @@ import 'transcode_quality.dart';
 
 enum SkipMode { off, button, auto }
 
+enum AutoCropMode { off, start, continuous }
+
 enum SubtitleMode {
   off,
 
@@ -63,7 +65,7 @@ final class PlayerSettings {
     this.videoOutput = 'gpu-next',
     this.detailedLog = true,
     this.scopeScreen = 0,
-    this.autoCrop = false,
+    this.autoCropMode = AutoCropMode.off,
     this.defaultAspect = 'auto',
     this.anamorphic = 1.0,
     this.targetPrim = 'auto',
@@ -124,7 +126,9 @@ final class PlayerSettings {
 
   final double scopeScreen;
 
-  final bool autoCrop;
+  final AutoCropMode autoCropMode;
+
+  bool get autoCrop => autoCropMode != AutoCropMode.off;
 
   final String defaultAspect;
 
@@ -180,7 +184,7 @@ final class PlayerSettings {
     String? videoOutput,
     bool? detailedLog,
     double? scopeScreen,
-    bool? autoCrop,
+    AutoCropMode? autoCropMode,
     String? defaultAspect,
     double? anamorphic,
     String? targetPrim,
@@ -223,7 +227,7 @@ final class PlayerSettings {
       videoOutput: videoOutput ?? this.videoOutput,
       detailedLog: detailedLog ?? this.detailedLog,
       scopeScreen: scopeScreen ?? this.scopeScreen,
-      autoCrop: autoCrop ?? this.autoCrop,
+      autoCropMode: autoCropMode ?? this.autoCropMode,
       defaultAspect: defaultAspect ?? this.defaultAspect,
       anamorphic: anamorphic ?? this.anamorphic,
       targetPrim: targetPrim ?? this.targetPrim,
@@ -268,7 +272,7 @@ final class PlayerSettings {
         'vo': videoOutput,
         'detailedLog': detailedLog,
         'scope': scopeScreen,
-        'autoCrop': autoCrop,
+        'autoCropMode': autoCropMode.name,
         'aspect': defaultAspect,
         'anamorphic': anamorphic,
         'targetPrim': targetPrim,
@@ -326,7 +330,8 @@ final class PlayerSettings {
       videoOutput: pick('vo', d.videoOutput),
       detailedLog: pick('detailedLog', d.detailedLog),
       scopeScreen: pick('scope', d.scopeScreen),
-      autoCrop: pick('autoCrop', d.autoCrop),
+      autoCropMode: AutoCropMode.values.asNameMap()[j['autoCropMode']] ??
+          (j['autoCrop'] == true ? AutoCropMode.continuous : d.autoCropMode),
       defaultAspect: pick('aspect', d.defaultAspect),
       anamorphic: pick('anamorphic', d.anamorphic),
       targetPrim: pick('targetPrim', d.targetPrim),

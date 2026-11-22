@@ -4,14 +4,19 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../l10n/l10n.dart';
+import '../../playback/mpv/mpv_backend.dart';
+import '../../playback/player_backend.dart';
 import '../../playback/player_settings.dart';
 import '../../ui/core/input_mode.dart';
 import '../../ui/focus/focus_zone.dart';
 import '../../ui/pages/home_page.dart';
 import '../../ui/shell/shell.dart';
+import '../windows/native_window.dart';
 
 abstract final class DevScript {
   static final boundary = GlobalKey(debugLabel: 'dev-shot');
+  static MpvBackend? _test;
 
   static Future<void> run(String scriptPath, NavigatorState? Function() navigator) async {
     final file = File(scriptPath);
@@ -46,6 +51,31 @@ abstract final class DevScript {
             anamorphic: parts.length > 2 ? double.tryParse(parts[2]) ?? 1 : 1,
           );
           await _wait(600);
+        case 'playtest':
+          final nav = navigator();
+          if (nav == null) break;
+          final shape = PlayerSettings.screen.value;
+          final settings = PlayerSettings(scopeScreen: shape.scope, anamorphic: shape.anamorphic);
+          final player = _test = MpvBackend(navigator: nav, settings: settings, l10n: lookupL10n(const Locale('en')));
+          await player.open();
+          player.events.listen((e) {
+            if (e is PlayerOsdEvent && e.name == 'bars') debugPrint('[script] bars ${e.arg}');
+          });
+          player.osd('config', {'scope': shape.scope, 'anamorphic': shape.anamorphic, 'autoCrop': true});
+          player.osd('state', {'phase': 'loading', 'title': 'Test clip', 'subtitle': ''});
+          player.load(Uri.parse('https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4'));
+          await _wait(2500);
+          player.osd('state', {'phase': 'playing', 'title': 'Test clip', 'subtitle': ''});
+          player.osd('crop', {'crop': 0, 'interval': 2});
+        case 'stoptest':
+          await _test?.close();
+          _test = null;
+        case 'fullscreen':
+          await NativeWindow.toggleFullScreen();
+          await _wait(800);
+        case 'focus':
+          final focus = FocusManager.instance.primaryFocus;
+          debugPrint('[script] focus: ${focus?.debugLabel ?? focus?.context?.widget.runtimeType ?? 'none'}');
         case 'shot':
           await _shot('$outDir${Platform.pathSeparator}$arg.png');
         case 'quit':

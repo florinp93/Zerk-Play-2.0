@@ -51,15 +51,22 @@ final class AutoCrop {
   static const lateConfirmations = 6;
   static const shrinkConfirmations = 2;
   static const settle = Duration(minutes: 2);
+  static const quickSearch = Duration(seconds: 30);
+  static const giveUp = Duration(minutes: 5);
   static const searchInterval = Duration(seconds: 3);
-  static const watchInterval = Duration(seconds: 2);
-  static const idleInterval = Duration(seconds: 8);
+  static const watchInterval = Duration(seconds: 4);
+  static const idleInterval = Duration(seconds: 10);
+
+  AutoCrop({this.startOnly = false});
+
+  bool startOnly;
 
   double _bars = 0;
   bool _locked = false;
   bool _probing = false;
   double _probeFrom = 0;
   Duration? _since;
+  Duration? _first;
   Duration _at = Duration.zero;
   final _run = <double>[];
   final _lower = <double>[];
@@ -77,9 +84,14 @@ final class AutoCrop {
 
   Duration get interval {
     if (_probing) return searchInterval;
-    if (_bars > 0) return _settled ? idleInterval : watchInterval;
+    if (_bars > 0) {
+      if (!_settled) return watchInterval;
+      return startOnly ? Duration.zero : idleInterval;
+    }
     if (_locked) return Duration.zero;
-    return _settled ? idleInterval : searchInterval;
+    final searched = _first == null ? Duration.zero : _at - _first!;
+    if (searched >= giveUp || startOnly && _settled) return Duration.zero;
+    return searched >= quickSearch ? idleInterval : searchInterval;
   }
 
   CropDecision get decision => CropDecision(crop, interval);
@@ -90,6 +102,7 @@ final class AutoCrop {
     _probing = false;
     _probeFrom = 0;
     _since = null;
+    _first = null;
     _at = Duration.zero;
     _run.clear();
     _lower.clear();
@@ -106,6 +119,7 @@ final class AutoCrop {
 
   CropDecision add(BarSample s, Duration at) {
     _at = at;
+    _first ??= at;
     if (s.clipped) {
       if (_bars > 0) {
         _probeFrom = _bars;

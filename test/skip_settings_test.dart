@@ -19,4 +19,11 @@ void main() {
     expect(back.skipIntro, SkipMode.off);
     expect(back.skipCredits, SkipMode.auto);
   });
+
+  test('the old Remove black bars toggle becomes Continuous', () {
+    expect(PlayerSettings.fromJson({'autoCrop': true}).autoCropMode, AutoCropMode.continuous);
+    expect(PlayerSettings.fromJson({'autoCrop': false}).autoCropMode, AutoCropMode.off);
+    final p = const PlayerSettings().copyWith(autoCropMode: AutoCropMode.start);
+    expect(PlayerSettings.fromJson(p.toJson()).autoCropMode, AutoCropMode.start);
+  });
 }

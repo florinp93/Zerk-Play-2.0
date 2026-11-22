@@ -126,6 +126,7 @@ void NativeWindow::SetFullScreen(bool fullscreen) {
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
   }
   fullscreen_ = fullscreen;
+  if (GetForegroundWindow() == window_) SetFocus(window_);
 }
 
 NativeWindow::HdrStatus NativeWindow::GetHdrStatus() const {

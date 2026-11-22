@@ -140,7 +140,7 @@ final class PlaybackSession {
 
   String? _videoSignature;
 
-  final _autoCrop = AutoCrop();
+  late final _autoCrop = AutoCrop(startOnly: _settings.autoCropMode == AutoCropMode.start);
   CropDecision? _cropSent;
 
   Future<PlaybackEndReason> run(PlaybackRequest request) async {

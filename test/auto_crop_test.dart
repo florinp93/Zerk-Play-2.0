@@ -51,10 +51,10 @@ void main() {
 
   test('steady 16:9 stays uncropped and slows down once settled', () {
     final f = Feed();
-    var d = f.run(bars(0), 30);
+    var d = f.run(bars(0), 10);
     expect(d.crop, 0);
     expect(d.interval, AutoCrop.searchInterval);
-    d = f.run(bars(0.004), 40);
+    d = f.run(bars(0.004), 60);
     expect(d.crop, 0);
     expect(d.interval, AutoCrop.idleInterval);
     expect(f.crop.locked, isFalse);
@@ -78,6 +78,27 @@ void main() {
     expect(f.add(bars(imax)).crop, closeTo(scope - AutoCrop.edge, 1e-9));
     expect(f.add(bars(scope)).crop, closeTo(scope - AutoCrop.edge, 1e-9));
     expect(f.crop.locked, isFalse);
+  });
+
+  test('searching slows down after half a minute and gives up after five', () {
+    final f = Feed();
+    expect(f.run(bars(0), 10).interval, AutoCrop.searchInterval);
+    expect(f.run(bars(0), 10).interval, AutoCrop.idleInterval);
+    expect(f.run(bars(0), 30, seconds: 10).interval, Duration.zero);
+  });
+
+  test('at start only stops checking once the crop has settled', () {
+    final f = Feed()..crop.startOnly = true;
+    f.run(bars(scope), 3);
+    expect(f.crop.decision.interval, AutoCrop.watchInterval);
+    final d = f.run(bars(scope), 70);
+    expect(d.crop, closeTo(scope - AutoCrop.edge, 1e-9));
+    expect(d.interval, Duration.zero);
+  });
+
+  test('at start only stops on a settled 16:9 picture', () {
+    final f = Feed()..crop.startOnly = true;
+    expect(f.run(bars(0), 70).interval, Duration.zero);
   });
 
   test('a settled crop is checked less often', () {

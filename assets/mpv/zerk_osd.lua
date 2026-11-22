@@ -439,9 +439,8 @@ local function row_black(data, stride, y, w)
   return true
 end
 
-local function detect_bars()
+local function measure_bars(shot)
   if not S.autocrop or S.phase ~= "playing" then return end
-  local shot = mp.command_native({ "screenshot-raw", "video", "bgr0" })
   if not shot or not shot.data or not shot.w or shot.w == 0 then return end
   local w, h, stride, data = shot.w, shot.h, shot.stride, shot.data
   local ratio = w / h
@@ -468,6 +467,16 @@ local function detect_bars()
     tostring(cropped and top == 0 and bottom == 0)))
 end
 
+local capturing = false
+local function detect_bars()
+  if capturing or not S.autocrop or S.phase ~= "playing" then return end
+  capturing = true
+  mp.command_native_async({ "screenshot-raw", "video", "bgr0" }, function(ok, shot)
+    capturing = false
+    if ok then measure_bars(shot) end
+  end)
+end
+
 local crop_timer, crop_interval = nil, nil
 local function schedule_crop(interval)
   if interval == crop_interval and crop_timer then return end
@@ -475,7 +484,9 @@ local function schedule_crop(interval)
   crop_interval = interval
   if not S.autocrop or not interval or interval <= 0 then return end
   crop_timer = mp.add_periodic_timer(interval, function()
-    if not prop("pause", false) and not prop("seeking", false) then detect_bars() end
+    if not prop("pause", false) and not prop("seeking", false) and not prop("paused-for-cache", false) then
+      detect_bars()
+    end
   end)
 end
 
