@@ -100,9 +100,23 @@ void main() {
       expect(TrickplayGrid.fromJellyfin({'y': {'320': _info(320, interval: 0)}}, 'y'), isNull);
     });
 
-    test('falls back to the nearest width when the preferred one is missing', () {
-      final grid = TrickplayGrid.fromJellyfin({'s': {'240': _info(240), '480': _info(480)}}, 's');
-      expect(grid?.width, 240);
+    test('takes the smallest width that is at least as wide as the preview', () {
+      final widths = {'s': {'160': _info(160), '320': _info(320), '480': _info(480)}};
+      expect(TrickplayGrid.fromJellyfin(widths, 's', preferredWidth: 100)?.width, 160);
+      expect(TrickplayGrid.fromJellyfin(widths, 's', preferredWidth: 160)?.width, 160);
+      expect(TrickplayGrid.fromJellyfin(widths, 's', preferredWidth: 161)?.width, 320);
+      expect(TrickplayGrid.fromJellyfin(widths, 's', preferredWidth: 326)?.width, 480);
+    });
+
+    test('falls back to the widest width when none is wide enough', () {
+      final grid = TrickplayGrid.fromJellyfin({'s': {'240': _info(240), '480': _info(480)}}, 's', preferredWidth: 900);
+      expect(grid?.width, 480);
+    });
+
+    test('skips widths whose decoded sheet would not fit in memory', () {
+      final widths = {'s': {'320': _info(320), '480': _info(480), '640': _info(640)}};
+      expect(TrickplayGrid.fromJellyfin(widths, 's', preferredWidth: 500)?.width, 480);
+      expect(TrickplayGrid.fromJellyfin({'s': {'640': _info(640)}}, 's')?.width, 640);
     });
 
     test('maps a time to a thumbnail and a tile', () {
@@ -123,12 +137,99 @@ void main() {
       expect(grid.tileOf(249), (sheet: 2, left: 9 * 320, top: 4 * 180));
     });
 
+    test('orders sheets by distance from the playhead, later sheets first on a tie', () {
+      final grid = TrickplayGrid.fromJellyfin({'s': {'320': _info(320, count: 450)}}, 's')!;
+      expect(grid.sheets, 5);
+      expect(grid.sheetOrder(Duration.zero), [0, 1, 2, 3, 4]);
+      expect(grid.sheetOrder(const Duration(seconds: 2050)), [2, 3, 1, 4, 0]);
+      expect(grid.sheetOrder(const Duration(hours: 5)), [4, 3, 2, 1, 0]);
+    });
+
     test('handles non-square tile grids', () {
       final grid = TrickplayGrid(
           width: 100, height: 50, tileWidth: 4, tileHeight: 3, count: 30, interval: const Duration(seconds: 2));
       expect(grid.perSheet, 12);
       expect(grid.tileOf(13), (sheet: 1, left: 100, top: 0));
       expect(grid.tileOf(23), (sheet: 1, left: 300, top: 100));
+    });
+  });
+
+  group('filmstrip', () {
+    test('lists the thumbnails around the scrub position', () {
+      expect(Trickplay.window(10, 2, 100), [8, 9, 10, 11, 12]);
+      expect(Trickplay.window(10, 1, 100), [9, 10, 11]);
+      expect(Trickplay.window(10, 0, 100), [10]);
+    });
+
+    test('leaves empty slots past the start and the end', () {
+      expect(Trickplay.window(0, 2, 100), [null, null, 0, 1, 2]);
+      expect(Trickplay.window(1, 2, 100), [null, 0, 1, 2, 3]);
+      expect(Trickplay.window(99, 2, 100), [97, 98, 99, null, null]);
+      expect(Trickplay.window(0, 2, 1), [null, null, 0, null, null]);
+    });
+
+    test('shows as many neighbours as fit, up to two each side', () {
+      expect(Trickplay.reach(1900, 320), 2);
+      expect(Trickplay.reach(1900, 400), 1);
+      expect(Trickplay.reach(1900, 600), 1);
+      expect(Trickplay.reach(1900, 640), 0);
+      expect(Trickplay.reach(1900, 1000), 0);
+      expect(Trickplay.reach(1900, 100), 2);
+    });
+
+    test('takes the centre from the interval of the grid', () {
+      final grid = TrickplayGrid.fromJellyfin({'s': {'320': _info(320, count: 30)}}, 's')!;
+      final centre = grid.indexAt(const Duration(seconds: 95));
+      expect(Trickplay.window(centre, 2, grid.count), [7, 8, 9, 10, 11]);
+      expect(Trickplay.window(grid.indexAt(const Duration(hours: 1)), 2, grid.count), [27, 28, 29, null, null]);
+    });
+  });
+
+  testWidgets('preloading fetches every sheet once, nearest first, two at a time', (tester) async {
+    await tester.runAsync(() async {
+      final png = await _png(40, 20);
+      final fetched = <int>[];
+      var running = 0, peak = 0;
+      final trickplay = SheetTrickplay(
+        const TrickplayGrid(width: 20, height: 10, tileWidth: 2, tileHeight: 2, count: 20, interval: Duration(seconds: 5)),
+        (sheet) async {
+          fetched.add(sheet);
+          peak = peak > ++running ? peak : running;
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          running--;
+          return png;
+        },
+      );
+      await trickplay.preload(const Duration(seconds: 50));
+      expect(fetched.toSet(), {0, 1, 2, 3, 4});
+      expect(fetched.length, 5);
+      expect(fetched.take(2).toSet(), {2, 3});
+      expect(peak, 2);
+      (await trickplay.frame(7))!.dispose();
+      expect(fetched.length, 5);
+      trickplay.dispose();
+    });
+  });
+
+  testWidgets('stopping the preload leaves the remaining sheets for on-demand fetches', (tester) async {
+    await tester.runAsync(() async {
+      final png = await _png(40, 20);
+      final fetched = <int>[];
+      late SheetTrickplay trickplay;
+      trickplay = SheetTrickplay(
+        const TrickplayGrid(width: 20, height: 10, tileWidth: 2, tileHeight: 2, count: 20, interval: Duration(seconds: 5)),
+        (sheet) async {
+          fetched.add(sheet);
+          trickplay.stopPreload();
+          return png;
+        },
+      );
+      await trickplay.preload(Duration.zero);
+      expect(fetched.length, lessThan(5));
+      final before = fetched.length;
+      (await trickplay.frame(19))!.dispose();
+      expect(fetched.length, before + 1);
+      trickplay.dispose();
     });
   });
 

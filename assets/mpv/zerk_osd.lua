@@ -106,6 +106,8 @@ local S = {
   quality = nil,
   downmix = nil,
   trick = nil, trick_img = nil, trick_req = nil,
+  trick_filmstrip = false, trick_size = 17, trick_distance = 10, trick_follow = true, trick_pause = false,
+  scrub_paused = false,
   sub_search = false, sub_languages = {}, sub_results = nil,
   seg = {}, intro_skipped = false, chapters = {},
   next_up = nil, next_elapsed = 0, next_last = nil, next_cancelled = false, next_choice = 1, next_img = nil,
@@ -791,38 +793,67 @@ local function draw_spinner(cx, cy, r)
   return arc[1]
 end
 
-local OV_TRICK, TRICK_W = 60, 320
-local trick_key, trick_drawn = nil, false
+local OV_TRICK, TRICK_GAP, TRICK_SLOTS = 50, 6, 5
+local trick_keys, trick_drawn = {}, false
 
-local function draw_trick(out, cx, bottom, t, x1, x2)
+local function trick_reach(tw)
+  if not S.trick_filmstrip then return 0 end
+  for r = 2, 1, -1 do
+    if (2 * r + 1) * tw + 2 * r * TRICK_GAP <= W - 36 then return r end
+  end
+  return 0
+end
+
+local function hide_trick(from)
+  for i = from or 1, TRICK_SLOTS do
+    if trick_keys[i] then mp.commandv("overlay-remove", OV_TRICK + i - 1) end
+    trick_keys[i] = nil
+  end
+end
+
+local function draw_trick(out, cx, y, t)
   local tp = S.trick
   if not tp then return end
-  local bucket = math.floor(t / math.max(tp.interval, 0.1))
+  local tw = R(W * S.trick_size / 100)
+  local reach = trick_reach(tw)
+  local bucket = math.floor(t / math.max(tp.interval, 0.1)) .. ":" .. reach
   if bucket ~= S.trick_req then
     S.trick_req = bucket
-    send("trick", string.format("%.3f", t))
+    send("trick", string.format("%.3f|%d", t, reach))
   end
   local img = S.trick_img
   local osd_w, osd_h = mp.get_osd_size()
   if not img or not osd_h or osd_h == 0 then return end
-  local tw = TRICK_W
-  local th = R(tw * img.h / img.w)
-  local left = R(clamp(cx - tw / 2, x1, x2 - tw))
-  local top = bottom - th
-  out[#out + 1] = rrect(left - 6, top - 6, tw + 12, th + 12, 14, T.panel, "20")
+  local first
+  for _, f in ipairs(img.frames) do
+    if f.path then first = f; break end
+  end
+  if not first then return end
+  local n = #img.frames
+  local th = R(tw * first.h / first.w)
+  local row = n * tw + (n - 1) * TRICK_GAP
+  local mid = S.trick_follow and cx or W / 2
+  local left = R(clamp(mid - row / 2, 18, math.max(18, W - 18 - row)))
+  local top = R(y - 84 - (S.trick_distance - 10) * H / 200) - th
+  out[#out + 1] = rrect(left - 6, top - 6, row + 12, th + 12, 14, T.panel, "20")
   trick_drawn = true
   local k = osd_h * band_f / H
-  local px, py, dw, dh = R(left * k), R((top + band_oy) * k), R(tw * k), R(th * k)
-  local key = table.concat({ img.path, px, py, dw, dh }, "|")
-  if key == trick_key then return end
-  trick_key = key
-  mp.commandv("overlay-add", OV_TRICK, px, py, img.path, 0, "bgra", img.w, img.h, img.w * 4, dw, dh)
-end
-
-local function hide_trick()
-  if not trick_key then return end
-  trick_key = nil
-  mp.commandv("overlay-remove", OV_TRICK)
+  for i, f in ipairs(img.frames) do
+    local x = left + (i - 1) * (tw + TRICK_GAP)
+    if f.path then
+      if n > 1 and i == reach + 1 then out[#out + 1] = rrect(x - 3, top - 3, tw + 6, th + 6, 10, T.accent, "00") end
+      local px, py, dw, dh = R(x * k), R((top + band_oy) * k), R(tw * k), R(th * k)
+      local key = table.concat({ f.path, px, py, dw, dh }, "|")
+      if trick_keys[i] ~= key then
+        trick_keys[i] = key
+        mp.commandv("overlay-add", OV_TRICK + i - 1, px, py, f.path, 0, "bgra", f.w, f.h, f.w * 4, dw, dh)
+      end
+    elseif trick_keys[i] then
+      mp.commandv("overlay-remove", OV_TRICK + i - 1)
+      trick_keys[i] = nil
+    end
+  end
+  hide_trick(n + 1)
 end
 
 local function draw_progress(out, y, focused, mini)
@@ -854,13 +885,13 @@ local function draw_progress(out, y, focused, mini)
     if S.scrub then
       out[#out + 1] = rrect(x1 + width * frac - 70, y - 72, 140, 46, 23, T.panel, "20")
       out[#out + 1] = text(x1 + width * frac, y - 49, 5, 28, T.white, fmt_time(S.scrub), { font = T.font_semibold })
-      draw_trick(out, x1 + width * frac, y - 84, S.scrub, x1, x2)
+      draw_trick(out, x1 + width * frac, y, S.scrub)
     elseif S.pointer and S.hover == "seek" and dur > 0 then
       local hx = clamp(S.mouse_x, x1, x2)
       out[#out + 1] = rrect(hx - 1, y - h / 2 - 4, 2, h + 8, 1, T.white, "20")
       out[#out + 1] = rrect(hx - 70, y - 72, 140, 46, 23, T.panel, "20")
       out[#out + 1] = text(hx, y - 49, 5, 28, T.white, fmt_time((hx - x1) / width * dur), { font = T.font_semibold })
-      draw_trick(out, hx, y - 84, (hx - x1) / width * dur, x1, x2)
+      draw_trick(out, hx, y, (hx - x1) / width * dur)
     end
   end
 
@@ -1317,6 +1348,16 @@ end
 local tick
 local tick_interval = 0
 
+local function finish_scrub(commit)
+  local target = S.scrub
+  S.scrub = nil
+  if target and commit then mp.commandv("seek", target, "absolute+exact") end
+  if S.scrub_paused then
+    S.scrub_paused = false
+    mp.set_property_bool("pause", false)
+  end
+end
+
 local function wanted_interval()
   local t = now()
   if S.phase == "loading" or t < S.flash_until or prop("paused-for-cache", false) then return 0.033 end
@@ -1345,9 +1386,8 @@ tick = mp.add_periodic_timer(0.25, function()
     S.visible = false
     S.hover = nil
   end
-  if S.scrub and t > S.scrub_commit_at then
-    mp.commandv("seek", S.scrub, "absolute+exact")
-    S.scrub = nil
+  if S.scrub and not S.trick_pause and t > S.scrub_commit_at then
+    finish_scrub(true)
     S.mini_until = t + 1.5
   end
   refresh()
@@ -1372,6 +1412,7 @@ local function flash(glyph)
 end
 
 local function toggle_pause()
+  if S.scrub_paused then return finish_scrub(true) end
   local paused = not prop("pause", false)
   mp.set_property_bool("pause", paused)
   flash(paused and ICON.pause or ICON.play)
@@ -1406,6 +1447,10 @@ local function scrub(dir)
   S.scrub_last = t
   local step = dir > 0 and S.seek_fwd or S.seek_back
   if S.scrub_repeat > 24 then step = 120 elseif S.scrub_repeat > 12 then step = 60 elseif S.scrub_repeat > 5 then step = 30 end
+  if not S.scrub and S.trick_pause and not prop("pause", false) then
+    S.scrub_paused = true
+    mp.set_property_bool("pause", true)
+  end
   S.scrub = clamp((S.scrub or prop("time-pos", 0)) + dir * step, 0, dur - 1)
   S.scrub_commit_at = t + 0.9
   touch()
@@ -1413,10 +1458,7 @@ local function scrub(dir)
 end
 
 local function commit_scrub()
-  if S.scrub then
-    mp.commandv("seek", S.scrub, "absolute+exact")
-    S.scrub = nil
-  end
+  if S.scrub then finish_scrub(true) end
 end
 
 local function on_key(name)
@@ -1489,7 +1531,7 @@ local function on_key(name)
       elseif name == "down" then commit_scrub(); S.area = "buttons"
       elseif name == "up" then commit_scrub(); S.area = "top"
       elseif name == "back" then
-        if S.scrub then S.scrub = nil else S.visible = false end
+        if S.scrub then finish_scrub(false) else S.visible = false end
       end
     else
       local list = buttons()
@@ -1679,7 +1721,8 @@ mp.register_script_message("state", function(raw)
     schedule_crop(2)
     S.intro_skipped, S.next_cancelled, S.next_fired, S.credits_done = false, false, false, false
     S.next_elapsed, S.next_last, S.next_choice = 0, nil, 1
-    S.panel, S.scrub = nil, nil
+    S.panel = nil
+    finish_scrub(false)
     show()
   end
   refresh()
@@ -1717,7 +1760,7 @@ end)
 
 mp.register_script_message("trick-image", function(raw)
   local img = json(raw)
-  if not img or not S.trick then return end
+  if not img or not img.frames or not S.trick then return end
   S.trick_img = img
   refresh()
 end)
@@ -1762,6 +1805,11 @@ mp.register_script_message("config", function(raw)
   S.sub_search = c.subtitleSearch or false
   S.sub_languages = c.subLanguages or {}
   S.scope = c.scope or 0
+  S.trick_filmstrip = c.trickplayMode == "filmstrip"
+  S.trick_size = c.trickplaySize or 17
+  S.trick_distance = c.trickplayDistance or 10
+  S.trick_follow = c.trickplayFollow ~= false
+  S.trick_pause = c.trickplayPause == true
   S.anamorphic = c.anamorphic or 1
   S.autocrop = c.autoCrop or false
   S.autocrop_mode = c.autoCropMode or "continuous"

@@ -108,6 +108,11 @@ final class OsdModel extends ChangeNotifier {
   Duration? creditsStart;
   List<OsdChapter> chapters = const [];
   Trickplay? trickplay;
+  bool filmstrip = false;
+  int trickplaySize = 17;
+  int trickplayDistance = 10;
+  bool trickplayFollow = true;
+  bool pauseWhileScrubbing = false;
   NextUp? next;
   double scope = 0;
 
@@ -197,6 +202,11 @@ final class OsdModel extends ChangeNotifier {
         seekForward = (m['seekForward'] as num?)?.toInt() ?? seekForward;
         seekBack = (m['seekBack'] as num?)?.toInt() ?? seekBack;
         scope = (m['scope'] as num?)?.toDouble() ?? 0;
+        filmstrip = m['trickplayMode'] == 'filmstrip';
+        trickplaySize = (m['trickplaySize'] as num?)?.toInt() ?? 17;
+        trickplayDistance = (m['trickplayDistance'] as num?)?.toInt() ?? 10;
+        trickplayFollow = m['trickplayFollow'] != false;
+        pauseWhileScrubbing = m['trickplayPause'] == true;
         final aspectMode = switch (m['defaultAspect']) { 'zoom' => 'zoom', 'stretch' => 'fill', _ => 'fit' };
         if (aspectMode != aspect) {
           aspect = aspectMode;

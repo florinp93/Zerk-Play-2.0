@@ -400,7 +400,7 @@ final class MpvBackend implements PlayerBackend {
   final _trickFiles = <int, _TrickFile>{};
   Directory? _trickDir;
 
-  static const _trickFileLimit = 48;
+  static const _trickFileLimit = 96;
 
   void _setTrickplay(Trickplay? trickplay) {
     if (identical(trickplay, _trickplay)) return;
@@ -437,14 +437,19 @@ final class MpvBackend implements PlayerBackend {
 
   Future<void> _sendTrick(String? arg) async {
     final trickplay = _trickplay;
-    final secs = double.tryParse(arg ?? '');
+    final parts = (arg ?? '').split('|');
+    final secs = double.tryParse(parts.first);
+    final reach = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
     if (trickplay == null || secs == null) return;
     final serial = ++_trickSerial;
     final generation = _trickGeneration;
-    final index = trickplay.indexAt(Duration(milliseconds: (secs * 1000).round()));
-    final file = _trickFiles[index] ?? await _writeTrickFile(trickplay, index, generation);
-    if (file == null || serial != _trickSerial || generation != _trickGeneration) return;
-    _mpv.scriptMessage('zerk_osd', ['trick-image', jsonEncode({'path': file.path, 'w': file.w, 'h': file.h})]);
+    final center = trickplay.indexAt(Duration(milliseconds: (secs * 1000).round()));
+    Future<_TrickFile?> file(int? index) async =>
+        index == null ? null : _trickFiles[index] ?? await _writeTrickFile(trickplay, index, generation);
+    final files = await Future.wait([for (final index in Trickplay.window(center, reach, trickplay.count)) file(index)]);
+    if (serial != _trickSerial || generation != _trickGeneration || files.every((f) => f == null)) return;
+    final frames = [for (final f in files) f == null ? {} : {'path': f.path, 'w': f.w, 'h': f.h}];
+    _mpv.scriptMessage('zerk_osd', ['trick-image', jsonEncode({'frames': frames})]);
   }
 
   Future<_TrickFile?> _writeTrickFile(Trickplay trickplay, int index, int generation) async {

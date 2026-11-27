@@ -105,6 +105,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
 
   Duration? _seekTarget;
   Timer? _seekCommit;
+  bool _scrubActive = false;
+  bool _scrubPaused = false;
   DateTime _miniUntil = DateTime(0);
 
   DateTime _volumeUntil = DateTime(0);
@@ -214,7 +216,35 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     });
   }
 
+  void _beginScrub() {
+    if (_scrubActive) return;
+    _scrubActive = true;
+    if (model.pauseWhileScrubbing && !state.paused) {
+      _scrubPaused = true;
+      model.togglePause();
+    }
+  }
+
+  void _endScrub() {
+    _scrubActive = false;
+    if (!_scrubPaused) return;
+    _scrubPaused = false;
+    model.togglePause();
+  }
+
+  void _cancelScrub() {
+    _seekCommit?.cancel();
+    setState(() => _seekTarget = null);
+    _endScrub();
+  }
+
+  void _playPause() {
+    if (_scrubPaused) return _commitScrub();
+    model.togglePause();
+  }
+
   void _seekBy(int seconds) {
+    _beginScrub();
     final s = state;
     final base = _seekTarget ?? s.position;
     var target = base + Duration(seconds: seconds);
@@ -225,14 +255,12 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       _miniUntil = DateTime.now().add(const Duration(seconds: 2));
     });
     _seekCommit?.cancel();
-    _seekCommit = Timer(const Duration(milliseconds: 450), () {
-      final t = _seekTarget;
-      if (t != null) model.seekTo(t);
-      Timer(const Duration(milliseconds: 700), () => mounted ? setState(() => _seekTarget = null) : null);
-    });
+    if (model.pauseWhileScrubbing) return;
+    _seekCommit = Timer(const Duration(milliseconds: 450), _commitScrub);
   }
 
   void _scrubTo(Duration target) {
+    _beginScrub();
     _seekCommit?.cancel();
     _armHide();
     setState(() => _seekTarget = target);
@@ -241,8 +269,10 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
   void _commitScrub() {
     final t = _seekTarget;
     if (t == null) return;
+    _seekCommit?.cancel();
     model.seekTo(t);
-    Timer(const Duration(milliseconds: 700), () => mounted ? setState(() => _seekTarget = null) : null);
+    _endScrub();
+    Timer(const Duration(milliseconds: 700), () => mounted && !_scrubActive ? setState(() => _seekTarget = null) : null);
   }
 
   bool _inIntro(Duration p) {
@@ -591,7 +621,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
 
     if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.mediaPlay ||
         key == LogicalKeyboardKey.mediaPause || key == LogicalKeyboardKey.space) {
-      if (!repeat) model.togglePause();
+      if (!repeat) _playPause();
       _show(focusPlay: !_visible);
       return KeyEventResult.handled;
     }
@@ -644,7 +674,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
       } else if (model.zap) {
         _choose(model.versionsTitle ?? context.l10n.liveChannels, model.versions, 'version');
       } else {
-        model.togglePause();
+        _playPause();
         setState(() => _miniUntil = DateTime.now().add(const Duration(seconds: 2)));
       }
       return KeyEventResult.handled;
@@ -693,6 +723,8 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
   bool _onBack() {
     if (!widget.controls) {
       model.send('back');
+    } else if (_scrubPaused) {
+      _cancelScrub();
     } else if (_visible) {
       UiSounds.play(UiSound.back);
       _hide();
@@ -777,7 +809,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
           if (miniVisible) ...[
             const Positioned(top: 64, right: 96, child: WallClock(shadow: true)),
             Positioned(left: 96, right: 96, bottom: 70, child: _ProgressBar(position: _seekTarget ?? s.position,
-                buffered: s.buffered, duration: s.duration, trickplay: model.trickplay, seeking: _seekTarget != null)),
+                buffered: s.buffered, duration: s.duration, model: model, seeking: _seekTarget != null)),
           ],
           if (!loading && !error && _introVisible(s))
             Positioned(
@@ -870,7 +902,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
   }
 
   void _onSurfaceTap() {
-    model.togglePause();
+    _playPause();
     _show(focusPlay: false);
   }
 
@@ -934,7 +966,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
               forwardStep: model.seekForward,
               backStep: model.seekBack,
               marks: [for (final c in model.chapters) c.start],
-              trickplay: model.trickplay,
+              model: model,
               seeking: _seekTarget != null,
             ),
           ),
@@ -948,7 +980,7 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
                 compact: true,
                 primary: true,
                 focusNode: _playButton,
-                onSelect: model.togglePause,
+                onSelect: _playPause,
               ),
               const SizedBox(width: 18),
               TvButton(label: l10n.seekBack('${model.seekBack}'), icon: Icons.replay_rounded, compact: true, onSelect: () => _seekBy(-model.seekBack)),
@@ -1017,7 +1049,7 @@ class _ProgressBar extends StatelessWidget {
     this.onScrub,
     this.onScrubEnd,
     this.marks = const [],
-    this.trickplay,
+    required this.model,
     this.seeking = false,
   });
 
@@ -1026,7 +1058,7 @@ class _ProgressBar extends StatelessWidget {
   final Duration duration;
   final bool focused;
   final List<Duration> marks;
-  final Trickplay? trickplay;
+  final OsdModel model;
   final bool seeking;
 
   final double? hover;
@@ -1034,6 +1066,24 @@ class _ProgressBar extends StatelessWidget {
 
   final ValueChanged<double>? onScrub;
   final VoidCallback? onScrubEnd;
+
+  Widget _preview(BuildContext context, double barWidth, double at) {
+    final screen = MediaQuery.sizeOf(context);
+    final width = screen.width * model.trickplaySize / 100;
+    final reach = model.filmstrip ? Trickplay.reach(screen.width - 24, width) : 0;
+    final outer = _TrickplayPreview.outer(width, reach);
+    final box = context.findRenderObject();
+    final origin = box is RenderBox && box.hasSize ? box.localToGlobal(Offset.zero).dx : 0.0;
+    final centre = model.trickplayFollow ? barWidth * at : barWidth / 2;
+    final least = 12 - origin;
+    return Positioned(
+      left: (centre - outer / 2).clamp(least, math.max(least, screen.width - 12 - origin - outer)),
+      bottom: 40 + (model.trickplayDistance - 10) * screen.height / 200,
+      child: IgnorePointer(
+        child: _TrickplayPreview(trickplay: model.trickplay!, time: duration * at, width: width, reach: reach),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1078,13 +1128,8 @@ class _ProgressBar extends StatelessWidget {
                   left: (box.maxWidth * frac - 14).clamp(0, box.maxWidth - 28),
                   child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
                 ),
-              if (trickplay != null && duration > Duration.zero && (hover != null || seeking))
-                Positioned(
-                  left: (box.maxWidth * (hover ?? frac) - _TrickplayPreview.outer / 2)
-                      .clamp(0.0, math.max(0.0, box.maxWidth - _TrickplayPreview.outer)),
-                  bottom: 40,
-                  child: IgnorePointer(child: _TrickplayPreview(trickplay: trickplay!, time: duration * (hover ?? frac))),
-                )
+              if (model.trickplay != null && duration > Duration.zero && (hover != null || seeking))
+                _preview(context, box.maxWidth, hover ?? frac)
               else if (hover != null && duration > Duration.zero)
                 Positioned(
                   left: (box.maxWidth * hover! - 60).clamp(0, box.maxWidth - 120),
@@ -1135,7 +1180,7 @@ class _SeekBar extends StatefulWidget {
     required this.forwardStep,
     required this.backStep,
     this.marks = const [],
-    this.trickplay,
+    required this.model,
     this.seeking = false,
   });
 
@@ -1148,7 +1193,7 @@ class _SeekBar extends StatefulWidget {
   final int forwardStep;
   final int backStep;
   final List<Duration> marks;
-  final Trickplay? trickplay;
+  final OsdModel model;
   final bool seeking;
 
   @override
@@ -1165,7 +1210,10 @@ class _SeekBarState extends State<_SeekBar> {
   @override
   void initState() {
     super.initState();
-    _node.addListener(() => setState(() {}));
+    _node.addListener(() {
+      if (!_node.hasFocus && widget.seeking) widget.onScrubEnd();
+      setState(() {});
+    });
   }
 
   @override
@@ -1188,6 +1236,12 @@ class _SeekBarState extends State<_SeekBar> {
           widget.onSeek(widget.forwardStep);
           return KeyEventResult.handled;
         }
+        final confirm = e.logicalKey == LogicalKeyboardKey.select || e.logicalKey == LogicalKeyboardKey.enter ||
+            e.logicalKey == LogicalKeyboardKey.gameButtonA;
+        if (confirm && widget.seeking) {
+          widget.onScrubEnd();
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: _ProgressBar(
@@ -1196,7 +1250,7 @@ class _SeekBarState extends State<_SeekBar> {
         duration: widget.duration,
         focused: _node.hasFocus || _hover != null,
         marks: widget.marks,
-        trickplay: widget.trickplay,
+        model: widget.model,
         seeking: widget.seeking,
         hover: _hover,
         onHover: (frac) => setState(() => _hover = frac),
@@ -1208,21 +1262,25 @@ class _SeekBarState extends State<_SeekBar> {
 }
 
 class _TrickplayPreview extends StatefulWidget {
-  const _TrickplayPreview({required this.trickplay, required this.time});
+  const _TrickplayPreview({required this.trickplay, required this.time, required this.width, required this.reach});
 
-  static const width = 320.0;
-  static const outer = width + 12;
+  static const gap = 6.0;
+
+  static double outer(double width, int reach) => (2 * reach + 1) * width + 2 * reach * gap + 12;
 
   final Trickplay trickplay;
   final Duration time;
+  final double width;
+  final int reach;
 
   @override
   State<_TrickplayPreview> createState() => _TrickplayPreviewState();
 }
 
 class _TrickplayPreviewState extends State<_TrickplayPreview> {
-  TrickplayFrame? _frame;
-  int? _wanted;
+  final _frames = <int, TrickplayFrame>{};
+  final _loading = <int>{};
+  List<int?> _wanted = const [];
 
   @override
   void initState() {
@@ -1233,52 +1291,90 @@ class _TrickplayPreviewState extends State<_TrickplayPreview> {
   @override
   void didUpdateWidget(_TrickplayPreview old) {
     super.didUpdateWidget(old);
-    if (old.trickplay != widget.trickplay) {
-      _frame?.dispose();
-      _frame = null;
-      _wanted = null;
-    }
+    if (old.trickplay != widget.trickplay) _clear();
     _request();
   }
 
   @override
   void dispose() {
-    _frame?.dispose();
+    _clear();
     super.dispose();
+  }
+
+  void _clear() {
+    for (final frame in _frames.values) {
+      frame.dispose();
+    }
+    _frames.clear();
+    _loading.clear();
+    _wanted = const [];
   }
 
   void _request() {
     final trickplay = widget.trickplay;
-    final index = trickplay.indexAt(widget.time);
-    if (index == _wanted) return;
-    _wanted = index;
-    trickplay.frame(index).then((frame) {
-      if (frame == null) return;
-      if (!mounted || trickplay != widget.trickplay || (frame.index != _wanted && _frame != null)) return frame.dispose();
-      setState(() {
-        _frame?.dispose();
-        _frame = frame;
+    _wanted = Trickplay.window(trickplay.indexAt(widget.time), widget.reach, trickplay.count);
+    for (final index in _wanted.nonNulls) {
+      if (_frames.containsKey(index) || !_loading.add(index)) continue;
+      trickplay.frame(index).then((frame) {
+        _loading.remove(index);
+        if (frame == null) return;
+        if (!mounted || trickplay != widget.trickplay) return frame.dispose();
+        setState(() {
+          _frames.remove(index)?.dispose();
+          _frames[index] = frame;
+          if (!_wanted.nonNulls.every(_frames.containsKey)) return;
+          _frames.removeWhere((i, f) {
+            final gone = !_wanted.contains(i);
+            if (gone) f.dispose();
+            return gone;
+          });
+        });
       });
-    });
+    }
+  }
+
+  TrickplayFrame? _nearest(int? index) {
+    if (index == null || _frames.isEmpty) return null;
+    return _frames[_frames.keys.reduce((a, b) => (a - index).abs() <= (b - index).abs() ? a : b)];
+  }
+
+  Widget _tile(int? index, bool centre, double height) {
+    final frame = index == null ? null : _frames[index] ?? (centre ? _nearest(index) : null);
+    final picture = ClipRRect(
+      borderRadius: BorderRadius.circular(9),
+      child: frame == null ? const ColoredBox(color: Colors.black) : CustomPaint(painter: _FramePainter(frame)),
+    );
+    if (index == null) return SizedBox(width: widget.width, height: height);
+    final marked = widget.reach > 0 && centre;
+    return Opacity(
+      opacity: widget.reach > 0 && !centre ? 0.6 : 1,
+      child: Container(
+        width: widget.width,
+        height: height,
+        foregroundDecoration: marked
+            ? BoxDecoration(border: Border.all(color: Zc.accent, width: 3), borderRadius: BorderRadius.circular(9))
+            : null,
+        child: picture,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final frame = _frame;
-    final aspect = frame == null ? 16 / 9 : frame.source.width / frame.source.height;
+    final sample = _frames.values.firstOrNull;
+    final aspect = sample == null ? 16 / 9 : sample.source.width / sample.source.height;
+    final height = widget.width / aspect;
     return Container(
-      width: _TrickplayPreview.outer,
+      width: _TrickplayPreview.outer(widget.width, widget.reach),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.75), borderRadius: BorderRadius.circular(14)),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(9),
-          child: SizedBox(
-            width: _TrickplayPreview.width,
-            height: _TrickplayPreview.width / aspect,
-            child: frame == null ? const ColoredBox(color: Colors.black) : CustomPaint(painter: _FramePainter(frame)),
-          ),
-        ),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final (slot, index) in _wanted.indexed) ...[
+            if (slot > 0) const SizedBox(width: _TrickplayPreview.gap),
+            _tile(index, slot == widget.reach, height),
+          ],
+        ]),
         const SizedBox(height: 6),
         Text(_fmt(widget.time), style: Zt.label, textAlign: TextAlign.center),
       ]),

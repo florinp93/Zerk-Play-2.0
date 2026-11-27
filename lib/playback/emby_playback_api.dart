@@ -481,7 +481,7 @@ final class EmbyPlaybackApi {
           queryParameters: {'MediaSourceId': mediaSourceId}));
     }
     final bytes = await client.getBytes('/Videos/$itemId/index.bif',
-        queryParameters: {'Width': '$width', 'MediaSourceId': mediaSourceId});
+        queryParameters: {'Width': '320', 'MediaSourceId': mediaSourceId});
     final bif = bytes == null ? null : BifIndex.parse(bytes);
     return bif == null ? null : BifTrickplay(bif);
   }

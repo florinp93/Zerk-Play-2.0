@@ -22,6 +22,20 @@ final class TrickplayGrid {
 
   int get perSheet => tileWidth * tileHeight;
 
+  int get sheets => (count + perSheet - 1) ~/ perSheet;
+
+  int get sheetBytes => width * tileWidth * height * tileHeight * 4;
+
+  static const maxSheetBytes = 64 << 20;
+
+  List<int> sheetOrder(Duration position) {
+    final near = indexAt(position) ~/ perSheet;
+    return [for (var i = 0; i < sheets; i++) i]..sort((a, b) {
+        final byDistance = (a - near).abs().compareTo((b - near).abs());
+        return byDistance != 0 ? byDistance : b.compareTo(a);
+      });
+  }
+
   int indexAt(Duration t) {
     final ms = interval.inMilliseconds;
     if (ms <= 0 || t.inMilliseconds <= 0) return 0;
@@ -40,12 +54,17 @@ final class TrickplayGrid {
     final wanted = _plainId(mediaSourceId);
     final widths = trickplay.entries.where((e) => _plainId('${e.key}') == wanted).firstOrNull?.value;
     if (widths is! Map) return null;
-    int distance(TrickplayGrid g) => (g.width - preferredWidth).abs();
-    bool closer(TrickplayGrid a, TrickplayGrid b) =>
-        distance(a) < distance(b) || distance(a) == distance(b) && a.width > b.width;
+    final grids = widths.values.map(_parse).nonNulls.toList();
+    final light = grids.where((g) => g.sheetBytes <= maxSheetBytes).toList();
+    bool better(TrickplayGrid a, TrickplayGrid b) {
+      final sharp = a.width >= preferredWidth;
+      if (sharp != b.width >= preferredWidth) return sharp;
+      return sharp ? a.width < b.width : a.width > b.width;
+    }
+
     TrickplayGrid? best;
-    for (final grid in widths.values.map(_parse).nonNulls) {
-      if (best == null || closer(grid, best)) best = grid;
+    for (final grid in light.isEmpty ? grids : light) {
+      if (best == null || better(grid, best)) best = grid;
     }
     return best;
   }
@@ -138,11 +157,27 @@ final class TrickplayFrame {
 abstract base class Trickplay {
   Duration get interval;
 
+  int get count;
+
   int indexAt(Duration t);
 
   Future<TrickplayFrame?> frame(int index);
 
+  Future<void> preload(Duration position) async {}
+
+  void stopPreload() {}
+
   void dispose();
+
+  static List<int?> window(int center, int reach, int count) =>
+      [for (var i = center - reach; i <= center + reach; i++) i >= 0 && i < count ? i : null];
+
+  static int reach(double available, double width, {double gap = 6, int most = 2}) {
+    for (var r = most; r > 0; r--) {
+      if ((2 * r + 1) * width + 2 * r * gap <= available) return r;
+    }
+    return 0;
+  }
 
   static Future<ui.Image?> decode(Uint8List? bytes) async {
     if (bytes == null || bytes.isEmpty) return null;
@@ -191,10 +226,16 @@ final class SheetTrickplay extends Trickplay {
 
   final TrickplayGrid grid;
   final Future<Uint8List?> Function(int sheet) _fetch;
-  final _sheets = _ImageCache(3);
+  late final _sheets = _ImageCache((TrickplayGrid.maxSheetBytes ~/ grid.sheetBytes).clamp(1, 3));
+  final _raw = <int, Uint8List>{};
+  final _pending = <int, Future<Uint8List?>>{};
+  bool _stopped = false;
 
   @override
   Duration get interval => grid.interval;
+
+  @override
+  int get count => grid.count;
 
   @override
   int indexAt(Duration t) => grid.indexAt(t);
@@ -203,13 +244,7 @@ final class SheetTrickplay extends Trickplay {
   Future<TrickplayFrame?> frame(int index) async {
     if (index < 0 || index >= grid.count || _sheets.disposed) return null;
     final tile = grid.tileOf(index);
-    final sheet = await _sheets.get(tile.sheet, () async {
-      try {
-        return await Trickplay.decode(await _fetch(tile.sheet));
-      } catch (_) {
-        return null;
-      }
-    });
+    final sheet = await _sheets.get(tile.sheet, () async => Trickplay.decode(await _bytes(tile.sheet)));
     if (sheet == null || _sheets.disposed) return null;
     final w = math.min(grid.width, sheet.width - tile.left), h = math.min(grid.height, sheet.height - tile.top);
     if (w <= 0 || h <= 0) return null;
@@ -217,8 +252,59 @@ final class SheetTrickplay extends Trickplay {
         ui.Rect.fromLTWH(tile.left.toDouble(), tile.top.toDouble(), w.toDouble(), h.toDouble()));
   }
 
+  int get _rawSize => _raw.values.fold(0, (n, b) => n + b.length);
+
+  Future<Uint8List?> _bytes(int sheet) {
+    final have = _raw[sheet];
+    return have != null ? Future.value(have) : _pending[sheet] ??= _download(sheet);
+  }
+
+  Future<Uint8List?> _download(int sheet) async {
+    try {
+      final bytes = await _fetch(sheet);
+      if (bytes != null && !_sheets.disposed) {
+        _raw[sheet] = bytes;
+        _trim(sheet);
+      }
+      return bytes;
+    } catch (_) {
+      return null;
+    } finally {
+      _pending.remove(sheet);
+    }
+  }
+
+  void _trim(int around) {
+    var total = _rawSize;
+    final far = _raw.keys.toList()..sort((a, b) => (b - around).abs().compareTo((a - around).abs()));
+    for (final sheet in far) {
+      if (total <= TrickplayGrid.maxSheetBytes || sheet == around) break;
+      total -= _raw.remove(sheet)!.length;
+    }
+  }
+
   @override
-  void dispose() => _sheets.dispose();
+  Future<void> preload(Duration position) async {
+    _stopped = false;
+    final queue = grid.sheetOrder(position).where((s) => !_raw.containsKey(s)).toList();
+    Future<void> worker() async {
+      while (queue.isNotEmpty && !_stopped && !_sheets.disposed && _rawSize < TrickplayGrid.maxSheetBytes) {
+        await _bytes(queue.removeAt(0));
+      }
+    }
+
+    await Future.wait([worker(), worker()]);
+  }
+
+  @override
+  void stopPreload() => _stopped = true;
+
+  @override
+  void dispose() {
+    _stopped = true;
+    _sheets.dispose();
+    _raw.clear();
+  }
 }
 
 final class BifTrickplay extends Trickplay {
@@ -229,6 +315,9 @@ final class BifTrickplay extends Trickplay {
 
   @override
   Duration get interval => bif.interval;
+
+  @override
+  int get count => bif.count;
 
   @override
   int indexAt(Duration t) => bif.indexAt(t);

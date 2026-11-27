@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
@@ -172,6 +173,11 @@ final class PlaybackSession {
       'anamorphic': _settings.anamorphic,
       'skipIntro': _settings.skipIntro.name,
       'skipCredits': _settings.skipCredits.name,
+      'trickplayMode': _settings.trickplayMode.name,
+      'trickplaySize': _settings.trickplaySize,
+      'trickplayDistance': _settings.trickplayDistance,
+      'trickplayFollow': _settings.trickplayFollow,
+      'trickplayPause': _settings.trickplayPause,
       'subtitleSearch': true,
       'subLanguages': _searchLanguages(),
     });
@@ -889,16 +895,23 @@ final class PlaybackSession {
   }
 
   Future<void> _sendTrickplay(_Current cur) async {
-    if (cur.item.isChannel || cur.source.liveStreamId != null) return;
+    if (_settings.trickplayMode == TrickplayMode.off || cur.item.isChannel || cur.source.liveStreamId != null) return;
     final key = '${cur.item.id}|${cur.source.id}';
-    final trickplay = await (_trickplay[key] ??= _api.trickplay(cur.item.id, cur.source.id).catchError((Object e) {
+    for (final other in _trickplay.entries) {
+      if (other.key != key) unawaited(other.value.then((trickplay) => trickplay?.stopPreload()));
+    }
+    final screen = ui.PlatformDispatcher.instance.implicitView?.physicalSize.width ?? 1920;
+    final width = (screen * _settings.trickplaySize / 100).round();
+    final trickplay = await (_trickplay[key] ??= _api.trickplay(cur.item.id, cur.source.id, width: width).catchError((Object e) {
       debugPrint('[session] trickplay: $e');
       return null;
     }));
     if (!identical(_current, cur) || _finishing) return;
     debugPrint('[session] trickplay for ${cur.item.id}: '
         '${trickplay == null ? 'none' : 'every ${trickplay.interval.inMilliseconds} ms'}');
-    if (trickplay != null) _osd('trickplay', trickplay);
+    if (trickplay == null) return;
+    _osd('trickplay', trickplay);
+    unawaited(trickplay.preload(_player.state.value.position));
   }
 
   Future<void> _sendChapters(_Current cur) async {

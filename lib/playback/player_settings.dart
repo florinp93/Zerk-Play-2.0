@@ -10,6 +10,8 @@ enum SkipMode { off, button, auto }
 
 enum AutoCropMode { off, start, continuous }
 
+enum TrickplayMode { off, single, filmstrip }
+
 enum SubtitleMode {
   off,
 
@@ -71,6 +73,11 @@ final class PlayerSettings {
     this.detailedLog = true,
     this.scopeScreen = 0,
     this.autoCropMode = AutoCropMode.off,
+    this.trickplayMode = TrickplayMode.single,
+    this.trickplaySize = 17,
+    this.trickplayDistance = 10,
+    this.trickplayFollow = true,
+    this.trickplayPause = false,
     this.defaultAspect = 'auto',
     this.anamorphic = 1.0,
     this.targetPrim = 'auto',
@@ -139,6 +146,16 @@ final class PlayerSettings {
 
   bool get autoCrop => autoCropMode != AutoCropMode.off;
 
+  final TrickplayMode trickplayMode;
+
+  final int trickplaySize;
+
+  final int trickplayDistance;
+
+  final bool trickplayFollow;
+
+  final bool trickplayPause;
+
   final String defaultAspect;
 
   final double anamorphic;
@@ -197,6 +214,11 @@ final class PlayerSettings {
     bool? detailedLog,
     double? scopeScreen,
     AutoCropMode? autoCropMode,
+    TrickplayMode? trickplayMode,
+    int? trickplaySize,
+    int? trickplayDistance,
+    bool? trickplayFollow,
+    bool? trickplayPause,
     String? defaultAspect,
     double? anamorphic,
     String? targetPrim,
@@ -243,6 +265,11 @@ final class PlayerSettings {
       detailedLog: detailedLog ?? this.detailedLog,
       scopeScreen: scopeScreen ?? this.scopeScreen,
       autoCropMode: autoCropMode ?? this.autoCropMode,
+      trickplayMode: trickplayMode ?? this.trickplayMode,
+      trickplaySize: trickplaySize ?? this.trickplaySize,
+      trickplayDistance: trickplayDistance ?? this.trickplayDistance,
+      trickplayFollow: trickplayFollow ?? this.trickplayFollow,
+      trickplayPause: trickplayPause ?? this.trickplayPause,
       defaultAspect: defaultAspect ?? this.defaultAspect,
       anamorphic: anamorphic ?? this.anamorphic,
       targetPrim: targetPrim ?? this.targetPrim,
@@ -291,6 +318,11 @@ final class PlayerSettings {
         'detailedLog': detailedLog,
         'scope': scopeScreen,
         'autoCropMode': autoCropMode.name,
+        'tpMode': trickplayMode.name,
+        'tpSize': trickplaySize,
+        'tpDistance': trickplayDistance,
+        'tpFollow': trickplayFollow,
+        'tpPause': trickplayPause,
         'aspect': defaultAspect,
         'anamorphic': anamorphic,
         'targetPrim': targetPrim,
@@ -353,6 +385,11 @@ final class PlayerSettings {
       scopeScreen: pick('scope', d.scopeScreen),
       autoCropMode: AutoCropMode.values.asNameMap()[j['autoCropMode']] ??
           (j['autoCrop'] == true ? AutoCropMode.continuous : d.autoCropMode),
+      trickplayMode: TrickplayMode.values.asNameMap()[j['tpMode']] ?? d.trickplayMode,
+      trickplaySize: pick('tpSize', d.trickplaySize).clamp(10, 90),
+      trickplayDistance: pick('tpDistance', d.trickplayDistance).clamp(10, 90),
+      trickplayFollow: pick('tpFollow', d.trickplayFollow),
+      trickplayPause: pick('tpPause', d.trickplayPause),
       defaultAspect: pick('aspect', d.defaultAspect),
       anamorphic: pick('anamorphic', d.anamorphic),
       targetPrim: pick('targetPrim', d.targetPrim),

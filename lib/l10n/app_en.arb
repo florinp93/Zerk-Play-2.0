@@ -1746,5 +1746,18 @@
   "reasonAudioTracks": "Audio track not supported",
   "reasonSubtitle": "Subtitle format not supported",
   "reasonBitrate": "Bitrate above the limit",
-  "reasonDirectPlayError": "Direct play failed"
+  "reasonDirectPlayError": "Direct play failed",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Seek preview",
+  "trickplayModeHint": "Preview pictures shown while you scrub the seek bar. They come from the server and only appear when it has made them for the title.",
+  "trickplaySingle": "Single thumbnail",
+  "trickplayFilmstrip": "Filmstrip",
+  "trickplaySize": "Preview size",
+  "trickplaySizeHint": "Width of the preview as a share of the screen width.",
+  "trickplayDistance": "Distance from the seek bar",
+  "trickplayDistanceHint": "10% sits right above the bar, higher values move the preview up the screen.",
+  "trickplayFollow": "Follow the scrub position",
+  "trickplayFollowHint": "On slides the preview along the bar. Off keeps it centred on the screen.",
+  "trickplayPause": "Pause while scrubbing",
+  "trickplayPauseHint": "On pauses playback when you start scrubbing and resumes when you press OK or Play. Off keeps playing and jumps to the new time when you confirm."
 }

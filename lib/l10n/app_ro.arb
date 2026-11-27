@@ -833,5 +833,18 @@
   "reasonAudioTracks": "Pistă audio neacceptată",
   "reasonSubtitle": "Format de subtitrare neacceptat",
   "reasonBitrate": "Bitrate peste limită",
-  "reasonDirectPlayError": "Redarea directă a eșuat"
+  "reasonDirectPlayError": "Redarea directă a eșuat",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Previzualizare la derulare",
+  "trickplayModeHint": "Imagini de previzualizare afișate când derulezi bara de progres. Vin de la server și apar doar dacă serverul le-a creat pentru titlu.",
+  "trickplaySingle": "O singură miniatură",
+  "trickplayFilmstrip": "Bandă de miniaturi",
+  "trickplaySize": "Dimensiunea previzualizării",
+  "trickplaySizeHint": "Lățimea previzualizării ca procent din lățimea ecranului.",
+  "trickplayDistance": "Distanța față de bara de progres",
+  "trickplayDistanceHint": "10% pune previzualizarea chiar deasupra barei, valorile mai mari o urcă pe ecran.",
+  "trickplayFollow": "Urmărește poziția de derulare",
+  "trickplayFollowHint": "Activat: previzualizarea alunecă de-a lungul barei. Dezactivat: rămâne centrată pe ecran.",
+  "trickplayPause": "Pauză în timpul derulării",
+  "trickplayPauseHint": "Activat oprește redarea când începi să derulezi și o reia când apeși OK sau Redare. Dezactivat continuă redarea și sare la noul moment când confirmi."
 }

@@ -268,6 +268,46 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {for (final s in const [5, 10, 15, 20, 30, 45, 60, 90, 120]) s: l10n.secondsCount(s)},
             onChanged: (v) => _savePlayer(p.copyWith(seekBackSeconds: v)),
           ),
+          SettingHeader(l10n.settingsGroupTrickplay),
+          SettingChoiceRow<TrickplayMode>(
+            title: l10n.trickplayMode,
+            subtitle: l10n.trickplayModeHint,
+            value: p.trickplayMode,
+            options: {
+              TrickplayMode.off: l10n.skipModeOff,
+              TrickplayMode.single: l10n.trickplaySingle,
+              TrickplayMode.filmstrip: l10n.trickplayFilmstrip,
+            },
+            onChanged: (v) => _savePlayer(p.copyWith(trickplayMode: v)),
+          ),
+          if (p.trickplayMode != TrickplayMode.off) ...[
+            SettingChoiceRow<int>(
+              title: l10n.trickplaySize,
+              subtitle: l10n.trickplaySizeHint,
+              value: p.trickplaySize,
+              options: {for (final v in const [10, 15, 17, 20, 25, 30, 40, 50, 60, 70, 80, 90]) v: '$v%'},
+              onChanged: (v) => _savePlayer(p.copyWith(trickplaySize: v)),
+            ),
+            SettingChoiceRow<int>(
+              title: l10n.trickplayDistance,
+              subtitle: l10n.trickplayDistanceHint,
+              value: p.trickplayDistance,
+              options: {for (var v = 10; v <= 90; v += 10) v: '$v%'},
+              onChanged: (v) => _savePlayer(p.copyWith(trickplayDistance: v)),
+            ),
+            SettingToggleRow(
+              title: l10n.trickplayFollow,
+              subtitle: l10n.trickplayFollowHint,
+              value: p.trickplayFollow,
+              onChanged: (v) => _savePlayer(p.copyWith(trickplayFollow: v)),
+            ),
+          ],
+          SettingToggleRow(
+            title: l10n.trickplayPause,
+            subtitle: l10n.trickplayPauseHint,
+            value: p.trickplayPause,
+            onChanged: (v) => _savePlayer(p.copyWith(trickplayPause: v)),
+          ),
         ];
       case _Section.picture:
         return [

@@ -833,5 +833,18 @@
   "reasonAudioTracks": "Pista de audio no compatible",
   "reasonSubtitle": "Formato de subtítulos no compatible",
   "reasonBitrate": "Bitrate por encima del límite",
-  "reasonDirectPlayError": "Falló la reproducción directa"
+  "reasonDirectPlayError": "Falló la reproducción directa",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Vista previa al avanzar",
+  "trickplayModeHint": "Imágenes de vista previa que aparecen al desplazarte por la barra de progreso. Las genera el servidor y solo se ven si las ha creado para el título.",
+  "trickplaySingle": "Una miniatura",
+  "trickplayFilmstrip": "Tira de miniaturas",
+  "trickplaySize": "Tamaño de la vista previa",
+  "trickplaySizeHint": "Ancho de la vista previa como porcentaje del ancho de la pantalla.",
+  "trickplayDistance": "Distancia a la barra de progreso",
+  "trickplayDistanceHint": "10 % queda justo encima de la barra; los valores más altos suben la vista previa por la pantalla.",
+  "trickplayFollow": "Seguir la posición",
+  "trickplayFollowHint": "Activado desliza la vista previa a lo largo de la barra. Desactivado la mantiene centrada en la pantalla.",
+  "trickplayPause": "Pausar al avanzar",
+  "trickplayPauseHint": "Activado pausa la reproducción al empezar a desplazarte y la reanuda al pulsar OK o Reproducir. Desactivado sigue reproduciendo y salta al nuevo momento al confirmar."
 }

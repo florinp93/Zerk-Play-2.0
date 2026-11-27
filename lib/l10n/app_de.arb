@@ -833,5 +833,18 @@
   "reasonAudioTracks": "Tonspur nicht unterstützt",
   "reasonSubtitle": "Untertitelformat nicht unterstützt",
   "reasonBitrate": "Bitrate über dem Limit",
-  "reasonDirectPlayError": "Direktwiedergabe fehlgeschlagen"
+  "reasonDirectPlayError": "Direktwiedergabe fehlgeschlagen",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Vorschau beim Spulen",
+  "trickplayModeHint": "Vorschaubilder, die beim Spulen über der Zeitleiste erscheinen. Sie kommen vom Server und sind nur da, wenn er sie für den Titel erstellt hat.",
+  "trickplaySingle": "Einzelnes Vorschaubild",
+  "trickplayFilmstrip": "Filmstreifen",
+  "trickplaySize": "Größe der Vorschau",
+  "trickplaySizeHint": "Breite der Vorschau als Anteil der Bildschirmbreite.",
+  "trickplayDistance": "Abstand zur Zeitleiste",
+  "trickplayDistanceHint": "10 % liegt direkt über der Leiste, höhere Werte schieben die Vorschau weiter nach oben.",
+  "trickplayFollow": "Der Spulposition folgen",
+  "trickplayFollowHint": "An: Die Vorschau gleitet an der Leiste entlang. Aus: Sie bleibt in der Bildschirmmitte.",
+  "trickplayPause": "Beim Spulen pausieren",
+  "trickplayPauseHint": "An pausiert die Wiedergabe, sobald du zu spulen beginnst, und setzt sie fort, wenn du OK oder Wiedergabe drückst. Aus spielt weiter und springt beim Bestätigen zur neuen Zeit."
 }

@@ -833,5 +833,18 @@
   "reasonAudioTracks": "Ścieżka dźwiękowa nieobsługiwana",
   "reasonSubtitle": "Format napisów nieobsługiwany",
   "reasonBitrate": "Bitrate powyżej limitu",
-  "reasonDirectPlayError": "Odtwarzanie bezpośrednie nie powiodło się"
+  "reasonDirectPlayError": "Odtwarzanie bezpośrednie nie powiodło się",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Podgląd przy przewijaniu",
+  "trickplayModeHint": "Obrazy podglądu widoczne podczas przewijania paska postępu. Pochodzą z serwera i pojawiają się tylko wtedy, gdy serwer je utworzył dla danego tytułu.",
+  "trickplaySingle": "Pojedyncza miniatura",
+  "trickplayFilmstrip": "Taśma miniatur",
+  "trickplaySize": "Rozmiar podglądu",
+  "trickplaySizeHint": "Szerokość podglądu jako część szerokości ekranu.",
+  "trickplayDistance": "Odległość od paska postępu",
+  "trickplayDistanceHint": "10% ustawia podgląd tuż nad paskiem, wyższe wartości przesuwają go wyżej na ekranie.",
+  "trickplayFollow": "Podążaj za pozycją przewijania",
+  "trickplayFollowHint": "Włączone: podgląd przesuwa się wzdłuż paska. Wyłączone: pozostaje na środku ekranu.",
+  "trickplayPause": "Wstrzymaj podczas przewijania",
+  "trickplayPauseHint": "Włączone wstrzymuje odtwarzanie po rozpoczęciu przewijania i wznawia je po naciśnięciu OK lub Odtwórz. Wyłączone odtwarza dalej i po zatwierdzeniu przeskakuje do nowego czasu."
 }

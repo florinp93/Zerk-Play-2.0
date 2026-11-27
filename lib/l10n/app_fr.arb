@@ -833,5 +833,18 @@
   "reasonAudioTracks": "Piste audio non prise en charge",
   "reasonSubtitle": "Format de sous-titres non pris en charge",
   "reasonBitrate": "Débit supérieur à la limite",
-  "reasonDirectPlayError": "Échec de la lecture directe"
+  "reasonDirectPlayError": "Échec de la lecture directe",
+  "settingsGroupTrickplay": "Trickplay",
+  "trickplayMode": "Aperçu pendant le déplacement",
+  "trickplayModeHint": "Images d'aperçu affichées quand tu déplaces la barre de progression. Elles viennent du serveur et n'apparaissent que s'il les a créées pour le titre.",
+  "trickplaySingle": "Une seule vignette",
+  "trickplayFilmstrip": "Bande de vignettes",
+  "trickplaySize": "Taille de l'aperçu",
+  "trickplaySizeHint": "Largeur de l'aperçu en pourcentage de la largeur de l'écran.",
+  "trickplayDistance": "Distance par rapport à la barre de progression",
+  "trickplayDistanceHint": "10 % place l'aperçu juste au-dessus de la barre, des valeurs plus élevées le montent sur l'écran.",
+  "trickplayFollow": "Suivre la position",
+  "trickplayFollowHint": "Activé : l'aperçu glisse le long de la barre. Désactivé : il reste centré sur l'écran.",
+  "trickplayPause": "Mettre en pause pendant le déplacement",
+  "trickplayPauseHint": "Activé met la lecture en pause dès que tu commences à te déplacer et la reprend quand tu appuies sur OK ou Lecture. Désactivé laisse la lecture continuer et saute au nouvel instant à la validation."
 }
