@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
+import '../../app/app_settings.dart';
 import '../../core/emby/models/emby_item.dart';
 import '../../core/emby/models/media_source.dart';
 import '../../data/recommendations.dart';
@@ -414,6 +415,8 @@ class _DetailsPageState extends State<DetailsPage> {
               ]),
             ),
           ),
+          if (_source != null && s.settings.techInfoPlacement == TechInfoPlacement.underButtons)
+            _TechInfo(source: _source!, top: 26),
           const SizedBox(height: 60),
           if (_siblings.length > 1) ...[
             MediaRow(
@@ -459,7 +462,7 @@ class _DetailsPageState extends State<DetailsPage> {
           CastRow(people: item.people),
           if (_tags.isNotEmpty) ...[const SizedBox(height: Zs.rowGap), TagRow(tags: _tags)],
           if (_similar.isNotEmpty) ...[const SizedBox(height: Zs.rowGap), MoreLikeThisRow(items: _similar)],
-          if (_source != null) _TechInfo(source: _source!),
+          if (_source != null && s.settings.techInfoPlacement == TechInfoPlacement.bottom) _TechInfo(source: _source!),
         ],
       ),
     ]);
@@ -467,15 +470,16 @@ class _DetailsPageState extends State<DetailsPage> {
 }
 
 class _TechInfo extends StatelessWidget {
-  const _TechInfo({required this.source});
+  const _TechInfo({required this.source, this.top = 50});
 
   final MediaSourceInfo source;
+  final double top;
 
   @override
   Widget build(BuildContext context) {
     final v = VersionInfo(source);
     return Padding(
-      padding: const EdgeInsets.only(left: pageLeft, top: 50, right: 120),
+      padding: EdgeInsets.only(left: pageLeft, top: top, right: 120),
       child: Text(
         [v.summary, ?v.bitrate, ?source.container?.toUpperCase(), ?source.path?.split(RegExp(r'[\\/]')).last].join('   ·   '),
         style: Zt.caption,

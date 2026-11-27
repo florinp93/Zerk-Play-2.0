@@ -99,6 +99,8 @@ final class OsdModel extends ChangeNotifier {
   List<OsdChoice> subs = const [];
   List<OsdChoice> versions = const [];
   List<OsdChoice> quality = const [];
+  List<OsdChoice> info = const [];
+  bool infoTranscoding = false;
   String? qualityLabel;
   String? qualityHint;
   Duration? introStart;
@@ -162,6 +164,9 @@ final class OsdModel extends ChangeNotifier {
       case 'tracks':
         audio = OsdChoice.list(m['audio']);
         subs = OsdChoice.list(m['subs']);
+      case 'info':
+        info = OsdChoice.list(m['rows']);
+        infoTranscoding = m['transcoding'] == true;
       case 'versions':
         versions = OsdChoice.list(data);
       case 'quality':

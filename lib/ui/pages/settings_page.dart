@@ -624,6 +624,14 @@ class _SettingsPageState extends State<SettingsPage> {
               options: {LauncherEpisodeArt.series: l10n.launcherArtSeries, LauncherEpisodeArt.episode: l10n.launcherArtEpisode},
               onChanged: (v) => services.updateSettings(app.copyWith(launcherEpisodeArt: v)),
             ),
+          SettingHeader(l10n.sectionDetailsPage),
+          SettingChoiceRow<TechInfoPlacement>(
+            title: l10n.techInfoPlacement,
+            subtitle: l10n.techInfoPlacementHint,
+            value: app.techInfoPlacement,
+            options: {TechInfoPlacement.bottom: l10n.techInfoBottom, TechInfoPlacement.underButtons: l10n.techInfoUnderButtons},
+            onChanged: (v) => services.updateSettings(app.copyWith(techInfoPlacement: v)),
+          ),
           if (services.isSignedIn) ...[
             SettingHeader(l10n.libraries),
             SettingActionRow(

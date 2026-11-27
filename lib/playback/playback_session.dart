@@ -12,6 +12,7 @@ import 'auto_crop.dart';
 import 'emby_playback_api.dart';
 import 'kept_display.dart';
 import 'language.dart';
+import 'playback_info.dart';
 import 'player_backend.dart';
 import 'player_settings.dart';
 import 'subtitle_style.dart';
@@ -839,6 +840,24 @@ final class PlaybackSession {
     _osd('tracks', {
       'audio': [for (final s in cur.source.audioStreams) entry(s, s.index == cur.audioIndex)],
       'subs': [for (final s in cur.source.subtitleStreams) entry(s, s.index == cur.subtitleIndex)],
+    });
+    _sendInfo(cur);
+  }
+
+  void _sendInfo(_Current cur) {
+    final source = cur.source;
+    final audioIndex = cur.audioIndex ?? source.defaultAudioStreamIndex;
+    final rows = PlaybackInfo.rows(
+      l10n,
+      source: source,
+      method: cur.stream.method,
+      transcodeReasons: cur.stream.url.queryParameters['TranscodeReasons'],
+      audio: audioIndex == null ? source.audioStreams.firstOrNull : source.streamByIndex(audioIndex),
+      subtitle: cur.subtitleIndex == null ? null : source.streamByIndex(cur.subtitleIndex!),
+    );
+    _osd('info', {
+      'rows': [for (final r in rows) {'id': r.id, 'label': r.label, 'detail': r.detail}],
+      'transcoding': cur.stream.method == PlayMethod.transcode,
     });
   }
 

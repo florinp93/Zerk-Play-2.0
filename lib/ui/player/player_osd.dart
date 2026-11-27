@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/l10n.dart';
 import '../../playback/media3/osd_model.dart';
+import '../../playback/playback_info.dart';
 import '../../playback/player_backend.dart';
 import '../../playback/subtitle_delay.dart';
 import '../../playback/subtitle_style.dart';
@@ -513,34 +514,29 @@ class _PlayerOsdState extends State<PlayerOsd> with SingleTickerProviderStateMix
     final l10n = context.l10n;
     final s = await model.stats!();
     if (!mounted) return;
-    String? join(List<String?> parts) {
-      final shown = parts.whereType<String>().where((p) => p.isNotEmpty).toList();
-      return shown.isEmpty ? null : shown.join('  ·  ');
-    }
-
-    String? mbps(Object? bits) => bits is num ? '${(bits / 1e6).toStringAsFixed(1)} Mbps' : null;
-    final fps = s['fps'];
-    final rows = [
-      (l10n.infoVideo, join([
-        _codecName(s['videoMime']),
-        if (s['width'] case final num w when w > 0) '$w×${s['height']}',
-        if (fps is num) '${fps.toStringAsFixed(fps == fps.roundToDouble() ? 0 : 3)} fps',
-        mbps(s['videoBitrate']),
-      ])),
+    int? whole(Object? v) => v is num ? v.toInt() : null;
+    final width = whole(s['width']);
+    final passthrough = s['audioPassthrough'];
+    final buffered = whole(s['bufferedMs']);
+    final live = [
+      if (model.infoTranscoding)
+        (l10n.infoStream, PlaybackInfo.join([
+          _codecName(s['videoMime']),
+          if (width != null && width > 0) '$width×${s['height']}',
+          PlaybackInfo.bitrate(whole(s['videoBitrate'])),
+          _codecName(s['audioMime']),
+        ])),
       (l10n.infoVideoDecoder, s['videoDecoder'] as String?),
-      (l10n.audio, join([
-        _codecName(s['audioMime']),
-        if (s['channels'] case final num c) '$c ch',
-        if (s['sampleRate'] case final num r) '${(r / 1000).toStringAsFixed(r % 1000 == 0 ? 0 : 1)} kHz',
-        mbps(s['audioBitrate']),
-      ])),
       (l10n.infoAudioDecoder, s['audioDecoder'] as String?),
+      (l10n.infoAudioOutput, passthrough is bool ? (passthrough ? l10n.infoBitstream : l10n.infoDecoded) : null),
       (l10n.infoDropped, s['dropped']?.toString()),
+      (l10n.infoBufferAhead, buffered == null ? null : '${(buffered / 1000).round()} s'),
       (l10n.playbackSpeed, s['speed'] is num ? _speedLabel((s['speed'] as num).toDouble()) : null),
     ];
     _panelOpen = true;
     await showSidePanel<void>(context, title: l10n.playbackInfo, options: [
-      for (final (label, value) in rows)
+      for (final row in model.info) PanelOption(value: null, title: row.label, subtitle: row.detail),
+      for (final (label, value) in live)
         if (value != null) PanelOption(value: null, title: label, subtitle: value),
     ]);
     _panelOpen = false;

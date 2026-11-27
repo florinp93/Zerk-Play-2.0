@@ -78,6 +78,8 @@ enum LauncherEpisodeArt {
   episode,
 }
 
+enum TechInfoPlacement { bottom, underButtons }
+
 final class AppSettings {
   const AppSettings({
     this.seerrUrl = '',
@@ -90,6 +92,7 @@ final class AppSettings {
     this.groupCollections = false,
     this.homeClock = false,
     this.launcherEpisodeArt = LauncherEpisodeArt.series,
+    this.techInfoPlacement = TechInfoPlacement.bottom,
     this.acceptInvalidCertificates = false,
     this.versionPreferences = const {},
     this.uiLanguage = '',
@@ -129,6 +132,7 @@ final class AppSettings {
   final bool groupCollections;
   final bool homeClock;
   final LauncherEpisodeArt launcherEpisodeArt;
+  final TechInfoPlacement techInfoPlacement;
   final bool acceptInvalidCertificates;
 
   final Map<String, String> versionPreferences;
@@ -216,6 +220,7 @@ final class AppSettings {
     bool? groupCollections,
     bool? homeClock,
     LauncherEpisodeArt? launcherEpisodeArt,
+    TechInfoPlacement? techInfoPlacement,
     bool? acceptInvalidCertificates,
     Map<String, String>? versionPreferences,
     String? uiLanguage,
@@ -251,6 +256,7 @@ final class AppSettings {
         groupCollections: groupCollections ?? this.groupCollections,
         homeClock: homeClock ?? this.homeClock,
         launcherEpisodeArt: launcherEpisodeArt ?? this.launcherEpisodeArt,
+        techInfoPlacement: techInfoPlacement ?? this.techInfoPlacement,
         acceptInvalidCertificates: acceptInvalidCertificates ?? this.acceptInvalidCertificates,
         versionPreferences: versionPreferences ?? this.versionPreferences,
         uiLanguage: uiLanguage ?? this.uiLanguage,
@@ -298,6 +304,7 @@ final class AppSettings {
         homeClock: j['homeClock'] as bool? ?? false,
         launcherEpisodeArt:
             LauncherEpisodeArt.values.asNameMap()[j['launcherEpisodeArt']] ?? LauncherEpisodeArt.series,
+        techInfoPlacement: TechInfoPlacement.values.asNameMap()[j['techInfoPlacement']] ?? TechInfoPlacement.bottom,
         acceptInvalidCertificates: j['badCerts'] as bool? ?? false,
         versionPreferences: (j['versions'] as Map?)?.cast<String, String>() ?? const {},
         uiLanguage: j['uiLanguage'] as String? ?? '',
@@ -363,6 +370,7 @@ final class AppSettings {
         'groupCollections': groupCollections,
         'homeClock': homeClock,
         'launcherEpisodeArt': launcherEpisodeArt.name,
+        'techInfoPlacement': techInfoPlacement.name,
         'badCerts': acceptInvalidCertificates,
         'versions': versionPreferences,
         'uiLanguage': uiLanguage,

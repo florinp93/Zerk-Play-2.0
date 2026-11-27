@@ -38,6 +38,9 @@ local L = {
   subtitle_delay = "Subtitle delay", audio_delay = "Audio delay", subtitle_size = "Subtitle size", slider_hint = "Left and right change it. OK keeps it, Back cancels.",
   search_subtitles = "Search subtitles", searching = "Searching…", no_subtitles_found = "No subtitles found",
   playback_info = "Playback info", playback_info_detail = "Codecs, bitrate, dropped frames",
+  info_stream = "Received stream", info_video_decoder = "Video decoder", info_dropped = "Dropped frames",
+  info_buffer_ahead = "Buffered ahead", info_audio_output = "Audio output", info_bitstream = "Bitstream",
+  info_decoded = "Decoded", info_hardware = "Hardware", info_software = "Software",
   hdr_on = "HDR ON", tone_mapped = "TONE-MAPPED", muted = "Muted", press_back = "Press Back to return",
   skip_intro = "Skip intro", skip_credits = "Skip credits", up_next = "Up next", starts_in = "Starts in {n} s", intro_skipped = "Intro skipped",
   play_now = "Play now", keep_watching = "Keep watching",
@@ -98,6 +101,7 @@ local S = {
   hide_at = 0,
   tracks = { audio = {}, subs = {} },
   versions = {},
+  info = nil,
   versions_title = nil,
   quality = nil,
   downmix = nil,
@@ -507,7 +511,7 @@ local function settings_items()
     { id = "subdelay", label = tr("subtitle_delay"), detail = string.format("%+.1fs", prop("sub-delay", 0)), submenu = true },
     { id = "subsize", label = tr("subtitle_size"), detail = percent(prop("sub-scale", 1)), submenu = true },
     { id = "audiodelay", label = tr("audio_delay"), detail = string.format("%+.2fs", prop("audio-delay", 0)), submenu = true },
-    { id = "stats", label = tr("playback_info"), detail = tr("playback_info_detail") },
+    { id = "info", label = tr("playback_info"), detail = tr("playback_info_detail"), submenu = true },
   }) do items[#items + 1] = it end
   return items
 end
@@ -527,12 +531,60 @@ local function panel_cursor(items)
   return 1
 end
 
+local function middle_ellipsis(text, max)
+  if #text <= max then return text end
+  local a, b = math.floor(max / 2) - 1, #text - math.floor(max / 2) + 2
+  while a > 1 and text:byte(a + 1) and text:byte(a + 1) >= 0x80 and text:byte(a + 1) < 0xC0 do a = a - 1 end
+  while b < #text and text:byte(b) >= 0x80 and text:byte(b) < 0xC0 do b = b + 1 end
+  return text:sub(1, a) .. "…" .. text:sub(b)
+end
+
+local VIDEO_NAMES = { h264 = "H.264", hevc = "HEVC", av1 = "AV1", vp9 = "VP9", mpeg2video = "MPEG-2", vc1 = "VC-1" }
+
+local function info_items()
+  local items = {}
+  local function add(label, detail)
+    if detail and detail ~= "" then
+      items[#items + 1] = { id = label, label = label, detail = middle_ellipsis(detail, 44) }
+    end
+  end
+  local info = S.info or {}
+  for _, row in ipairs(info.rows or {}) do add(row.label, row.detail) end
+
+  local format = prop("video-format", "")
+  if info.transcoding then
+    local parts = {}
+    if format ~= "" then parts[#parts + 1] = VIDEO_NAMES[format] or string.upper(format) end
+    local w, h = prop("video-params/w", 0), prop("video-params/h", 0)
+    if w > 0 then parts[#parts + 1] = w .. "×" .. h end
+    local audio = prop("audio-codec-name", "")
+    if audio ~= "" then parts[#parts + 1] = string.upper(audio) end
+    add(tr("info_stream"), table.concat(parts, "  ·  "))
+  end
+  if format ~= "" then
+    local hw = prop("hwdec-current", "")
+    if hw == "" or hw == "no" then add(tr("info_video_decoder"), tr("info_software"))
+    else add(tr("info_video_decoder"), tr("info_hardware") .. "  ·  " .. hw) end
+    add(tr("info_dropped"), tostring(prop("frame-drop-count", 0) + prop("decoder-frame-drop-count", 0)))
+  end
+  local out = prop("audio-out-params/format", "")
+  if out:find("^spdif") then
+    add(tr("info_audio_output"), tr("info_bitstream") .. "  ·  " .. string.upper((out:gsub("^spdif%-", ""))))
+  elseif out ~= "" then
+    add(tr("info_audio_output"), tr("info_decoded") .. "  ·  " .. prop("audio-out-params/hr-channels", ""))
+  end
+  local buffered = prop("demuxer-cache-duration", nil)
+  if type(buffered) == "number" then add(tr("info_buffer_ahead"), string.format("%d s", math.floor(buffered + 0.5))) end
+  return items
+end
+
 open_panel = function(kind)
   local p = { kind = kind }
   if kind == "audio" then p.title, p.items = tr("audio"), track_items("audio")
   elseif kind == "subs" then p.title, p.items = tr("subtitles"), track_items("subs")
   elseif kind == "chapters" then p.title, p.items = tr("chapters"), chapter_items()
   elseif kind == "settings" then p.title, p.items = tr("settings"), settings_items()
+  elseif kind == "info" then p.title, p.items = tr("playback_info"), info_items()
   elseif kind == "version" then
     p.title, p.items = S.versions_title or tr("version"), {}
     for _, v in ipairs(S.versions) do
@@ -594,8 +646,8 @@ local function panel_activate(item)
     else send("sub", tostring(item.id)); S.panel = nil end
   elseif p.kind == "chapters" then mp.commandv("seek", item.id, "absolute+exact"); S.panel = nil
   elseif p.kind == "settings" then
-    if item.id == "stats" then mp.commandv("script-binding", "stats/display-stats-toggle"); S.panel = nil; S.visible = false
-    else open_panel(item.id) end
+    open_panel(item.id)
+  elseif p.kind == "info" then S.panel = nil
   elseif p.kind == "version" then
     if not item.selected then send("version", tostring(item.id)) end
     S.panel = nil
@@ -850,14 +902,7 @@ local function draw_panel(out)
   out[#out + 1] = ev(string.format("\\pos(0,0)\\1c&H%s&\\1a&H08&\\p1", T.panel), string.format("m %d 0 l %d 0 l %d %d l %d %d", px, W, W, H, px, H))
   out[#out + 1] = text(px + 56, 90, 4, 40, T.white, esc(p.title), { font = T.font_semibold })
   if p.subhead and p.subhead ~= "" then
-    local name = p.subhead
-    if #name > 46 then
-      local a, b = 22, #name - 21
-      while a > 1 and name:byte(a + 1) and name:byte(a + 1) >= 0x80 and name:byte(a + 1) < 0xC0 do a = a - 1 end
-      while b < #name and name:byte(b) >= 0x80 and name:byte(b) < 0xC0 do b = b + 1 end
-      name = name:sub(1, a) .. "…" .. name:sub(b)
-    end
-    out[#out + 1] = text(px + 56, 136, 4, 22, T.muted, esc(name))
+    out[#out + 1] = text(px + 56, 136, 4, 22, T.muted, esc(middle_ellipsis(p.subhead, 46)))
   end
 
   local row_h, top = 84, (p.subhead and p.subhead ~= "") and 176 or 160
@@ -1560,6 +1605,10 @@ mp.register_script_message("tracks", function(raw)
   S.tracks = { audio = t.audio or {}, subs = t.subs or {} }
   if S.panel and (S.panel.kind == "audio" or S.panel.kind == "subs") then open_panel(S.panel.kind) end
   render()
+end)
+
+mp.register_script_message("info", function(raw)
+  S.info = json(raw)
 end)
 
 mp.register_script_message("versions", function(raw)

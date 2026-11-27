@@ -31,6 +31,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -102,6 +103,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private var videoDecoder: String? = null
 
     private var audioDecoder: String? = null
+
+    private var audioPassthrough: Boolean? = null
 
     private var shadowOffset = 2f / 720
     private var player: ExoPlayer? = null
@@ -364,6 +367,10 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             ) {
                 audioDecoder = decoderName
             }
+
+            override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+                audioPassthrough = !Util.isEncodingLinearPcm(audioTrackConfig.encoding)
+            }
         })
 
         this.surface = surface
@@ -476,6 +483,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         player = null
         videoDecoder = null
         audioDecoder = null
+        audioPassthrough = null
         layer?.apply {
             removeAllViews()
             visibility = View.GONE
@@ -795,6 +803,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             "sampleRate" to audio?.sampleRate?.takeIf { it > 0 },
             "audioBitrate" to audio?.bitrate?.takeIf { it > 0 },
             "audioDecoder" to audioDecoder,
+            "audioPassthrough" to audioPassthrough,
+            "bufferedMs" to exo.totalBufferedDuration,
             "dropped" to exo.videoDecoderCounters?.droppedBufferCount,
             "speed" to exo.playbackParameters.speed.toDouble(),
         )
