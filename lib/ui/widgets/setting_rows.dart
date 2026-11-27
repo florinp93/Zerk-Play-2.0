@@ -151,17 +151,20 @@ class SettingTextRow extends StatelessWidget {
 }
 
 Future<String?> showTextInputDialog(BuildContext context,
-        {required String title, String initial = '', String? hint, String? action}) =>
-    showDialog<String>(context: context, builder: (_) => _TextDialog(title: title, initial: initial, hint: hint, action: action));
+        {required String title, String initial = '', String? hint, String? action, String? Function(String)? validate}) =>
+    showDialog<String>(
+        context: context,
+        builder: (_) => _TextDialog(title: title, initial: initial, hint: hint, action: action, validate: validate));
 
 class _TextDialog extends StatefulWidget {
-  const _TextDialog({required this.title, required this.initial, this.hint, this.obscure = false, this.action});
+  const _TextDialog({required this.title, required this.initial, this.hint, this.obscure = false, this.action, this.validate});
 
   final String title;
   final String initial;
   final String? hint;
   final bool obscure;
   final String? action;
+  final String? Function(String)? validate;
 
   @override
   State<_TextDialog> createState() => _TextDialogState();
@@ -169,6 +172,16 @@ class _TextDialog extends StatefulWidget {
 
 class _TextDialogState extends State<_TextDialog> {
   late final _controller = TextEditingController(text: widget.initial);
+  String? _error;
+
+  void _submit(String value) {
+    final error = widget.validate?.call(value);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
 
   @override
   void dispose() {
@@ -199,15 +212,16 @@ class _TextDialogState extends State<_TextDialog> {
                 decoration: InputDecoration(
                   hintText: widget.hint,
                   hintStyle: Zt.caption.copyWith(fontSize: 22),
+                  errorText: _error,
                   filled: true,
                   fillColor: Zc.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                 ),
-                onSubmitted: (v) => Navigator.of(context).pop(v),
+                onSubmitted: _submit,
               ),
               const SizedBox(height: 26),
               Row(children: [
-                TvButton(label: widget.action ?? context.l10n.save, icon: Icons.check_rounded, primary: true, onSelect: () => Navigator.of(context).pop(_controller.text)),
+                TvButton(label: widget.action ?? context.l10n.save, icon: Icons.check_rounded, primary: true, onSelect: () => _submit(_controller.text)),
                 const SizedBox(width: 16),
                 TvButton(label: context.l10n.cancel, onSelect: () => Navigator.of(context).pop()),
               ]),

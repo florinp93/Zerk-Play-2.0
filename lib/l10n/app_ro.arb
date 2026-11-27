@@ -779,5 +779,10 @@
   "addToFavorites": "Adaugă la favorite",
   "removeFromFavorites": "Elimină din favorite",
   "menuDetails": "Detalii",
-  "removeFromContinueWatching": "Elimină din Continuă vizionarea"
+  "removeFromContinueWatching": "Elimină din Continuă vizionarea",
+  "colorCustom": "Personalizată",
+  "colorCustomHint": "Culoare hex, de exemplu #FFD700",
+  "colorCustomInvalid": "Introdu o culoare ca #RRGGBB",
+  "subtitleBold": "Subtitrări aldine",
+  "opacitySolid": "Opac (100%)"
 }

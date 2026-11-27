@@ -101,6 +101,19 @@ class _SettingsPageState extends State<SettingsPage> {
     await next.save();
   }
 
+  Future<void> _pickCustomColor(PlayerSettings p) async {
+    final l10n = context.l10n;
+    final input = await showTextInputDialog(
+      context,
+      title: l10n.colorCustom,
+      initial: SubtitleStyle.formatHex(p.subtitleColor),
+      hint: l10n.colorCustomHint,
+      validate: (v) => SubtitleStyle.parseHex(v) == null ? l10n.colorCustomInvalid : null,
+    );
+    final color = input == null ? null : SubtitleStyle.parseHex(input);
+    if (color != null) await _savePlayer(p.copyWith(subtitleColor: color));
+  }
+
   bool _sendingLogs = false;
 
   Future<void> _runPerfTest(BuildContext context) async {
@@ -417,8 +430,15 @@ class _SettingsPageState extends State<SettingsPage> {
               SubtitleStyle.lightGrey: l10n.colorLightGrey,
               SubtitleStyle.cyan: l10n.colorCyan,
               SubtitleStyle.green: l10n.colorGreen,
+              if (!SubtitleStyle.colors.contains(p.subtitleColor)) p.subtitleColor: SubtitleStyle.formatHex(p.subtitleColor),
+              SubtitleStyle.custom: l10n.colorCustom,
             },
-            onChanged: (v) => _savePlayer(p.copyWith(subtitleColor: v)),
+            onChanged: (v) => v == SubtitleStyle.custom ? _pickCustomColor(p) : _savePlayer(p.copyWith(subtitleColor: v)),
+          ),
+          SettingToggleRow(
+            title: l10n.subtitleBold,
+            value: p.subtitleBold,
+            onChanged: (v) => _savePlayer(p.copyWith(subtitleBold: v)),
           ),
           SettingChoiceRow<int>(
             title: l10n.subtitlePosition,
@@ -437,7 +457,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: l10n.backgroundOpacity,
             subtitle: p.subtitleBackground ? null : l10n.backgroundOpacityHint,
             value: p.subtitleBackgroundOpacity,
-            options: {0.25: l10n.opacityLight(25), 0.4: '40%', 0.6: l10n.opacityMedium(60), 0.75: '75%', 0.9: l10n.opacityDark(90)},
+            options: {0.25: l10n.opacityLight(25), 0.4: '40%', 0.6: l10n.opacityMedium(60), 0.75: '75%', 0.9: l10n.opacityDark(90), 1.0: l10n.opacitySolid},
             onChanged: (v) => _savePlayer(p.copyWith(subtitleBackgroundOpacity: v)),
           ),
           SettingToggleRow(title: l10n.restyleAss, subtitle: l10n.restyleAssHint,

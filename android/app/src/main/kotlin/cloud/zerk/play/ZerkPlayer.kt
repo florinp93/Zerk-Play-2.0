@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.text.SpannableString
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
@@ -70,6 +71,10 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     private var subtitles: SubtitleView? = null
 
     private var subtitleShadow: SubtitleView? = null
+
+    private var subtitleBox = false
+
+    private var lastCues: List<Cue> = emptyList()
 
     private var subtitlePadding = 40f / 720
 
@@ -424,6 +429,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
             it.translationX = px
             it.translationY = px
         }
+        subtitles?.setCues(boxed(lastCues))
         subtitlePadding = (style["bottomPaddingFraction"] as? Number)?.toFloat() ?: subtitlePadding
         liftSubtitles()
     }
@@ -433,6 +439,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         fun color(key: String, default: Long) = ((style[key] as? Number)?.toLong() ?: default).toInt()
         val embedded = style["applyEmbeddedStyles"] as? Boolean ?: true
         val box = style["background"] as? Boolean ?: false
+        if (!shadow) subtitleBox = box
         view.visibility = if (shadow && box) View.GONE else View.VISIBLE
         val text = if (shadow) color("shadowColor", 0xFF000000) else color("textColor", 0xFFFFFFFF)
         val edge = if (shadow) color("shadowColor", 0xFF000000) else color("outlineColor", 0xFF000000)
@@ -443,7 +450,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 Color.TRANSPARENT,
                 if (box) CaptionStyleCompat.EDGE_TYPE_NONE else CaptionStyleCompat.EDGE_TYPE_OUTLINE,
                 edge,
-                Typeface.create("sans-serif", Typeface.NORMAL),
+                Typeface.create("sans-serif", if (style["bold"] as? Boolean == true) Typeface.BOLD else Typeface.NORMAL),
             ),
         )
         view.setFractionalTextSize(num("textSizeFraction", 52.0 / 720).toFloat())
@@ -692,8 +699,27 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
     }
 
     override fun onCues(cueGroup: CueGroup) {
-        subtitles?.setCues(cueGroup.cues)
-        subtitleShadow?.setCues(shadowCues(cueGroup.cues))
+        lastCues = cueGroup.cues
+        subtitles?.setCues(boxed(lastCues))
+        subtitleShadow?.setCues(shadowCues(lastCues))
+    }
+
+    private fun boxed(cues: List<Cue>): List<Cue> = if (subtitleBox) cues.map(::padCue) else cues
+
+    private fun padCue(cue: Cue): Cue {
+        val text = cue.text ?: return cue
+        val padded = SpannableStringBuilder(text)
+        var end = padded.length
+        while (true) {
+            val start = padded.lastIndexOf('\n', end - 1) + 1
+            if (start < end) {
+                padded.insert(end, "\u00A0")
+                padded.insert(start, "\u00A0")
+            }
+            if (start == 0) break
+            end = start - 1
+        }
+        return cue.buildUpon().setText(padded).build()
     }
 
     private fun shadowCues(cues: List<Cue>): List<Cue> = cues.mapNotNull { cue ->

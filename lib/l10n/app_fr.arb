@@ -779,5 +779,10 @@
   "addToFavorites": "Ajouter aux favoris",
   "removeFromFavorites": "Retirer des favoris",
   "menuDetails": "Détails",
-  "removeFromContinueWatching": "Retirer de « Reprendre la lecture »"
+  "removeFromContinueWatching": "Retirer de « Reprendre la lecture »",
+  "colorCustom": "Personnalisée",
+  "colorCustomHint": "Couleur hexadécimale, par exemple #FFD700",
+  "colorCustomInvalid": "Saisis une couleur au format #RRGGBB",
+  "subtitleBold": "Sous-titres en gras",
+  "opacitySolid": "Opaque (100 %)"
 }

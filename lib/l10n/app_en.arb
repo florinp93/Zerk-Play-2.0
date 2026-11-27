@@ -34,10 +34,22 @@
   "hubAddress": "Hub address",
   "hubAddressHint": "e.g. zerkplay.example.com",
   "linkedTo": "Set up by {name}",
-  "@linkedTo": {"placeholders": {"name": {"type": "String"}}},
+  "@linkedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "unlinkHub": "Use another code",
   "codeEyebrow": "Zerk Play for {server}",
-  "@codeEyebrow": {"placeholders": {"server": {"type": "String"}}},
+  "@codeEyebrow": {
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
   "codeHeadline": "Your server. Every screen.\nOne code.",
   "codePitch": "Whoever runs your Emby or Jellyfin server sets Zerk Play up once. Enter the code they gave you, sign in with your own account, and everything is ready.",
   "codeFeatureRequests": "Request movies and shows from the couch",
@@ -50,10 +62,22 @@
   "codeChecking": "Checking…",
   "codeSignInTitle": "Now sign in",
   "codeSignInBody": "Use your own {kind} username and password.",
-  "@codeSignInBody": {"placeholders": {"kind": {"type": "String"}}},
+  "@codeSignInBody": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "codeNoCode": "No code? Set it up yourself or scan a QR code with your phone.",
   "codeOwnerHint": "Run a server? Get the Zerk Play Dashboard at {site}",
-  "@codeOwnerHint": {"placeholders": {"site": {"type": "String"}}},
+  "@codeOwnerHint": {
+    "placeholders": {
+      "site": {
+        "type": "String"
+      }
+    }
+  },
   "codeBack": "Use a sync code",
   "groupCollections": "Group into collections",
   "collectionTitle": "Collection",
@@ -66,7 +90,13 @@
   "launcherArtEpisode": "Episode image",
   "requestFolderTitle": "Save to folder",
   "requestFolder": "Folder: {name}",
-  "@requestFolder": {"placeholders": {"name": {"type": "String"}}},
+  "@requestFolder": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "sendLogs": "Send logs to the developer",
   "sendLogsHint": "Uploads the logs from this and the last session so a problem can be looked at. You get a code to share on Discord.",
   "perfTest": "Run a performance test",
@@ -77,10 +107,25 @@
   "sendLogsDoneTitle": "Logs sent",
   "sendLogsDoneBody": "Share this code on Discord so your logs can be found:",
   "sendLogsFailed": "Couldn't send the logs. {error}",
-  "@sendLogsFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@sendLogsFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "hubLinkedSetting": "Sync code",
   "hubLinkedSettingValue": "{code} · {name}",
-  "@hubLinkedSettingValue": {"placeholders": {"code": {"type": "String"}, "name": {"type": "String"}}},
+  "@hubLinkedSettingValue": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "username": "Username",
   "password": "Password",
   "signIn": "Sign in",
@@ -1271,7 +1316,9 @@
   "homeCollectionsCount": "{count, plural, =0{None picked} =1{1 collection} other{{count} collections}}",
   "@homeCollectionsCount": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "homeCollectionsIntro": "Pick collections to show as rows on Home. They appear in the order below, right after Continue watching.",
@@ -1645,5 +1692,10 @@
   "addToFavorites": "Add to favorites",
   "removeFromFavorites": "Remove from favorites",
   "menuDetails": "Details",
-  "removeFromContinueWatching": "Remove from Continue watching"
+  "removeFromContinueWatching": "Remove from Continue watching",
+  "colorCustom": "Custom",
+  "colorCustomHint": "Hex colour, for example #FFD700",
+  "colorCustomInvalid": "Enter a colour as #RRGGBB",
+  "subtitleBold": "Bold subtitles",
+  "opacitySolid": "Solid (100%)"
 }

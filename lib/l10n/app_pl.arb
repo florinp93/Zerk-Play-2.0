@@ -779,5 +779,10 @@
   "addToFavorites": "Dodaj do ulubionych",
   "removeFromFavorites": "Usuń z ulubionych",
   "menuDetails": "Szczegóły",
-  "removeFromContinueWatching": "Usuń z „Kontynuuj oglądanie”"
+  "removeFromContinueWatching": "Usuń z „Kontynuuj oglądanie”",
+  "colorCustom": "Własny",
+  "colorCustomHint": "Kolor szesnastkowy, na przykład #FFD700",
+  "colorCustomInvalid": "Wpisz kolor jako #RRGGBB",
+  "subtitleBold": "Pogrubione napisy",
+  "opacitySolid": "Pełne krycie (100%)"
 }

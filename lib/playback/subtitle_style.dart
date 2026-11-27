@@ -15,6 +15,7 @@ abstract final class SubtitleStyle {
   static const cyan = 0xFF7FE8FF;
   static const green = 0xFF8CF29B;
   static const colors = [white, yellow, lightGrey, cyan, green];
+  static const custom = -1;
   static const outlineColor = 0xFF000000;
   static const shadowColor = 0xFF000000;
 
@@ -40,11 +41,19 @@ abstract final class SubtitleStyle {
     if (save) unawaited(PlayerSettings.load().then((p) => p.copyWith(subtitleScale: scale).save()));
   }
 
+  static int? parseHex(String input) {
+    final match = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch(input.trim());
+    if (match == null) return null;
+    return 0xFF000000 | int.parse(match.group(1)!, radix: 16);
+  }
+
+  static String formatHex(int argb) => '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
   static int boxColor(PlayerSettings s) => ((s.subtitleBackgroundOpacity.clamp(0.0, 1.0) * 255).round() << 24) & 0xFF000000;
 
   static Map<String, String> mpvOptions(PlayerSettings s) => {
         'sub-font': 'Arial',
-        'sub-bold': 'no',
+        'sub-bold': s.subtitleBold ? 'yes' : 'no',
         'sub-font-size': fontSize.toStringAsFixed(0),
         'sub-color': _mpvColor(s.subtitleColor),
         if (s.subtitleBackground) ...{
@@ -71,6 +80,7 @@ abstract final class SubtitleStyle {
         'bottomPaddingFraction': s.subtitleBottomMargin / reference,
         'shadowOffsetFraction': shadow / reference * s.subtitleScale,
         'textColor': s.subtitleColor,
+        'bold': s.subtitleBold,
         'outlineColor': outlineColor,
         'shadowColor': shadowColor,
         'background': s.subtitleBackground,

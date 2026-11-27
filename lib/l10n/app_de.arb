@@ -779,5 +779,10 @@
   "addToFavorites": "Zu Favoriten hinzufügen",
   "removeFromFavorites": "Aus Favoriten entfernen",
   "menuDetails": "Details",
-  "removeFromContinueWatching": "Aus „Weiterschauen“ entfernen"
+  "removeFromContinueWatching": "Aus „Weiterschauen“ entfernen",
+  "colorCustom": "Benutzerdefiniert",
+  "colorCustomHint": "Hex-Farbe, zum Beispiel #FFD700",
+  "colorCustomInvalid": "Farbe als #RRGGBB eingeben",
+  "subtitleBold": "Fette Untertitel",
+  "opacitySolid": "Deckend (100 %)"
 }

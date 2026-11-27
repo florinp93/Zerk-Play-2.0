@@ -68,7 +68,7 @@ class _Caption extends StatelessWidget {
     final scale = settings.subtitleScale;
     final style = TextStyle(
       fontFamily: Host.isDesktop ? 'Arial' : null,
-      fontWeight: FontWeight.w400,
+      fontWeight: settings.subtitleBold ? FontWeight.w700 : FontWeight.w400,
       fontSize: SubtitleStyle.fontSize * unit * scale * _em,
       height: 1.15,
     );
@@ -76,7 +76,10 @@ class _Caption extends StatelessWidget {
     if (settings.subtitleBackground) {
       return Center(
         child: Container(
-          padding: EdgeInsets.all(SubtitleStyle.boxPadding * unit),
+          padding: EdgeInsets.symmetric(
+            horizontal: Host.isAndroid ? SubtitleStyle.fontSize * unit * scale * 0.25 : SubtitleStyle.boxPadding * unit,
+            vertical: SubtitleStyle.boxPadding * unit,
+          ),
           color: Color(SubtitleStyle.boxColor(settings)),
           child: Text(text, textAlign: TextAlign.center, style: style.copyWith(color: Color(settings.subtitleColor))),
         ),

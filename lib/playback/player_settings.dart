@@ -50,6 +50,7 @@ final class PlayerSettings {
     this.subtitleBackground = false,
     this.subtitleBackgroundOpacity = 0.6,
     this.subtitleColor = SubtitleStyle.white,
+    this.subtitleBold = false,
     this.volume = 100,
     this.skipIntro = SkipMode.button,
     this.skipCredits = SkipMode.button,
@@ -103,6 +104,7 @@ final class PlayerSettings {
 
   final double subtitleBackgroundOpacity;
   final int subtitleColor;
+  final bool subtitleBold;
   final double volume;
   final SkipMode skipIntro;
   final SkipMode skipCredits;
@@ -169,6 +171,7 @@ final class PlayerSettings {
     bool? subtitleBackground,
     double? subtitleBackgroundOpacity,
     int? subtitleColor,
+    bool? subtitleBold,
     double? volume,
     SkipMode? skipIntro,
     SkipMode? skipCredits,
@@ -212,6 +215,7 @@ final class PlayerSettings {
       subtitleBackground: subtitleBackground ?? this.subtitleBackground,
       subtitleBackgroundOpacity: subtitleBackgroundOpacity ?? this.subtitleBackgroundOpacity,
       subtitleColor: subtitleColor ?? this.subtitleColor,
+      subtitleBold: subtitleBold ?? this.subtitleBold,
       volume: volume ?? this.volume,
       skipIntro: skipIntro ?? this.skipIntro,
       skipCredits: skipCredits ?? this.skipCredits,
@@ -257,6 +261,7 @@ final class PlayerSettings {
         'subBg': subtitleBackground,
         'subBgOpacity': subtitleBackgroundOpacity,
         'subColor': subtitleColor,
+        'subBold': subtitleBold,
         'volume': volume,
         'skipIntro': skipIntro.name,
         'skipCredits': skipCredits.name,
@@ -312,8 +317,9 @@ final class PlayerSettings {
       subtitleBottomMargin: pick('subMargin', d.subtitleBottomMargin),
       overrideAssStyles: pick('assOverride', d.overrideAssStyles),
       subtitleBackground: pick('subBg', d.subtitleBackground),
-      subtitleBackgroundOpacity: pick('subBgOpacity', d.subtitleBackgroundOpacity),
-      subtitleColor: SubtitleStyle.colors.contains(j['subColor']) ? j['subColor'] as int : d.subtitleColor,
+      subtitleBackgroundOpacity: pick('subBgOpacity', d.subtitleBackgroundOpacity).clamp(0.0, 1.0),
+      subtitleColor: pick('subColor', d.subtitleColor) | 0xFF000000,
+      subtitleBold: pick('subBold', d.subtitleBold),
       volume: pick('volume', d.volume),
       skipIntro: SkipMode.values.asNameMap()[j['skipIntro']] ??
           (j['autoSkipIntro'] == true ? SkipMode.auto : d.skipIntro),
