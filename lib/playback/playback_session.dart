@@ -167,6 +167,7 @@ final class PlaybackSession {
       'seekBack': _settings.seekBackSeconds,
       'scope': _settings.scopeScreen,
       'autoCrop': _settings.autoCrop,
+      'autoCropMode': _settings.autoCropMode.name,
       'defaultAspect': _settings.defaultAspect,
       'anamorphic': _settings.anamorphic,
       'skipIntro': _settings.skipIntro.name,

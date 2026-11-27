@@ -351,6 +351,19 @@ class _SettingsPageState extends State<SettingsPage> {
               },
               onChanged: (v) => _savePlayer(p.copyWith(videoQuality: v)),
             ),
+            SettingChoiceRow<VideoScaler>(
+              title: l10n.videoScaler,
+              subtitle: l10n.videoScalerHint,
+              value: p.scaler,
+              options: {
+                VideoScaler.auto: l10n.videoScalerAuto,
+                VideoScaler.lanczos: 'Lanczos',
+                VideoScaler.ewaLanczos: l10n.videoScalerEwaLanczos,
+              },
+              onChanged: (v) => _savePlayer(p.copyWith(scaler: v)),
+            ),
+            SettingToggleRow(title: l10n.antiRinging, subtitle: l10n.antiRingingHint,
+                value: p.antiRinging, onChanged: (v) => _savePlayer(p.copyWith(antiRinging: v))),
             SettingChoiceRow<String>(
               title: l10n.hardwareDecoding,
               subtitle: l10n.hardwareDecodingHint,

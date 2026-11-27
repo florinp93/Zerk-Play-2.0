@@ -56,6 +56,12 @@ Map<String, String> buildMpvOptions({
         VideoQuality.balanced => {'scale': 'spline36', 'dscale': 'mitchell'},
         VideoQuality.high => {'profile': 'high-quality'},
       },
+      ...switch (settings.scaler) {
+        VideoScaler.auto => const <String, String>{},
+        VideoScaler.lanczos => {'scale': 'lanczos'},
+        VideoScaler.ewaLanczos => {'scale': 'ewa_lanczos'},
+      },
+      if (settings.antiRinging) 'scale-antiring': '0.6',
       'deband': settings.deband ? 'yes' : 'no',
       'tone-mapping': settings.toneMapping,
       if (settings.targetPrim != 'auto') 'target-prim': settings.targetPrim,

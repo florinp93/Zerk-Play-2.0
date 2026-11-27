@@ -1,0 +1,271 @@
+//!PARAM PTS
+//!TYPE DYNAMIC float
+0.0
+
+//!PARAM zb_view
+//!DESC Aspect ratio the picture area is shown at
+//!TYPE DYNAMIC float
+//!MINIMUM 0.1
+//!MAXIMUM 10.0
+1.777778
+
+//!PARAM zb_dar
+//!DESC Display aspect ratio of the whole source frame
+//!TYPE DYNAMIC float
+//!MINIMUM 0.1
+//!MAXIMUM 10.0
+1.777778
+
+//!PARAM zb_fill
+//!DESC 1 fills the picture area, 0 fits inside it
+//!TYPE DYNAMIC int
+//!MINIMUM 0
+//!MAXIMUM 1
+0
+
+//!PARAM zb_freeze
+//!DESC 1 keeps the current crop
+//!TYPE DYNAMIC int
+//!MINIMUM 0
+//!MAXIMUM 1
+0
+
+//!PARAM zb_epoch
+//!DESC Changes on every new file
+//!TYPE DYNAMIC int
+0
+
+//!BUFFER ZB_STATE
+//!VAR vec4 zb_locked
+//!VAR vec4 zb_cand
+//!VAR vec2 zb_frame
+//!VAR float zb_count
+//!VAR float zb_pts
+//!VAR float zb_fresh
+//!VAR float zb_seen
+//!STORAGE
+
+//!HOOK MAIN
+//!DESC Zerk bars: rows
+//!BIND HOOKED
+//!SAVE ZB_ROWS
+//!WIDTH 1
+//!HEIGHT HOOKED.h
+//!COMPONENTS 1
+
+vec4 hook()
+{
+    int h = int(HOOKED_size.y);
+    int y = min(int(HOOKED_pos.y * HOOKED_size.y), h - 1);
+    int band = int(HOOKED_size.y * 0.3);
+    if (y >= band && y < h - band)
+        return vec4(1.0);
+    int w = int(HOOKED_size.x);
+    int step = max(1, (w + 959) / 960);
+    int lit = 0;
+    int samples = 0;
+    for (int x = step / 2; x < w; x += step) {
+        vec3 c = texelFetch(HOOKED_raw, ivec2(x, y), 0).rgb;
+        if (max(c.r, max(c.g, c.b)) > 0.03)
+            lit++;
+        samples++;
+    }
+    return vec4(float(lit) >= max(2.0, float(samples) * 0.005) ? 1.0 : 0.0);
+}
+
+//!HOOK MAIN
+//!DESC Zerk bars: columns
+//!BIND HOOKED
+//!SAVE ZB_COLS
+//!WIDTH HOOKED.w
+//!HEIGHT 1
+//!COMPONENTS 1
+
+vec4 hook()
+{
+    int w = int(HOOKED_size.x);
+    int x = min(int(HOOKED_pos.x * HOOKED_size.x), w - 1);
+    int band = int(HOOKED_size.x * 0.3);
+    if (x >= band && x < w - band)
+        return vec4(1.0);
+    int h = int(HOOKED_size.y);
+    int step = max(1, (h + 539) / 540);
+    int lit = 0;
+    int samples = 0;
+    for (int y = step / 2; y < h; y += step) {
+        vec3 c = texelFetch(HOOKED_raw, ivec2(x, y), 0).rgb;
+        if (max(c.r, max(c.g, c.b)) > 0.03)
+            lit++;
+        samples++;
+    }
+    return vec4(float(lit) >= max(2.0, float(samples) * 0.005) ? 1.0 : 0.0);
+}
+
+//!HOOK MAIN
+//!DESC Zerk bars: track
+//!BIND HOOKED
+//!BIND ZB_ROWS
+//!BIND ZB_COLS
+//!BIND ZB_STATE
+//!SAVE ZB_TICK
+//!WIDTH 1
+//!HEIGHT 1
+//!COMPONENTS 1
+//!COMPUTE 1 1 256 1
+
+shared int zb_edges[4];
+
+bool rows_from(int start, int dir, int run)
+{
+    for (int k = 0; k < run; k++) {
+        if (texelFetch(ZB_ROWS_raw, ivec2(0, start + dir * k), 0).x < 0.5)
+            return false;
+    }
+    return true;
+}
+
+bool cols_from(int start, int dir, int run)
+{
+    for (int k = 0; k < run; k++) {
+        if (texelFetch(ZB_COLS_raw, ivec2(start + dir * k, 0), 0).x < 0.5)
+            return false;
+    }
+    return true;
+}
+
+vec4 measure()
+{
+    int id = int(gl_LocalInvocationIndex);
+    int w = int(HOOKED_size.x);
+    int h = int(HOOKED_size.y);
+    int ylimit = int(HOOKED_size.y * 0.3);
+    int xlimit = int(HOOKED_size.x * 0.3);
+    int yrun = max(2, h / 270);
+    int xrun = max(2, w / 480);
+    if (id < 4)
+        zb_edges[id] = 1 << 20;
+    barrier();
+    for (int i = id; i <= ylimit; i += 256) {
+        if (rows_from(i, 1, yrun))
+            atomicMin(zb_edges[1], i);
+        if (rows_from(h - 1 - i, -1, yrun))
+            atomicMin(zb_edges[3], i);
+    }
+    for (int i = id; i <= xlimit; i += 256) {
+        if (cols_from(i, 1, xrun))
+            atomicMin(zb_edges[0], i);
+        if (cols_from(w - 1 - i, -1, xrun))
+            atomicMin(zb_edges[2], i);
+    }
+    barrier();
+    vec4 bars = vec4(zb_edges[0], zb_edges[1], zb_edges[2], zb_edges[3]);
+    vec4 size = HOOKED_size.xyxy;
+    if (any(greaterThan(bars, size * 0.3)))
+        return vec4(-1.0);
+    bars = mix(bars, vec4(0.0), lessThan(bars, size * 0.01));
+    if (abs(bars.y - bars.w) > HOOKED_size.y * 0.03 || abs(bars.x - bars.z) > HOOKED_size.x * 0.03)
+        return vec4(-1.0);
+    return bars;
+}
+
+void hook()
+{
+    vec4 m = measure();
+    if (gl_LocalInvocationIndex != 0u)
+        return;
+    vec4 size = HOOKED_size.xyxy;
+    bool step = true;
+    if (zb_seen != float(zb_epoch) || zb_frame != HOOKED_size) {
+        zb_seen = float(zb_epoch);
+        zb_frame = HOOKED_size;
+        zb_locked = vec4(0.0);
+        zb_count = 0.0;
+        zb_fresh = 1.0;
+    } else if (PTS == zb_pts) {
+        step = false;
+    } else if (PTS < zb_pts || PTS - zb_pts > 1.0) {
+        zb_fresh = 1.0;
+        zb_count = 0.0;
+    }
+    zb_pts = PTS;
+    if (step && zb_freeze == 0 && m.x >= 0.0) {
+        vec4 dead = max(vec4(2.0), size * 0.004);
+        vec4 d = m - zb_locked;
+        if (zb_fresh > 0.5 || any(lessThan(d, -dead))) {
+            zb_locked = m;
+            zb_fresh = 0.0;
+            zb_count = 0.0;
+        } else if (all(lessThanEqual(d, dead))) {
+            zb_count = 0.0;
+        } else {
+            if (zb_count > 0.0 && all(lessThanEqual(abs(m - zb_cand), dead))) {
+                zb_count += 1.0;
+            } else {
+                zb_cand = m;
+                zb_count = 1.0;
+            }
+            float need = any(greaterThan(d, size * 0.02)) ? 3.0 : 10.0;
+            if (zb_count >= need) {
+                zb_locked = m;
+                zb_count = 0.0;
+            }
+        }
+    }
+    imageStore(out_image, ivec2(0, 0), vec4(zb_count));
+}
+
+//!HOOK MAIN
+//!DESC Zerk bars: fit
+//!BIND HOOKED
+//!BIND ZB_STATE
+//!WIDTH HOOKED.w
+//!HEIGHT HOOKED.h zb_dar * zb_view /
+
+vec3 pick(ivec2 p, ivec2 lo, ivec2 hi)
+{
+    return texelFetch(HOOKED_raw, clamp(p, lo, hi), 0).rgb;
+}
+
+vec4 weights(float t)
+{
+    return vec4(t * (-0.5 + t * (1.0 - 0.5 * t)),
+                1.0 + t * t * (-2.5 + 1.5 * t),
+                t * (0.5 + t * (2.0 - 1.5 * t)),
+                t * t * (-0.5 + 0.5 * t));
+}
+
+vec4 hook()
+{
+    vec2 src = HOOKED_size;
+    vec2 canvas = vec2(src.x, max(1.0, floor(src.y * zb_dar / zb_view + 0.5)));
+    vec2 lead = zb_locked.xy;
+    vec2 area = max(src - zb_locked.xy - zb_locked.zw, vec2(1.0));
+    float pic = zb_dar * (area.x / src.x) / (area.y / src.y);
+    vec2 fit = pic > zb_view ? vec2(1.0, zb_view / pic) : vec2(pic / zb_view, 1.0);
+    if (zb_fill == 1)
+        fit /= min(fit.x, fit.y);
+    vec2 shown = max(floor(fit * canvas + 0.5), vec2(1.0));
+    vec2 offset = floor((canvas - shown) * 0.5);
+    vec2 q = (HOOKED_pos * canvas - offset) / shown;
+    if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0))))
+        return vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 s = lead + q * area - 0.5;
+    vec2 base = floor(s);
+    vec2 t = s - base;
+    ivec2 lo = ivec2(lead);
+    ivec2 hi = ivec2(lead + area) - 1;
+    ivec2 b = ivec2(base);
+    if (all(lessThan(abs(t), vec2(0.002))))
+        return vec4(pick(b, lo, hi), 1.0);
+    if (all(greaterThan(t, vec2(0.998))))
+        return vec4(pick(b + 1, lo, hi), 1.0);
+    vec4 wx = weights(t.x);
+    vec4 wy = weights(t.y);
+    vec3 sum = vec3(0.0);
+    for (int j = 0; j < 4; j++) {
+        vec3 line = wx.x * pick(b + ivec2(-1, j - 1), lo, hi) + wx.y * pick(b + ivec2(0, j - 1), lo, hi)
+                  + wx.z * pick(b + ivec2(1, j - 1), lo, hi) + wx.w * pick(b + ivec2(2, j - 1), lo, hi);
+        sum += wy[j] * line;
+    }
+    return vec4(sum, 1.0);
+}

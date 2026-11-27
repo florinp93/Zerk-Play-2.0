@@ -30,6 +30,8 @@ enum VideoQuality {
   high,
 }
 
+enum VideoScaler { auto, lanczos, ewaLanczos }
+
 final class PlayerSettings {
   const PlayerSettings({
     this.preferredAudioLanguage = '',
@@ -61,6 +63,8 @@ final class PlayerSettings {
     this.keepHdr = false,
     this.hwdec = 'auto-safe',
     this.videoQuality = VideoQuality.balanced,
+    this.scaler = VideoScaler.auto,
+    this.antiRinging = false,
     this.toneMapping = 'auto',
     this.deband = false,
     this.videoOutput = 'gpu-next',
@@ -118,6 +122,9 @@ final class PlayerSettings {
 
   final String hwdec;
   final VideoQuality videoQuality;
+
+  final VideoScaler scaler;
+  final bool antiRinging;
 
   final String toneMapping;
   final bool deband;
@@ -182,6 +189,8 @@ final class PlayerSettings {
     bool? keepHdr,
     String? hwdec,
     VideoQuality? videoQuality,
+    VideoScaler? scaler,
+    bool? antiRinging,
     String? toneMapping,
     bool? deband,
     String? videoOutput,
@@ -226,6 +235,8 @@ final class PlayerSettings {
       keepHdr: keepHdr ?? this.keepHdr,
       hwdec: hwdec ?? this.hwdec,
       videoQuality: videoQuality ?? this.videoQuality,
+      scaler: scaler ?? this.scaler,
+      antiRinging: antiRinging ?? this.antiRinging,
       toneMapping: toneMapping ?? this.toneMapping,
       deband: deband ?? this.deband,
       videoOutput: videoOutput ?? this.videoOutput,
@@ -272,6 +283,8 @@ final class PlayerSettings {
         'keepHdr': keepHdr,
         'hwdec': hwdec,
         'quality': videoQuality.name,
+        'scaler': scaler.name,
+        'antiRinging': antiRinging,
         'toneMapping': toneMapping,
         'deband': deband,
         'vo': videoOutput,
@@ -331,6 +344,8 @@ final class PlayerSettings {
       keepHdr: pick('keepHdr', d.keepHdr),
       hwdec: pick('hwdec', d.hwdec),
       videoQuality: VideoQuality.values.asNameMap()[j['quality']] ?? d.videoQuality,
+      scaler: VideoScaler.values.asNameMap()[j['scaler']] ?? d.scaler,
+      antiRinging: pick('antiRinging', d.antiRinging),
       toneMapping: pick('toneMapping', d.toneMapping),
       deband: pick('deband', d.deband),
       videoOutput: pick('vo', d.videoOutput),

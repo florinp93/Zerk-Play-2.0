@@ -366,16 +366,19 @@ end
 
 local apply_crop
 
+local function plain_override(id)
+  if id == "stretch" then return "-1" end
+  local a, b = id:match("^([%d%.]+):([%d%.]+)$")
+  local ratio = a and tonumber(a) / tonumber(b) or nil
+  if S.anamorphic > 1 then
+    local base = ratio or prop("video-dec-params/aspect", nil)
+    if base then return string.format("%.4f", base / S.anamorphic) end
+  end
+  return ratio and string.format("%.4f", ratio) or "-1"
+end
+
 local function set_aspect(id)
   S.aspect = id
-  local override = "-1"
-  if id ~= "auto" and id ~= "zoom" and id ~= "stretch" then override = id:gsub(":1$", "") end
-  if S.anamorphic > 1 and id ~= "stretch" then
-    local base = tonumber(override) or prop("video-params/aspect", nil)
-    if base then override = string.format("%.4f", base / S.anamorphic) end
-  end
-  mp.set_property("video-aspect-override", override)
-  mp.set_property_number("panscan", id == "zoom" and 1.0 or 0.0)
   mp.set_property("keepaspect", id == "stretch" and "no" or "yes")
   apply_crop()
 end
@@ -412,7 +415,88 @@ end
 
 local CROP = { threshold = 24, samples = 40 }
 
+local GPU = { path = nil, loaded = false, failed = false, opts = {}, props = {}, epoch = 0, played = 0, timer = nil }
+local FREEZE_AFTER = 180
+
+do
+  local source = debug.getinfo(1, "S").source or ""
+  if source:sub(1, 1) == "@" then
+    local path = utils.join_path((utils.split_path(source:sub(2))), "zerk_bars.hook")
+    if utils.file_info(path) then GPU.path = path end
+  end
+end
+
+local function set_once(name, value)
+  if GPU.props[name] == value then return end
+  GPU.props[name] = value
+  mp.set_property(name, value)
+end
+
+local function shader_opt(key, value)
+  local entry = key .. "=" .. value
+  if GPU.opts[key] == entry then return end
+  GPU.opts[key] = entry
+  mp.commandv("change-list", "glsl-shader-opts", "add", entry)
+end
+
+local function gpu_bars()
+  return S.autocrop and GPU.path ~= nil and not GPU.failed and prop("current-vo", "") == "gpu-next"
+    and (S.aspect == "auto" or S.aspect == "zoom")
+end
+
+local function bars_shader(on)
+  if on == GPU.loaded then return end
+  GPU.loaded = on
+  if on then
+    if GPU.played >= FREEZE_AFTER then GPU.played = FREEZE_AFTER - 10 end
+    shader_opt("zb_freeze", "0")
+    mp.commandv("change-list", "glsl-shaders", "append", GPU.path)
+    msg.info("black bars: detecting on the GPU")
+  else
+    mp.commandv("change-list", "glsl-shaders", "remove", GPU.path)
+    msg.info("black bars: GPU detection off")
+  end
+end
+
+local function bars_tick()
+  if not GPU.loaded or S.autocrop_mode ~= "start" or S.phase ~= "playing" then return end
+  if prop("pause", false) or prop("paused-for-cache", false) or GPU.played >= FREEZE_AFTER then return end
+  GPU.played = GPU.played + 1
+  if GPU.played >= FREEZE_AFTER then
+    shader_opt("zb_freeze", "1")
+    msg.info("black bars: keeping the crop found at the start")
+  end
+end
+
+local function bars_new_file()
+  GPU.played = 0
+  if not GPU.loaded then return end
+  GPU.epoch = GPU.epoch + 1
+  shader_opt("zb_epoch", tostring(GPU.epoch))
+  shader_opt("zb_freeze", "0")
+end
+
+local function apply_gpu_crop()
+  if S.crop_applied then mp.set_property("video-crop", ""); S.crop_applied = nil; S.crop_box = nil end
+  local ow, oh = mp.get_osd_size()
+  local dar = prop("video-dec-params/aspect", 0)
+  if not ow or not oh or ow <= 0 or oh <= 0 or dar <= 0 then return end
+  update_band()
+  local view = ow / (oh * band_f)
+  shader_opt("zb_view", string.format("%.6f", view))
+  shader_opt("zb_dar", string.format("%.6f", dar / math.max(S.anamorphic, 1)))
+  shader_opt("zb_fill", S.aspect == "zoom" and "1" or "0")
+  bars_shader(true)
+  set_once("video-aspect-override", string.format("%.6f", view))
+  set_once("panscan", "0")
+  if not GPU.timer then GPU.timer = mp.add_periodic_timer(1, bars_tick) end
+end
+
 apply_crop = function()
+  if gpu_bars() then return apply_gpu_crop() end
+  bars_shader(false)
+  set_once("video-aspect-override", plain_override(S.aspect))
+  set_once("panscan", S.aspect == "zoom" and "1" or "0")
   local c = S.crop
   local vw, vh = prop("video-params/w", 0), prop("video-params/h", 0)
   if not S.autocrop or not c or vw == 0 or (S.aspect ~= "auto" and S.aspect ~= "zoom") then
@@ -473,7 +557,7 @@ end
 
 local capturing = false
 local function detect_bars()
-  if capturing or not S.autocrop or S.phase ~= "playing" then return end
+  if capturing or not S.autocrop or S.phase ~= "playing" or gpu_bars() then return end
   capturing = true
   mp.command_native_async({ "screenshot-raw", "video", "bgr0" }, function(ok, shot)
     capturing = false
@@ -1587,6 +1671,7 @@ mp.register_script_message("state", function(raw)
   S.message = s.message or ""
   if S.phase == "loading" and was ~= "loading" then
     S.crop, S.full_ratio = nil, nil
+    bars_new_file()
     apply_crop()
   end
   if S.phase == "playing" and was ~= "playing" then
@@ -1679,6 +1764,7 @@ mp.register_script_message("config", function(raw)
   S.scope = c.scope or 0
   S.anamorphic = c.anamorphic or 1
   S.autocrop = c.autoCrop or false
+  S.autocrop_mode = c.autoCropMode or "continuous"
   S.default_aspect = c.defaultAspect or "auto"
   set_aspect(S.default_aspect)
   render()
@@ -1738,7 +1824,20 @@ mp.observe_property("time-pos", "number", function(_, pos)
 end)
 mp.observe_property("pause", "bool", function() if S.visible then touch() end; refresh() end)
 mp.observe_property("paused-for-cache", "bool", function() refresh() end)
-mp.observe_property("osd-dimensions", "native", function() render() end)
+mp.observe_property("osd-dimensions", "native", function() render(); apply_crop() end)
+mp.observe_property("video-dec-params", "native", function() apply_crop() end)
+mp.enable_messages("error")
+mp.register_event("log-message", function(e)
+  if not GPU.loaded or GPU.failed or not e.prefix:find("^vo/gpu%-next") then return end
+  if not e.text:find("Failed executing hook") then return end
+  GPU.failed = true
+  msg.warn("black bars: the GPU shader failed, measuring screenshots instead")
+  apply_crop()
+  if S.phase == "playing" then
+    crop_interval = nil
+    schedule_crop(2)
+  end
+end)
 mp.observe_property("user-data/zerk/fullscreen", "native", function() render() end)
 
 msg.info("osd loaded; icon font: " .. T.icons)
