@@ -3,11 +3,13 @@ import '../core/emby/models/emby_item.dart';
 typedef ResumePoint = ({int index, Duration start});
 
 abstract final class Audiobooks {
-  static const types = ['MusicAlbum', 'AudioBook'];
+  static const shelfTypes = ['MusicAlbum', 'AudioBook', 'Folder'];
 
   static const finishedAt = 0.97;
 
   static List<EmbyItem> chapters(Iterable<EmbyItem> tracks) => [...tracks]..sort(_compare);
+
+  static bool opensAsShelf(List<EmbyItem> audio, List<EmbyItem> children) => audio.isEmpty && children.isNotEmpty;
 
   static bool finished(EmbyItem track) => track.isPlayed || (track.progress ?? 0) >= finishedAt;
 

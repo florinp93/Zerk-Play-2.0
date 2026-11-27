@@ -41,6 +41,22 @@ void main() {
     });
   });
 
+  group('Audiobooks.opensAsShelf', () {
+    EmbyItem folder(String name) => EmbyItem(id: name, name: name, type: 'Folder');
+
+    test('a folder with audio is a book', () {
+      expect(Audiobooks.opensAsShelf([track('a')], [folder('Extras')]), isFalse);
+    });
+
+    test('a folder with only child folders is a shelf', () {
+      expect(Audiobooks.opensAsShelf(const [], [folder('Book 1')]), isTrue);
+    });
+
+    test('an empty folder is not a shelf', () {
+      expect(Audiobooks.opensAsShelf(const [], const []), isFalse);
+    });
+  });
+
   group('Audiobooks.resumePoint', () {
     const minute = 600000000;
 

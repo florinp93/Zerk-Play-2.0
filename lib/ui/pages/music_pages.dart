@@ -71,16 +71,15 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
 
   Future<void> _load() async {
     final catalog = AppServicesScope.read(context).catalog;
-    Future<ItemPage> query(List<String> types) => catalog.query(
-          parentId: widget.library.id,
-          types: types,
-          sortBy: _sort.field,
-          descending: _sort.descending,
-          limit: 5000,
-          localize: false,
-        );
-    var page = await query(_book ? Audiobooks.types : const ['MusicAlbum']);
-    if (_book && page.items.isEmpty) page = await query(const ['Folder']);
+    final page = await catalog.query(
+      parentId: widget.library.id,
+      types: _book ? Audiobooks.shelfTypes : const ['MusicAlbum'],
+      sortBy: _sort.field,
+      descending: _sort.descending,
+      recursive: !_book,
+      limit: 5000,
+      localize: false,
+    );
     if (mounted) setState(() => _albums = page.items);
   }
 
@@ -178,9 +177,9 @@ class AlbumPage extends StatefulWidget {
 }
 
 class _AlbumPageState extends State<AlbumPage> {
-  late Future<(EmbyItem, List<EmbyItem>)> _load = _fetch();
+  late Future<(EmbyItem, List<EmbyItem>, bool)> _load = _fetch();
 
-  Future<(EmbyItem, List<EmbyItem>)> _fetch() async {
+  Future<(EmbyItem, List<EmbyItem>, bool)> _fetch() async {
     final c = AppServicesScope.read(context).catalog;
     final results = await Future.wait([
       c.item(widget.albumId),
@@ -189,6 +188,7 @@ class _AlbumPageState extends State<AlbumPage> {
             parentId: widget.albumId,
             types: const ['Audio'],
             sortBy: 'ParentIndexNumber,IndexNumber,SortName',
+            recursive: !widget.book,
             limit: 500,
             localize: false,
           )
@@ -196,8 +196,19 @@ class _AlbumPageState extends State<AlbumPage> {
     ]);
     final album = results[0] as EmbyItem;
     final tracks = results[1] as List<EmbyItem>;
-    if (!widget.book) return (album, tracks);
-    return (album, tracks.isEmpty && album.isAudioBook ? [album] : Audiobooks.chapters(tracks));
+    if (!widget.book) return (album, tracks, false);
+    if (tracks.isEmpty) {
+      final children = await c.query(
+        parentId: widget.albumId,
+        types: Audiobooks.shelfTypes,
+        recursive: false,
+        limit: 1,
+        localize: false,
+      );
+      if (Audiobooks.opensAsShelf(tracks, children.items)) return (album, tracks, true);
+      if (album.isAudioBook) return (album, [album], false);
+    }
+    return (album, Audiobooks.chapters(tracks), false);
   }
 
   Future<void> _play(List<EmbyItem> tracks, int from, {Duration start = Duration.zero}) async {
@@ -222,7 +233,12 @@ class _AlbumPageState extends State<AlbumPage> {
           return Center(child: Text('${snap.error}', style: Zt.body));
         }
         if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: Zc.accent));
-        final (album, tracks) = snap.data!;
+        final (album, tracks, shelf) = snap.data!;
+        if (shelf) {
+          return MusicLibraryPage(
+            library: LibraryView(id: album.id, name: album.name, collectionType: 'audiobooks'),
+          );
+        }
         final total = tracks.fold(Duration.zero, (sum, t) => sum + (t.runtime ?? Duration.zero));
         final discs = tracks.map((t) => t.parentIndexNumber).toSet().length > 1;
         final resume = widget.book ? Audiobooks.resumePoint(tracks) : null;
