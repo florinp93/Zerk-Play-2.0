@@ -1639,5 +1639,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "menuResume": "Resume",
+  "markUnwatched": "Mark unwatched",
+  "addToFavorites": "Add to favorites",
+  "removeFromFavorites": "Remove from favorites",
+  "menuDetails": "Details",
+  "removeFromContinueWatching": "Remove from Continue watching"
 }

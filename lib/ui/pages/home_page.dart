@@ -23,6 +23,7 @@ import '../widgets/backdrop.dart';
 import '../widgets/cards.dart';
 import '../widgets/cinema_loader.dart';
 import '../widgets/event_panel.dart';
+import '../widgets/item_menu.dart';
 import '../widgets/media_row.dart';
 import '../widgets/rows_scroll_view.dart';
 import '../widgets/mixed_cards.dart';
@@ -715,7 +716,7 @@ class _HomePageState extends State<HomePage> {
         onSelect: () => AppServicesScope.read(context).settings.continueWatchingAction == ContinueWatchingAction.play
             ? _play(item)
             : openItem(context, item),
-        onMenu: () => _play(item),
+        onMenu: itemMenuCallback(context, item, continueWatching: true),
         onPlay: () => _play(item),
       );
     }

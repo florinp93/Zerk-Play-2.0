@@ -10,6 +10,7 @@ import '../core/effects.dart';
 import '../focus/tv_focusable.dart';
 import '../theme/tokens.dart';
 import 'common.dart';
+import 'item_menu.dart';
 import 'net_image.dart';
 
 class PosterCard extends StatelessWidget {
@@ -45,7 +46,7 @@ class PosterCard extends StatelessWidget {
       autofocus: autofocus,
       focusNode: focusNode,
       onSelect: onSelect,
-      onMenu: onMenu,
+      onMenu: onMenu ?? itemMenuCallback(context, item),
       onFocusChange: (f) => f ? onFocus?.call() : null,
       builder: (context, focused) => SizedBox(
         width: width,
@@ -301,7 +302,7 @@ class LandscapeCard extends StatelessWidget {
       autofocus: autofocus,
       focusNode: focusNode,
       onSelect: missing ? null : onSelect,
-      onMenu: onMenu,
+      onMenu: onMenu ?? itemMenuCallback(context, item),
       onFocusChange: (f) => f ? onFocus?.call() : null,
       builder: (context, focused) => SizedBox(
         width: width,
@@ -399,6 +400,7 @@ class RequestPosterCard extends StatelessWidget {
     return TvFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
+      onMenu: availability.canRequest ? () => showRequestMenu(context, media) : null,
       onFocusChange: (f) => f ? onFocus?.call() : null,
       builder: (context, focused) => SizedBox(
         width: width,

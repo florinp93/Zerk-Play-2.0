@@ -773,5 +773,11 @@
   "openEvent": "Deschide evenimentul",
   "watchNext": "Vezi următorul",
   "watchNextTitle": "Urmează: {title}",
-  "eventProgress": "{watched} din {total} văzute"
+  "eventProgress": "{watched} din {total} văzute",
+  "menuResume": "Reia",
+  "markUnwatched": "Marchează ca nevăzut",
+  "addToFavorites": "Adaugă la favorite",
+  "removeFromFavorites": "Elimină din favorite",
+  "menuDetails": "Detalii",
+  "removeFromContinueWatching": "Elimină din Continuă vizionarea"
 }

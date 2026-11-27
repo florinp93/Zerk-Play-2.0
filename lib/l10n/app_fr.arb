@@ -773,5 +773,11 @@
   "openEvent": "Ouvrir l'événement",
   "watchNext": "Regarder la suite",
   "watchNextTitle": "Suivant : {title}",
-  "eventProgress": "{watched} sur {total} vus"
+  "eventProgress": "{watched} sur {total} vus",
+  "menuResume": "Reprendre",
+  "markUnwatched": "Marquer comme non vu",
+  "addToFavorites": "Ajouter aux favoris",
+  "removeFromFavorites": "Retirer des favoris",
+  "menuDetails": "Détails",
+  "removeFromContinueWatching": "Retirer de « Reprendre la lecture »"
 }

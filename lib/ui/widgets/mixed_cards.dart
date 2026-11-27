@@ -13,6 +13,7 @@ import '../pages/routes.dart';
 import '../theme/tokens.dart';
 import 'cards.dart';
 import 'common.dart';
+import 'item_menu.dart';
 import 'net_image.dart';
 import 'trailer.dart';
 
@@ -194,6 +195,7 @@ class RequestLandscapeCard extends StatelessWidget {
     return TvFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
+      onMenu: availability.canRequest ? () => showRequestMenu(context, media) : null,
       onFocusChange: (f) => f ? onFocus?.call() : null,
       builder: (context, focused) => SizedBox(
         width: width,
@@ -250,6 +252,7 @@ class SpotlightCard extends StatelessWidget {
     this.overview,
     this.media,
     this.onSelect,
+    this.onMenu,
     this.onFocus,
     this.autofocus = false,
   });
@@ -266,6 +269,7 @@ class SpotlightCard extends StatelessWidget {
       autofocus: autofocus,
       onFocus: onFocus,
       onSelect: onSelect,
+      onMenu: itemMenuCallback(context, item),
     );
   }
 
@@ -289,6 +293,7 @@ class SpotlightCard extends StatelessWidget {
 
   final SeerrMedia? media;
   final VoidCallback? onSelect;
+  final VoidCallback? onMenu;
   final VoidCallback? onFocus;
   final bool autofocus;
 
@@ -303,6 +308,7 @@ class SpotlightCard extends StatelessWidget {
     return TvFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
+      onMenu: media != null && req != null && req.canRequest ? () => showRequestMenu(context, media!) : onMenu,
       onFocusChange: (f) => f ? onFocus?.call() : null,
       builder: (context, focused) => FocusFrame(
         focused: focused,

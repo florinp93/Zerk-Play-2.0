@@ -543,6 +543,10 @@ final class CatalogApi {
       ? _janus.client.postNoContent('/Users/$_userId/FavoriteItems/$id')
       : _janus.client.deleteNoContent('/Users/$_userId/FavoriteItems/$id');
 
+  Future<void> hideFromResume(String id) => _janus.client.isJellyfin
+      ? _janus.client.postNoContent('/Users/$_userId/Items/$id/UserData', body: {'PlaybackPositionTicks': 0})
+      : _janus.client.postNoContent('/Users/$_userId/Items/$id/HideFromResume', queryParameters: {'Hide': 'true'});
+
   Uri image(String itemId, ImageKind kind, {String? tag, int width = 480, int index = 0}) {
     final type = switch (kind) {
       ImageKind.primary => 'Primary',

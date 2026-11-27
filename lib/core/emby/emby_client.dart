@@ -66,7 +66,7 @@ final class EmbyClient {
   };
 
   static final _userRoute =
-      RegExp(r'^/Users/([^/]+)/(Items(?:/Latest)?|Items/[^/]+|Views|PlayedItems/[^/]+|FavoriteItems/[^/]+|Images/Primary)$');
+      RegExp(r'^/Users/([^/]+)/(Items(?:/Latest)?|Items/[^/]+|Views|Items/[^/]+/UserData|PlayedItems/[^/]+|FavoriteItems/[^/]+|Images/Primary)$');
 
   static String _jellyfinRoute(String path, Map<String, String> qp) {
     final key = qp.remove('api_key');
@@ -85,6 +85,7 @@ final class EmbyClient {
       'Items/Resume' => '/UserItems/Resume',
       'Images/Primary' => '/UserImage',
       _ when rest.startsWith('PlayedItems/') => '/User$rest',
+      _ when rest.endsWith('/UserData') => '/User$rest',
       _ when rest.startsWith('FavoriteItems/') => '/User$rest',
       _ => '/$rest',
     };
