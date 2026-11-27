@@ -762,6 +762,17 @@
   "collectionsSourceTmdb": "Nur TMDB",
   "collectionsSourceServer": "Nur Server",
   "noAlbums": "Keine Alben in dieser Bibliothek.",
+  "noBooks": "Keine Hörbücher in dieser Bibliothek.",
+  "chapterCount": "{count, plural, =1{1 Kapitel} other{{count} Kapitel}}",
+  "@chapterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortAuthor": "Autor",
+  "resumeAction": "Fortsetzen",
   "shuffle": "Zufällig",
   "sortArtist": "Interpret",
   "trackCount": "{count, plural, =1{1 Titel} other{{count} Titel}}",

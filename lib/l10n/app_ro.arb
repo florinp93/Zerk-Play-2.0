@@ -762,6 +762,17 @@
   "collectionsSourceTmdb": "Doar TMDB",
   "collectionsSourceServer": "Doar server",
   "noAlbums": "Nu sunt albume în această bibliotecă.",
+  "noBooks": "Nu există cărți audio în această bibliotecă.",
+  "chapterCount": "{count, plural, =1{1 capitol} few{{count} capitole} other{{count} de capitole}}",
+  "@chapterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortAuthor": "Autor",
+  "resumeAction": "Reia",
   "shuffle": "Amestecat",
   "sortArtist": "Artist",
   "trackCount": "{count, plural, =1{1 piesă} few{{count} piese} other{{count} de piese}}",

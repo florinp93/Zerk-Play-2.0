@@ -1644,6 +1644,17 @@
   "collectionsSourceTmdb": "TMDB only",
   "collectionsSourceServer": "Server only",
   "noAlbums": "No albums in this library.",
+  "noBooks": "No audiobooks in this library.",
+  "chapterCount": "{count, plural, =1{1 chapter} other{{count} chapters}}",
+  "@chapterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortAuthor": "Author",
+  "resumeAction": "Resume",
   "shuffle": "Shuffle",
   "sortArtist": "Artist",
   "trackCount": "{count, plural, =1{1 track} other{{count} tracks}}",

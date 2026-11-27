@@ -13,18 +13,27 @@ void main() {
   const boxsets = LibraryView(id: 'b', name: 'Collections', collectionType: 'boxsets');
   const music = LibraryView(id: 'u', name: 'Music', collectionType: 'music');
   const tv = LibraryView(id: 't', name: 'Live TV', collectionType: 'livetv');
-  const all = [movies, kids, shows, anime, mixed, home, boxsets, music, tv];
+  const books = LibraryView(id: 'r', name: 'Audiobooks', collectionType: 'audiobooks');
+  const ebooks = LibraryView(id: 'e', name: 'Books', collectionType: 'books');
+  const all = [movies, kids, shows, anime, mixed, home, boxsets, music, tv, books, ebooks];
 
   List<String> ids(List<ServerLibrary> list) => [for (final l in list) l.id];
 
   group('Libraries', () {
-    test('books and live TV are left out, music is shown', () {
-      expect(ids(Libraries.visible(all, const {})), ['m', 'k', 's', 'a', 'x', 'h', 'b', 'u']);
+    test('ebooks and live TV are left out, music and audiobooks are shown', () {
+      expect(ids(Libraries.visible(all, const {})), ['m', 'k', 's', 'a', 'x', 'h', 'b', 'u', 'r']);
       expect(Libraries.hasLatest(music), isFalse);
+      expect(Libraries.hasLatest(books), isFalse);
+    });
+
+    test('audiobooks are their own kind, apart from music', () {
+      expect(Libraries.isAudiobooks(books), isTrue);
+      expect(Libraries.isMusic(books), isFalse);
+      expect(Libraries.isAudiobooks(music), isFalse);
     });
 
     test('hidden libraries are left out', () {
-      expect(ids(Libraries.visible(all, {'k', 'x'})), ['m', 's', 'a', 'h', 'b', 'u']);
+      expect(ids(Libraries.visible(all, {'k', 'x'})), ['m', 's', 'a', 'h', 'b', 'u', 'r']);
     });
 
     test('pickers list only libraries of their kind that are shown', () {
@@ -41,7 +50,7 @@ void main() {
     });
 
     test('other libraries are the browsable ones that are not movies or shows', () {
-      expect([for (final l in all) if (Libraries.isOther(l)) l.id], ['x', 'h', 'b', 'u']);
+      expect([for (final l in all) if (Libraries.isOther(l)) l.id], ['x', 'h', 'b', 'u', 'r']);
       expect([for (final l in all) if (Libraries.hasLatest(l)) l.id], ['m', 'k', 's', 'a', 'x', 'h']);
     });
   });

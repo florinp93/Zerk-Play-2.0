@@ -30,7 +30,7 @@ void openFolder(BuildContext context, String id, String title) => Navigator.of(c
     tvRoute(LibraryPage(kind: LibraryKind.folder, parentId: id, title: title), name: 'folder:$id'));
 
 void openLibrary(BuildContext context, ServerLibrary library) {
-  if (Libraries.isMusic(library)) return openMusicLibrary(context, library);
+  if (Libraries.isMusic(library) || Libraries.isAudiobooks(library)) return openMusicLibrary(context, library);
   final kind = Libraries.isMovies(library)
       ? LibraryKind.movies
       : Libraries.isShows(library)

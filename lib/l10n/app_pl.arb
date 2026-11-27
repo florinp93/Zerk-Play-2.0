@@ -762,6 +762,17 @@
   "collectionsSourceTmdb": "Tylko TMDB",
   "collectionsSourceServer": "Tylko serwer",
   "noAlbums": "Brak albumów w tej bibliotece.",
+  "noBooks": "Brak audiobooków w tej bibliotece.",
+  "chapterCount": "{count, plural, =1{1 rozdział} few{{count} rozdziały} many{{count} rozdziałów} other{{count} rozdziału}}",
+  "@chapterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortAuthor": "Autor",
+  "resumeAction": "Wznów",
   "shuffle": "Losowo",
   "sortArtist": "Wykonawca",
   "trackCount": "{count, plural, =1{1 utwór} few{{count} utwory} many{{count} utworów} other{{count} utworu}}",

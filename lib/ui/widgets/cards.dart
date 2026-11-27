@@ -111,9 +111,17 @@ class PosterCard extends StatelessWidget {
 }
 
 class AlbumCard extends StatelessWidget {
-  const AlbumCard({super.key, required this.item, this.onSelect, this.autofocus = false, this.width = Zs.posterWidth});
+  const AlbumCard({
+    super.key,
+    required this.item,
+    this.onSelect,
+    this.autofocus = false,
+    this.width = Zs.posterWidth,
+    this.icon = Icons.album_rounded,
+  });
 
   final EmbyItem item;
+  final IconData icon;
   final VoidCallback? onSelect;
   final bool autofocus;
   final double width;
@@ -134,7 +142,7 @@ class AlbumCard extends StatelessWidget {
               child: NetImage(
                 url: catalog.albumCover(item, width: width * 1.5),
                 width: width,
-                fallback: TitleArt(title: item.name, subtitle: item.albumArtist, icon: Icons.album_rounded),
+                fallback: TitleArt(title: item.name, subtitle: item.albumArtist, icon: icon),
               ),
             ),
           ),

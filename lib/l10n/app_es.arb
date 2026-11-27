@@ -762,6 +762,17 @@
   "collectionsSourceTmdb": "Solo TMDB",
   "collectionsSourceServer": "Solo servidor",
   "noAlbums": "No hay álbumes en esta biblioteca.",
+  "noBooks": "No hay audiolibros en esta biblioteca.",
+  "chapterCount": "{count, plural, =1{1 capítulo} other{{count} capítulos}}",
+  "@chapterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortAuthor": "Autor",
+  "resumeAction": "Reanudar",
   "shuffle": "Aleatorio",
   "sortArtist": "Artista",
   "trackCount": "{count, plural, =1{1 pista} other{{count} pistas}}",

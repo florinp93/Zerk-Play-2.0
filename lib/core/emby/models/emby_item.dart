@@ -201,7 +201,8 @@ final class EmbyItem {
   bool get isCollection => type == 'BoxSet';
 
   bool get isChannel => type == 'TvChannel';
-  bool get isAudio => type == 'Audio';
+  bool get isAudio => type == 'Audio' || type == 'AudioBook';
+  bool get isAudioBook => type == 'AudioBook';
   bool get isMusicAlbum => type == 'MusicAlbum';
 
   bool get isVirtual => locationType == 'Virtual';

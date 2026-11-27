@@ -18,6 +18,7 @@ Route<void> itemRoute(EmbyItem item) {
   if (item.isSeason && item.seriesId != null) {
     return tvRoute(SeriesPage(seriesId: item.seriesId!, initialSeasonId: item.id), name: 'series:${item.seriesId}');
   }
+  if (item.isAudioBook) return albumRoute(item.id, book: true);
   if (item.isMusicAlbum) return albumRoute(item.id);
   if (item.isAudio && item.albumId != null) return albumRoute(item.albumId!);
   if (item.isCollection) {

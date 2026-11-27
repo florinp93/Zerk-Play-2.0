@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_services.dart';
 import '../../core/emby/models/emby_item.dart';
+import '../../data/audiobooks.dart';
 import '../../data/catalog_api.dart';
+import '../../data/libraries.dart';
 import '../../l10n/l10n.dart';
 import '../core/artwork.dart';
 import '../core/navigation.dart';
@@ -21,7 +23,8 @@ import '../widgets/side_panel.dart';
 import 'details_parts.dart';
 import 'hero.dart';
 
-Route<void> albumRoute(String albumId) => tvRoute(AlbumPage(albumId: albumId), name: 'album:$albumId');
+Route<void> albumRoute(String albumId, {bool book = false}) =>
+    tvRoute(AlbumPage(albumId: albumId, book: book), name: 'album:$albumId');
 
 void openMusicLibrary(BuildContext context, ServerLibrary library) => Navigator.of(context)
     .push(tvRoute(MusicLibraryPage(library: library), name: 'music:${library.id}'));
@@ -52,6 +55,8 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
   _AlbumSort _sort = _AlbumSort.artist;
   List<EmbyItem>? _albums;
 
+  bool get _book => Libraries.isAudiobooks(widget.library);
+
   @override
   void initState() {
     super.initState();
@@ -65,21 +70,24 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
   }
 
   Future<void> _load() async {
-    final page = await AppServicesScope.read(context).catalog.query(
+    final catalog = AppServicesScope.read(context).catalog;
+    Future<ItemPage> query(List<String> types) => catalog.query(
           parentId: widget.library.id,
-          types: const ['MusicAlbum'],
+          types: types,
           sortBy: _sort.field,
           descending: _sort.descending,
           limit: 5000,
           localize: false,
         );
+    var page = await query(_book ? Audiobooks.types : const ['MusicAlbum']);
+    if (_book && page.items.isEmpty) page = await query(const ['Folder']);
     if (mounted) setState(() => _albums = page.items);
   }
 
   Future<void> _pickSort() async {
     final l10n = context.l10n;
     final chosen = await showSidePanel<_AlbumSort>(context, title: l10n.sortBy, options: [
-      for (final s in _AlbumSort.values) PanelOption(value: s, title: _sortLabel(l10n, s), selected: s == _sort),
+      for (final s in _AlbumSort.values) PanelOption(value: s, title: _sortLabel(l10n, s, _book), selected: s == _sort),
     ]);
     if (chosen == null || chosen == _sort || !mounted) return;
     setState(() {
@@ -89,8 +97,8 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
     await _load();
   }
 
-  static String _sortLabel(L10n l10n, _AlbumSort s) => switch (s) {
-        _AlbumSort.artist => l10n.sortArtist,
+  static String _sortLabel(L10n l10n, _AlbumSort s, bool book) => switch (s) {
+        _AlbumSort.artist => book ? l10n.sortAuthor : l10n.sortArtist,
         _AlbumSort.name => l10n.sortAToZ,
         _AlbumSort.added => l10n.sortRecentlyAdded,
         _AlbumSort.year => l10n.sortReleaseDate,
@@ -111,7 +119,7 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
           const Spacer(),
           FocusZone(
             debugLabel: 'music-toolbar',
-            child: TvButton(label: _sortLabel(l10n, _sort), icon: Icons.sort_rounded, onSelect: _pickSort),
+            child: TvButton(label: _sortLabel(l10n, _sort, _book), icon: Icons.sort_rounded, onSelect: _pickSort),
           ),
         ]),
       ),
@@ -119,7 +127,7 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
         child: albums != null && albums.isEmpty
             ? Padding(
                 padding: const EdgeInsets.only(left: pageLeft),
-                child: Text(l10n.noAlbums, style: Zt.body),
+                child: Text(_book ? l10n.noBooks : l10n.noAlbums, style: Zt.body),
               )
             : LayoutBuilder(builder: (context, box) {
                 final cardW = posterGridCardWidth(box.maxWidth - pageLeft + contentLeft, columns);
@@ -145,7 +153,8 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
                             item: albums[i],
                             width: box.maxWidth,
                             autofocus: i == 0,
-                            onSelect: () => Navigator.of(context).push(albumRoute(albums[i].id)),
+                            icon: _book ? Icons.menu_book_rounded : Icons.album_rounded,
+                            onSelect: () => Navigator.of(context).push(albumRoute(albums[i].id, book: _book)),
                           ),
                         ),
                       );
@@ -159,16 +168,19 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
 }
 
 class AlbumPage extends StatefulWidget {
-  const AlbumPage({super.key, required this.albumId});
+  const AlbumPage({super.key, required this.albumId, this.book = false});
 
   final String albumId;
+  final bool book;
 
   @override
   State<AlbumPage> createState() => _AlbumPageState();
 }
 
 class _AlbumPageState extends State<AlbumPage> {
-  late final Future<(EmbyItem, List<EmbyItem>)> _load = () async {
+  late Future<(EmbyItem, List<EmbyItem>)> _load = _fetch();
+
+  Future<(EmbyItem, List<EmbyItem>)> _fetch() async {
     final c = AppServicesScope.read(context).catalog;
     final results = await Future.wait([
       c.item(widget.albumId),
@@ -182,12 +194,16 @@ class _AlbumPageState extends State<AlbumPage> {
           )
           .then((p) => p.items),
     ]);
-    return (results[0] as EmbyItem, results[1] as List<EmbyItem>);
-  }();
+    final album = results[0] as EmbyItem;
+    final tracks = results[1] as List<EmbyItem>;
+    if (!widget.book) return (album, tracks);
+    return (album, tracks.isEmpty && album.isAudioBook ? [album] : Audiobooks.chapters(tracks));
+  }
 
-  void _play(List<EmbyItem> tracks, int from) {
+  Future<void> _play(List<EmbyItem> tracks, int from, {Duration start = Duration.zero}) async {
     if (tracks.isEmpty) return;
-    playItem(context, tracks[from], start: Duration.zero, queue: tracks);
+    await playItem(context, tracks[from], start: start, queue: tracks);
+    if (widget.book && mounted) setState(() => _load = _fetch());
   }
 
   void _shuffle(List<EmbyItem> tracks) {
@@ -209,6 +225,7 @@ class _AlbumPageState extends State<AlbumPage> {
         final (album, tracks) = snap.data!;
         final total = tracks.fold(Duration.zero, (sum, t) => sum + (t.runtime ?? Duration.zero));
         final discs = tracks.map((t) => t.parentIndexNumber).toSet().length > 1;
+        final resume = widget.book ? Audiobooks.resumePoint(tracks) : null;
         return PageScrollView(
           padding: const EdgeInsets.only(top: 90, bottom: 120),
           children: [
@@ -222,7 +239,7 @@ class _AlbumPageState extends State<AlbumPage> {
                     child: NetImage(
                       url: catalog.albumCover(album, width: 680),
                       width: 340,
-                      fallback: TitleArt(title: album.name, icon: Icons.album_rounded),
+                      fallback: TitleArt(title: album.name, icon: widget.book ? Icons.menu_book_rounded : Icons.album_rounded),
                     ),
                   ),
                 ),
@@ -237,7 +254,7 @@ class _AlbumPageState extends State<AlbumPage> {
                     const SizedBox(height: 14),
                     MetaLine([
                       album.productionYear?.toString(),
-                      l10n.trackCount(tracks.length),
+                      widget.book ? l10n.chapterCount(tracks.length) : l10n.trackCount(tracks.length),
                       formatRuntime(l10n, total),
                     ].whereType<String>().toList()),
                     const SizedBox(height: 30),
@@ -246,13 +263,16 @@ class _AlbumPageState extends State<AlbumPage> {
                       revealsTop: true,
                       child: Wrap(spacing: 18, children: [
                         TvButton(
-                          label: l10n.play,
+                          label: resume == null ? l10n.play : l10n.resumeAction,
                           icon: Icons.play_arrow_rounded,
                           primary: true,
                           autofocus: true,
-                          onSelect: () => _play(tracks, 0),
+                          onSelect: () => resume == null
+                              ? _play(tracks, 0)
+                              : _play(tracks, resume.index, start: resume.start),
                         ),
-                        TvButton(label: l10n.shuffle, icon: Icons.shuffle_rounded, onSelect: () => _shuffle(tracks)),
+                        if (!widget.book)
+                          TvButton(label: l10n.shuffle, icon: Icons.shuffle_rounded, onSelect: () => _shuffle(tracks)),
                       ]),
                     ),
                   ]),
