@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
@@ -92,6 +94,8 @@ class _LibraryPageState extends State<LibraryPage> {
   int _hiddenTotal = 0;
   bool _loading = false;
   int _generation = 0;
+  int _resets = 0;
+  int _firstLimit = _pageSize;
   final _grid = RevealController(margin: 120);
 
   late final AppServices _services = AppServicesScope.read(context);
@@ -140,7 +144,7 @@ class _LibraryPageState extends State<LibraryPage> {
   void _onLibraryChanged() {
     if (!mounted) return;
     if (_pickable && _services.isSignedIn) _services.libraries().then((_) => _checkPick());
-    _reload();
+    _reload(keepPosition: true);
   }
 
   void _checkPick() {
@@ -180,16 +184,20 @@ class _LibraryPageState extends State<LibraryPage> {
     super.dispose();
   }
 
-  void _reload() {
+  void _reload({bool keepPosition = false}) {
+    _firstLimit = keepPosition ? math.max(_items.length, _pageSize) : _pageSize;
     setState(() {
-      _items.clear();
-      _total = -1;
+      if (!keepPosition) {
+        _items.clear();
+        _total = -1;
+        _resets++;
+      }
       _offset = 0;
       _serverTotal = -1;
       _hiddenTotal = 0;
       _generation++;
     });
-    if (_grid.hasClients) _grid.jumpTo(0);
+    if (!keepPosition && _grid.hasClients) _grid.jumpTo(0);
     _loading = false;
     _loadMore();
   }
@@ -212,7 +220,7 @@ class _LibraryPageState extends State<LibraryPage> {
           sortBy: _sort.field,
           descending: _sort.descending,
           start: _offset,
-          limit: _pageSize,
+          limit: first ? _firstLimit : _pageSize,
           genres: genres,
           filters: _filters,
         ),
@@ -220,6 +228,7 @@ class _LibraryPageState extends State<LibraryPage> {
       ).wait;
       if (!mounted || generation != _generation) return;
       setState(() {
+        if (first) _items.clear();
         _items.addAll(widget.kind == LibraryKind.folder ? page.items.where(_browsable) : page.items);
         _offset += page.fetched;
         _serverTotal = page.fetched == 0 ? _offset : page.total;
@@ -273,7 +282,9 @@ class _LibraryPageState extends State<LibraryPage> {
           items.shuffle();
       }
       setState(() {
-        _items.addAll(items);
+        _items
+          ..clear()
+          ..addAll(items);
         _total = items.length;
         _offset = _serverTotal = items.length;
       });
@@ -370,12 +381,14 @@ class _LibraryPageState extends State<LibraryPage> {
     void open() => opensAsFolder(item) ? openFolder(context, item.id, item.name) : openItem(context, item);
     return switch (view) {
       LibraryView.posters => Align(
+          key: ValueKey(item.id),
           alignment: Alignment.topLeft,
           child: LayoutBuilder(
             builder: (context, box) => PosterCard(item: item, width: box.maxWidth, autofocus: i == 0, onSelect: open),
           ),
         ),
       LibraryView.cards => Align(
+          key: ValueKey(item.id),
           alignment: Alignment.topLeft,
           child: LayoutBuilder(
             builder: (context, box) => LandscapeCard(
@@ -388,7 +401,7 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
           ),
         ),
-      LibraryView.list => _ListRow(item: item, autofocus: i == 0, onSelect: open),
+      LibraryView.list => _ListRow(key: ValueKey(item.id), item: item, autofocus: i == 0, onSelect: open),
     };
   }
 
@@ -492,7 +505,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 return FocusZone(
                   debugLabel: 'library-grid',
                   child: GridView.builder(
-                    key: ValueKey('$_generation:${view.name}'),
+                    key: ValueKey('$_resets:${view.name}'),
                     controller: _grid,
                     clipBehavior: Clip.none,
                     scrollCacheExtent: const ScrollCacheExtent.pixels(900),
@@ -508,6 +521,10 @@ class _LibraryPageState extends State<LibraryPage> {
                       },
                     ),
                     itemCount: _total < 0 ? 14 : _items.length,
+                    findChildIndexCallback: (key) {
+                      final index = key is ValueKey ? _items.indexWhere((e) => e.id == key.value) : -1;
+                      return index < 0 ? null : index;
+                    },
                     itemBuilder: (context, i) => _tile(context, view, i, cardW),
                   ),
                 );
@@ -518,7 +535,7 @@ class _LibraryPageState extends State<LibraryPage> {
 }
 
 class _ListRow extends StatelessWidget {
-  const _ListRow({required this.item, required this.onSelect, this.autofocus = false});
+  const _ListRow({super.key, required this.item, required this.onSelect, this.autofocus = false});
 
   static const double height = 200;
 

@@ -43,6 +43,12 @@ double cardWidth(CardStyle style) => switch (style) {
       CardStyle.spotlight => spotlightWidth,
     };
 
+Object? mediaId(Object data) => switch (data) {
+      EmbyItem(id: final id) when id.isNotEmpty => id,
+      SeerrMedia(key: final key) => key,
+      _ => null,
+    };
+
 Widget mixedCard(
   BuildContext context,
   Object data, {

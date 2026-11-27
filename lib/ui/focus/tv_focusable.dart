@@ -110,7 +110,7 @@ class _TvFocusableState extends State<TvFocusable> {
   Widget _buildFocus(BuildContext context) {
     return Focus(
       focusNode: _node,
-      autofocus: widget.autofocus,
+      autofocus: widget.autofocus && ModalRoute.isCurrentOf(context) != false,
       onKeyEvent: _onKey,
       onFocusChange: _onFocus,
       child: MouseRegion(

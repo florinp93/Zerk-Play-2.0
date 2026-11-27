@@ -47,7 +47,8 @@ enum _Kind {
 }
 
 class _Row {
-  _Row(this.title, this.load, {this.style = CardStyle.poster, this.kind = _Kind.cards, this.recommends = true});
+  _Row(this.title, this.load,
+      {this.style = CardStyle.poster, this.kind = _Kind.cards, this.recommends = true, this.shuffled = false});
 
   String Function(L10n) title;
 
@@ -56,6 +57,8 @@ class _Row {
   final _Kind kind;
 
   final bool recommends;
+
+  final bool shuffled;
 }
 
 class HomePage extends StatefulWidget {
@@ -217,7 +220,7 @@ class _HomePageState extends State<HomePage> {
 
   void refresh() {
     setState(() {
-      _data.clear();
+      _data.removeWhere((row, _) => !row.shuffled || !_resolved.containsKey(row));
       _taste = null;
       _tasteTags = null;
       _allowFirstRows();
@@ -355,7 +358,7 @@ class _HomePageState extends State<HomePage> {
             _Row((l) => l.trendingThisWeek, () => r.mixed((p) => seerr.trending(page: p, timeWindow: 'week'), limit: 10),
                 style: CardStyle.ranked),
         ],
-      HomeRows.forYou => [_Row((l) => l.recommendedForYou, () => _forYou(s), style: CardStyle.spotlight)],
+      HomeRows.forYou => [_Row((l) => l.recommendedForYou, () => _forYou(s), style: CardStyle.spotlight, shuffled: true)],
       HomeRows.collections => [
           _Row((l) => l.collections, () => c.allCollections(recent: true, limit: 20), kind: _Kind.collections, recommends: false),
         ],
@@ -366,7 +369,7 @@ class _HomePageState extends State<HomePage> {
       HomeRows.favorites => [
           _Row((l) => l.yourFavorites,
               () => items(c.query(types: ['Movie', 'Series'], filters: 'IsFavorite', sortBy: 'Random', limit: 30)),
-              style: CardStyle.landscape, recommends: false),
+              style: CardStyle.landscape, recommends: false, shuffled: true),
         ],
       HomeRows.recentlyReleased => [
           _Row((l) => l.recentlyReleased, () => items(c.query(types: ['Movie'], sortBy: 'PremiereDate', descending: true, limit: 24))),
@@ -377,7 +380,8 @@ class _HomePageState extends State<HomePage> {
               style: CardStyle.landscape),
         ],
       HomeRows.unseen => [
-          _Row((l) => l.somethingUnseen, () => items(c.query(types: ['Movie'], sortBy: 'Random', filters: 'IsUnplayed', limit: 24))),
+          _Row((l) => l.somethingUnseen, () => items(c.query(types: ['Movie'], sortBy: 'Random', filters: 'IsUnplayed', limit: 24)),
+              shuffled: true),
         ],
       HomeRows.popularToRequest => [
           if (seerr != null)
@@ -499,7 +503,7 @@ class _HomePageState extends State<HomePage> {
       final page = await s.catalog.query(
           types: ['Movie', 'Series'], genres: [genre], filters: 'IsUnplayed', sortBy: 'Random', minCommunityRating: 6.5, limit: 30);
       return page.items;
-    }, style: style);
+    }, style: style, shuffled: true);
   }
 
   Future<MixedItems> _forYou(AppServices s) async {
@@ -683,6 +687,7 @@ class _HomePageState extends State<HomePage> {
               _ => Zs.cardGap,
             },
             itemCount: items.length,
+            idOf: (i) => mediaId(items[i]),
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.only(top: 14),
               child: _card(row, items[i], rank: i + 1, autofocus: first && i == 0),

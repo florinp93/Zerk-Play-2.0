@@ -10,6 +10,7 @@ import '../theme/tokens.dart';
 import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import '../widgets/media_row.dart';
+import '../widgets/mixed_cards.dart' show mediaId;
 import 'routes.dart';
 
 class MyListPage extends StatefulWidget {
@@ -99,10 +100,15 @@ class _MyListPageState extends State<MyListPage> {
                       childAspectRatio: cardW / (cardW * 1.5 + captionSpace(context, 70)),
                     ),
                     itemCount: items?.length ?? 7,
+                    findChildIndexCallback: (key) {
+                      final index = key is ValueKey && items != null ? items.indexWhere((e) => mediaId(e) == key.value) : -1;
+                      return index < 0 ? null : index;
+                    },
                     itemBuilder: (context, i) {
                       if (items == null) return SkeletonBox(width: cardW, height: cardW * 1.5);
                       final data = items[i];
                       return Align(
+                        key: ValueKey(mediaId(data)),
                         alignment: Alignment.topLeft,
                         child: LayoutBuilder(
                           builder: (context, box) => data is SeerrMedia

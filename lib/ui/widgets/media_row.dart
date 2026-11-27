@@ -24,6 +24,7 @@ class MediaRow extends StatefulWidget {
     this.trailingTitle,
     this.gap = Zs.cardGap,
     this.left = contentLeft,
+    this.idOf,
   });
 
   final double left;
@@ -32,6 +33,7 @@ class MediaRow extends StatefulWidget {
   final Widget? trailingTitle;
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
+  final Object? Function(int index)? idOf;
 
   final double height;
   final double gap;
@@ -47,6 +49,20 @@ class _MediaRowState extends State<MediaRow> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Widget _itemAt(BuildContext context, int index) {
+    final child = widget.itemBuilder(context, index);
+    final id = widget.idOf?.call(index);
+    return id == null ? child : KeyedSubtree(key: ValueKey(id), child: child);
+  }
+
+  int? _indexOfKey(Key key) {
+    if (key is! ValueKey) return null;
+    for (var i = 0; i < widget.itemCount; i++) {
+      if (widget.idOf!(i) == key.value) return i;
+    }
+    return null;
   }
 
   @override
@@ -74,7 +90,8 @@ class _MediaRowState extends State<MediaRow> {
               padding: EdgeInsets.symmetric(horizontal: widget.left),
               itemCount: widget.itemCount,
               separatorBuilder: (_, _) => SizedBox(width: widget.gap),
-              itemBuilder: widget.itemBuilder,
+              itemBuilder: _itemAt,
+              findItemIndexCallback: widget.idOf == null ? null : _indexOfKey,
             ),
           ),
         ),

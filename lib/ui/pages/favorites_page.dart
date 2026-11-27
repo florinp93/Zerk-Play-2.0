@@ -65,6 +65,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
             trailingTitle: _count(list.length),
             height: Zs.posterWidth * 1.5 + 90,
             itemCount: list.length,
+            idOf: (i) => list[i].id,
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.only(top: 12),
               child: PosterCard(
@@ -103,6 +104,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 trailingTitle: _count(items.episodes.length),
                 height: Zs.landscapeWidth * 9 / 16 + 110,
                 itemCount: items.episodes.length,
+                idOf: (i) => items.episodes[i].id,
                 itemBuilder: (context, i) {
                   final e = items.episodes[i];
                   return Padding(
