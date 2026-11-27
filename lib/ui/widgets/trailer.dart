@@ -81,7 +81,7 @@ class TrailerController extends ChangeNotifier {
     _autoplay?.cancel();
     unawaited(_player?.stop());
     notifyListeners();
-    find().then((refs) {
+    find().then(_playable).then((refs) {
       if (_disposed || key != _key) return;
       _refs = refs;
       debugPrint('[trailer] $key: ${refs.isEmpty ? 'none' : refs.join(', ')}');
@@ -90,6 +90,18 @@ class TrailerController extends ChangeNotifier {
     }).catchError((Object e) {
       debugPrint('[trailer] lookup $key: $e');
     });
+  }
+
+  Future<List<TrailerRef>> _playable(List<TrailerRef> refs) async {
+    for (var i = 0; i < refs.length && i < 3; i++) {
+      try {
+        await refs[i].resolve();
+        return refs.sublist(i);
+      } catch (e) {
+        debugPrint('[trailer] ${refs[i]}: $e');
+      }
+    }
+    return const [];
   }
 
   void clear() {
@@ -173,7 +185,6 @@ class TrailerController extends ChangeNotifier {
   void _scheduleAutoplay() {
     _autoplay?.cancel();
     if (_done || _suspended || !_onstage || _watching || _refs.isEmpty || !_autoplays) return;
-    unawaited(_refs.first.resolve().then((_) {}, onError: (_) {}));
     _autoplay = Timer(inCards ? Duration.zero : autoplayDelay, _start);
   }
 
@@ -213,15 +224,17 @@ class TrailerController extends ChangeNotifier {
     final player = await _ensurePlayer();
     if (player == null || stale()) return;
     player.setCover(!_watching);
+    final deadline = DateTime.now().add(trailerOpenTimeout);
     for (final ref in _refs.take(3)) {
       try {
-        final stream = await ref.resolve();
+        final stream = await ref.resolve().timeout(trailerOpenTimeout);
         if (stale()) return;
         if (await player.open(stream, muted: !sound)) return;
       } catch (e) {
         debugPrint('[trailer] $ref: $e');
       }
       if (stale()) return;
+      if (DateTime.now().isAfter(deadline)) break;
     }
     _done = true;
     notifyListeners();
@@ -744,7 +757,10 @@ class _TheatreState extends State<_Theatre> {
     final c = widget.controller;
     final failed = (s.failed && !c.loading) || (c.exhausted && !s.ready);
     if (s.ended || failed) {
-      if (!s.ended) UiSounds.play(UiSound.error);
+      if (!s.ended) {
+        UiSounds.play(UiSound.error);
+        showToast(context, context.l10n.trailerUnavailable);
+      }
       _close();
     }
   }

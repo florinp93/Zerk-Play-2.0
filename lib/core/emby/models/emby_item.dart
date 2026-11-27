@@ -211,6 +211,11 @@ final class EmbyItem {
 
   int? get tmdbId => int.tryParse(providerIds['Tmdb'] ?? providerIds['tmdb'] ?? '');
 
+  String? get imdbId {
+    final id = providerIds['Imdb'] ?? providerIds['imdb'];
+    return id != null && id.startsWith('tt') ? id : null;
+  }
+
   Duration? get runtime => runTimeTicks == null ? null : Duration(microseconds: runTimeTicks! ~/ 10);
 
   Duration? get resumePosition {

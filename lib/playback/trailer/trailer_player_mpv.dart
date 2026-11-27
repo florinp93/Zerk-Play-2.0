@@ -86,7 +86,7 @@ final class _MpvTrailerPlayer extends TrailerPlayer {
     _mpv.setProperty('pause', 'no');
     final opts = [if (audio != null) 'audio-file=${_quoted(audio.toString())}'];
     _mpv.command(['loadfile', video.toString(), 'replace', '-1', opts.join(',')]);
-    return opening.future.timeout(const Duration(seconds: 20), onTimeout: () {
+    return opening.future.timeout(trailerOpenTimeout, onTimeout: () {
       if (identical(_opening, opening)) _opening = null;
       _state.value = _state.value.copyWith(failed: true);
       _mpv.command(['stop']);

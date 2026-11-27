@@ -494,18 +494,6 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {...metadataLanguages, '': l10n.metadataFromServer},
             onChanged: (v) => services.updateSettings(app.copyWith(metadataLanguage: v)),
           ),
-          if (TrailerPlayer.supported)
-            SettingChoiceRow<String>(
-              title: l10n.trailerLanguage,
-              subtitle: l10n.trailerLanguageHint,
-              value: app.trailerLanguage,
-              options: {
-                '': l10n.trailerLanguageOriginal,
-                for (final e in metadataLanguages.entries)
-                  if (e.key.isNotEmpty && e.key != 'en-US') e.key: e.value,
-              },
-              onChanged: (v) => services.updateSettings(app.copyWith(trailerLanguage: v)),
-            ),
         ];
       case _Section.interface:
         return [

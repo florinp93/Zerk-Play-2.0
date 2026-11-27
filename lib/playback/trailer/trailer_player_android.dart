@@ -59,7 +59,7 @@ final class _AndroidTrailerPlayer extends TrailerPlayer {
       'audio': trailer.audio == null ? null : proxy.wrap(trailer.audio!).toString(),
       'muted': muted,
     });
-    return opening.future.timeout(const Duration(seconds: 20), onTimeout: () {
+    return opening.future.timeout(trailerOpenTimeout, onTimeout: () {
       if (identical(_opening, opening)) _opening = null;
       _state.value = _state.value.copyWith(failed: true);
       unawaited(_call('stop'));

@@ -5,6 +5,8 @@ import 'trailer_player_stub.dart'
     if (dart.library.ffi) 'trailer_player_native.dart' as impl;
 import 'trailers.dart';
 
+const trailerOpenTimeout = Duration(seconds: 8);
+
 @immutable
 final class TrailerState {
   const TrailerState({

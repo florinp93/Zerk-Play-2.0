@@ -96,7 +96,6 @@ final class AppSettings {
     this.onboarded = false,
     this.trailers = TrailerMode.autoplay,
     this.trailerSound = false,
-    this.trailerLanguage = '',
     this.xtreamUrl = '',
     this.xtreamAccounts = const [],
     this.playlistUrl = '',
@@ -142,7 +141,6 @@ final class AppSettings {
 
   final bool trailerSound;
 
-  final String trailerLanguage;
 
   final String xtreamUrl;
   final List<(String, String)> xtreamAccounts;
@@ -224,7 +222,6 @@ final class AppSettings {
     bool? onboarded,
     TrailerMode? trailers,
     bool? trailerSound,
-    String? trailerLanguage,
     String? xtreamUrl,
     List<(String, String)>? xtreamAccounts,
     String? playlistUrl,
@@ -260,7 +257,6 @@ final class AppSettings {
         onboarded: onboarded ?? this.onboarded,
         trailers: trailers ?? this.trailers,
         trailerSound: trailerSound ?? this.trailerSound,
-        trailerLanguage: trailerLanguage ?? this.trailerLanguage,
         xtreamUrl: xtreamUrl ?? this.xtreamUrl,
         xtreamAccounts: xtreamAccounts ?? this.xtreamAccounts,
         playlistUrl: playlistUrl ?? this.playlistUrl,
@@ -312,7 +308,6 @@ final class AppSettings {
           _ => TrailerMode.autoplay,
         },
         trailerSound: j['trailerSound'] as bool? ?? j['trailers'] == 'autoplaySound',
-        trailerLanguage: j['trailerLanguage'] as String? ?? '',
         xtreamUrl: j['xtreamUrl'] as String? ?? '',
         xtreamAccounts: [
           for (final a in j['xtreamAccounts'] as List? ?? const []) (a[0] as String, a[1] as String),
@@ -374,7 +369,6 @@ final class AppSettings {
         'onboarded': onboarded,
         'trailers': trailers.name,
         'trailerSound': trailerSound,
-        'trailerLanguage': trailerLanguage,
         'xtreamUrl': xtreamUrl,
         'xtreamAccounts': [for (final (u, p) in xtreamAccounts) [u, p]],
         'playlistUrl': playlistUrl,

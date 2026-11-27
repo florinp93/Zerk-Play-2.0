@@ -14,8 +14,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
-import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -91,7 +91,7 @@ class TrailerTextures(
 
         val id = producer.id()
         private val http = DefaultHttpDataSource.Factory().setUserAgent("ZerkPlay/2.0 (Android TV)")
-        private val sources = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context, http))
+        private val sources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http))
         val player: ExoPlayer = ExoPlayer.Builder(context).build()
         private var ready = false
         private var released = false

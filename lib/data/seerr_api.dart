@@ -486,6 +486,11 @@ final class SeerrApi {
     return SeerrMedia.fromJson(json, type: type)!;
   }
 
+  Future<String?> imdbId(int tmdbId, SeerrMediaType type) async {
+    final json = await _get('/api/v1/${type == SeerrMediaType.movie ? 'movie' : 'tv'}/$tmdbId');
+    return (json['externalIds'] as Map?)?['imdbId'] as String?;
+  }
+
   Future<List<String>> trailerKeys(int tmdbId, SeerrMediaType type) async {
     final json = await _get('/api/v1/${type == SeerrMediaType.movie ? 'movie' : 'tv'}/$tmdbId');
     final videos = [
