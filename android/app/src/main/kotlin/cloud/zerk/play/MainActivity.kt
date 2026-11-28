@@ -10,6 +10,7 @@ import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.android.RenderMode
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterShellArgs
 
 class MainActivity : FlutterActivity() {
     private lateinit var videoLayer: FrameLayout
@@ -19,6 +20,10 @@ class MainActivity : FlutterActivity() {
     override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
 
     override fun getRenderMode(): RenderMode = RenderMode.surface
+
+    override fun getFlutterShellArgs(): FlutterShellArgs = super.getFlutterShellArgs().apply {
+        if (DeviceCaps.lowEnd(this@MainActivity)) add("--enable-impeller=false")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

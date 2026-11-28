@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/log/logging_http_client.dart';
+import '../core/effects.dart';
 import '../core/tv_scale.dart';
 import 'image_disk_cache.dart';
 
@@ -99,7 +100,7 @@ class NetImage extends StatelessWidget {
         return fallback ?? const SizedBox.shrink();
       },
       frameBuilder: (context, child, frame, sync) {
-        if (sync) return child;
+        if (sync || Effects.reduced) return child;
         return AnimatedOpacity(
           opacity: frame == null ? 0 : 1,
           duration: fadeDuration,

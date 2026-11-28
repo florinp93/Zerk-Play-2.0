@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/host.dart';
 import '../core/effects.dart';
 import '../core/tv_scale.dart';
 import '../theme/tokens.dart';
@@ -24,14 +25,15 @@ class Backdrop extends StatelessWidget {
       builder: (context, box) => _build(context, box.biggest.isFinite ? box.biggest : MediaQuery.sizeOf(context)));
 
   Widget _build(BuildContext context, Size size) {
-    final ratio = TvScale.decodeRatio(context);
+    final reduced = Effects.reduced;
+    final ratio = TvScale.decodeRatio(context) * (reduced ? 2 / 3 : 1);
     final width = (size.width * ratio).round(), height = (size.height * ratio).round();
     final current = width > 0 && height > 0 ? url : null;
-    final drifting = drift && !Effects.reduced;
-    final bakeScrims = video == null && !drifting;
+    final drifting = drift && !reduced;
+    final bakeScrims = Host.isAndroid && video == null && !drifting && !reduced;
     return RepaintBoundary(child: Stack(fit: StackFit.expand, children: [
       AnimatedSwitcher(
-        duration: Zm.slow,
+        duration: reduced ? Duration.zero : Zm.slow,
         switchInCurve: Curves.easeOut,
         switchOutCurve: Curves.easeIn,
         layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, ?current]),

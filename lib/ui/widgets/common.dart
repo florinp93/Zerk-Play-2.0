@@ -303,7 +303,13 @@ class SkeletonBox extends StatefulWidget {
 }
 
 class _SkeletonBoxState extends State<SkeletonBox> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100), value: 0.5);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!Effects.reduced) _c.repeat(reverse: true);
+  }
 
   @override
   void dispose() {

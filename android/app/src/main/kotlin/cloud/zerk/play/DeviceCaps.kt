@@ -1,6 +1,8 @@
 package cloud.zerk.play
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.Context
 import android.media.MediaCodecInfo.CodecProfileLevel
 import android.media.MediaCodecList
 import android.os.Build
@@ -15,6 +17,13 @@ import androidx.media3.exoplayer.audio.AudioCapabilities
 
 @OptIn(UnstableApi::class)
 object DeviceCaps {
+    fun lowEnd(context: Context): Boolean {
+        if (Build.SUPPORTED_64_BIT_ABIS.isEmpty()) return true
+        val memory = ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memory)
+        return memory.totalMem < 3L shl 30
+    }
+
     fun query(activity: Activity): Map<String, Any?> {
         val codecs = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.filter { !it.isEncoder }
 

@@ -9,7 +9,7 @@ import '../../core/host.dart';
 abstract final class Effects {
   static bool reduced = false;
 
-  static const _lowMemoryMb = 1800;
+  static const _lowMemoryMb = 3000;
   static const _defaultCacheBytes = 100 << 20;
   static const _reducedCacheBytes = 40 << 20;
 

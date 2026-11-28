@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -77,6 +78,7 @@ class _HomePageState extends State<HomePage> {
   final _data = <_Row, Future<MixedItems>>{};
 
   final _allowed = <_Row>{};
+  final _gates = <_Row, ValueNotifier<bool>>{};
   int _loading = 0;
   static const _parallelRows = 3;
 
@@ -142,6 +144,7 @@ class _HomePageState extends State<HomePage> {
       _resolved.removeWhere((r, _) => !kept.contains(r));
       _allowed.removeWhere((r) => !kept.contains(r));
       if (_allowed.isEmpty) _allowFirstRows();
+      _syncGates();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _pump());
   }
@@ -158,30 +161,43 @@ class _HomePageState extends State<HomePage> {
     _allowed
       ..clear()
       ..addAll(_rows!.take(6).where((r) => !r.recommends && r.kind != _Kind.moods));
+    _syncGates();
+  }
+
+  ValueNotifier<bool> _gate(_Row row) => _gates.putIfAbsent(row, () => ValueNotifier(_allowed.contains(row)));
+
+  void _syncGates() {
+    for (final MapEntry(:key, :value) in _gates.entries) {
+      value.value = _allowed.contains(key);
+    }
   }
 
   void _pump({int upTo = -1}) {
     final rows = _rows!;
+    final near = _loaded ? math.max(upTo, _nearRow()) : upTo;
     var changed = false;
-    for (var i = 0; i < rows.length && i <= upTo; i++) {
+    for (var i = 0; i < rows.length && i <= near; i++) {
       changed |= _allowed.add(rows[i]);
     }
     if (_loaded) {
       for (final r in rows) {
         if (_loading >= _parallelRows) break;
-        if (_allowed.add(r)) {
-          changed = true;
-          if (!_data.containsKey(r)) _loading++;
+        if (!_data.containsKey(r)) {
+          _loading++;
           _load(r, counted: true);
         }
       }
     }
-    if (changed && mounted) setState(() {});
+    if (changed) _syncGates();
+  }
+
+  int _nearRow() {
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    return (offset + MediaQuery.sizeOf(context).height * 2) ~/ 320;
   }
 
   void _onScroll() {
-    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-    final upTo = (offset + MediaQuery.sizeOf(context).height * 2) ~/ 320;
+    final upTo = _nearRow();
     if (upTo >= 0 && _rows!.take(upTo + 1).any((r) => !_allowed.contains(r))) _pump(upTo: upTo);
   }
 
@@ -209,6 +225,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    for (final g in _gates.values) {
+      g.dispose();
+    }
     _services?.libraryChanged.removeListener(refresh);
     _services?.profiles.removeListener(_onProfile);
     _services?.removeListener(_onServices);
@@ -621,16 +640,20 @@ class _HomePageState extends State<HomePage> {
     ]);
   }
 
-  Widget _buildRow(_Row row, {required bool first}) {
+  Widget _buildRow(_Row row, {required bool first}) => ValueListenableBuilder<bool>(
+        valueListenable: _gate(row),
+        builder: (_, allowed, _) => allowed ? _rowBody(row, first: first) : const SizedBox.shrink(),
+      );
+
+  Widget _rowBody(_Row row, {required bool first}) {
     if (row.kind == _Kind.moods) {
-      if (!_allowed.contains(row)) return const SizedBox.shrink();
       return MoodShelf(
         favoriteGenres: _profile(AppServicesScope.read(context)).then((t) => [for (final g in t.genres) g.genre]),
         onFocusHero: (info) => _hero.set(info),
       );
     }
     return FutureBuilder<MixedItems>(
-      future: _allowed.contains(row) ? _load(row) : null,
+      future: _load(row),
       initialData: _resolved[row],
       builder: (context, snap) {
         final (cardW, areaH) = switch (row.kind) {
