@@ -651,6 +651,8 @@
   "librariesHiddenCount": "{count, plural, =0{Todas visibles} =1{1 oculta} other{{count} ocultas}}",
   "librariesNone": "No se encontraron bibliotecas en este servidor.",
   "folderEmpty": "No hay nada aquí.",
+  "interfaceSize": "Tamaño de la interfaz",
+  "interfaceSizeHint": "Hace todo más pequeño para que quepa más en pantalla. Útil en pantallas grandes y 4K",
   "textSize": "Tamaño del texto",
   "textSizeHint": "Hace el texto más grande o más pequeño en toda la app",
   "sizeMedium": "Mediano",

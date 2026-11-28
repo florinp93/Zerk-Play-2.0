@@ -119,11 +119,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _runPerfTest(BuildContext context) async {
     if (PerfBench.running) return;
     final navigator = Navigator.of(context, rootNavigator: true);
+    final janus = AppServicesScope.read(context).janus;
     final l10n = context.l10n;
     showToast(context, l10n.perfTestStarting, duration: const Duration(seconds: 4));
     await Future<void>.delayed(const Duration(seconds: 4));
     Shell.goHome();
-    await PerfBench.run(() => navigator.mounted ? navigator : null, settleMs: 3000);
+    await PerfBench.run(() => navigator.mounted ? navigator : null, settleMs: 3000, janus: janus);
     final overlay = navigator.overlay?.context;
     if (overlay != null && overlay.mounted) {
       UiSounds.play(UiSound.select);
@@ -570,6 +571,13 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (v) => services.updateSettings(app.copyWith(reduceEffects: v)),
           ),
           SettingHeader(l10n.settingsGroupLayout),
+          SettingChoiceRow<double>(
+            title: l10n.interfaceSize,
+            subtitle: l10n.interfaceSizeHint,
+            value: app.interfaceScale,
+            options: {1.0: '100%', 0.9: '90%', 0.8: '80%', 0.7: '70%'},
+            onChanged: (v) => services.updateSettings(app.copyWith(interfaceScale: v)),
+          ),
           SettingChoiceRow<TextSize>(
             title: l10n.textSize,
             subtitle: l10n.textSizeHint,

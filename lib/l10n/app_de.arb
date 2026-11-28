@@ -651,6 +651,8 @@
   "librariesHiddenCount": "{count, plural, =0{Alle sichtbar} =1{1 ausgeblendet} other{{count} ausgeblendet}}",
   "librariesNone": "Auf diesem Server wurden keine Mediatheken gefunden.",
   "folderEmpty": "Hier gibt es nichts.",
+  "interfaceSize": "Oberflächengröße",
+  "interfaceSizeHint": "Macht alles kleiner, damit mehr auf den Bildschirm passt. Praktisch bei großen und 4K-Bildschirmen",
   "textSize": "Textgröße",
   "textSizeHint": "Macht den Text in der ganzen App größer oder kleiner",
   "sizeMedium": "Mittel",

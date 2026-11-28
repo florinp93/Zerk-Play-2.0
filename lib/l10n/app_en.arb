@@ -1388,6 +1388,8 @@
   },
   "librariesNone": "No libraries found on this server.",
   "folderEmpty": "Nothing to show here.",
+  "interfaceSize": "Interface size",
+  "interfaceSizeHint": "Makes everything smaller so more fits on screen. Useful on large and 4K screens",
   "textSize": "Text size",
   "textSizeHint": "Makes text bigger or smaller across the app",
   "sizeMedium": "Medium",

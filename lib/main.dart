@@ -137,7 +137,9 @@ class _ZerkAppState extends State<ZerkApp> {
     if (widget.trailerSmoke) {
       WidgetsBinding.instance.addPostFrameCallback((_) => runTrailerSmoke(_navigator.currentState!));
     }
-    if (widget.bench || route == '/dev-bench') unawaited(PerfBench.run(() => _navigator.currentState));
+    if (widget.bench || route == '/dev-bench') {
+      unawaited(PerfBench.run(() => _navigator.currentState, startup: true, janus: AppServicesScope.read(context).janus));
+    }
     if (widget.script != null) unawaited(DevScript.run(widget.script!, () => _navigator.currentState));
   }
 
@@ -164,6 +166,7 @@ class _ZerkAppState extends State<ZerkApp> {
         child: ScreenShape(
           child: TvScale(
             textScale: services.settings.textSize.scale,
+            interfaceScale: services.settings.interfaceScale,
             child: CallbackShortcuts(
               bindings: {
                 const SingleActivator(LogicalKeyboardKey.f11): () => unawaited(NativeWindow.toggleFullScreen()),

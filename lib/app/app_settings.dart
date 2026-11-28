@@ -113,6 +113,7 @@ final class AppSettings {
     this.homeCollections = const {},
     this.cardTrailers = true,
     this.textSize = TextSize.medium,
+    this.interfaceScale = 1,
     this.homeRows = const {},
     this.hiddenLibraries = const {},
     this.libraryPicks = const {},
@@ -165,6 +166,8 @@ final class AppSettings {
   final bool cardTrailers;
 
   final TextSize textSize;
+
+  final double interfaceScale;
 
   final Map<String, HomeRowLayout> homeRows;
 
@@ -241,6 +244,7 @@ final class AppSettings {
     Map<String, List<(String, String)>>? homeCollections,
     bool? cardTrailers,
     TextSize? textSize,
+    double? interfaceScale,
     Map<String, HomeRowLayout>? homeRows,
     Map<String, List<String>>? hiddenLibraries,
     Map<String, String>? libraryPicks,
@@ -277,6 +281,7 @@ final class AppSettings {
         homeCollections: homeCollections ?? this.homeCollections,
         cardTrailers: cardTrailers ?? this.cardTrailers,
         textSize: textSize ?? this.textSize,
+        interfaceScale: interfaceScale ?? this.interfaceScale,
         homeRows: homeRows ?? this.homeRows,
         hiddenLibraries: hiddenLibraries ?? this.hiddenLibraries,
         libraryPicks: libraryPicks ?? this.libraryPicks,
@@ -337,6 +342,7 @@ final class AppSettings {
         },
         cardTrailers: Host.isAndroid && j['cardTrailersV'] != 2 ? false : j['cardTrailers'] as bool? ?? !Host.isAndroid,
         textSize: TextSize.values.asNameMap()[j['textSize']] ?? TextSize.medium,
+        interfaceScale: ((j['interfaceScale'] as num?) ?? 1).toDouble().clamp(0.7, 1),
         homeRows: {
           for (final MapEntry(:key, :value) in ((j['homeRows'] as Map?) ?? const {}).entries)
             '$key': HomeRowLayout.fromJson(value),
@@ -394,6 +400,7 @@ final class AppSettings {
         'cardTrailers': cardTrailers,
         'cardTrailersV': 2,
         'textSize': textSize.name,
+        'interfaceScale': interfaceScale,
         'homeRows': {for (final MapEntry(:key, :value) in homeRows.entries) key: value.toJson()},
         'hiddenLibraries': hiddenLibraries,
         'libraryPicks': libraryPicks,
