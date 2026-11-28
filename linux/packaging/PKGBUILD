@@ -1,6 +1,6 @@
 pkgname=zerk-play-bin
-_tag=v2-beta.14
-pkgver=2.beta.14
+_tag=v2-beta.15
+pkgver=2.beta.15
 pkgrel=1
 pkgdesc='Emby and Jellyfin client with Seerr requests'
 arch=('x86_64')
@@ -10,7 +10,7 @@ depends=('mpv' 'gtk3' 'libepoxy' 'noto-fonts')
 provides=('zerk-play')
 conflicts=('zerk-play')
 source=("ZerkPlay-Public-Linux-x64-${_tag}.tar.gz::${url}/releases/download/${_tag}/ZerkPlay-Public-Linux-x64.tar.gz")
-sha256sums=('29f002ce01713efd71d0e7251f4fb487bbcbddcd13984b30fcdfb907e9702c1e')
+sha256sums=('952da33a988873cd19c33ad6e6450b18bac1bc73d118da9db2e7ee198e2801b3')
 
 package() {
   install -d "$pkgdir/opt/zerk-play" "$pkgdir/usr/bin"
