@@ -83,22 +83,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private var resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
-    private var cropBox: CropBox? = null
-    private var detector: BarDetector? = null
     private var scope = 0f
     private var anamorphic = 1f
-    private var autoCrop = false
     private var videoAspect = 0f
-    private var cropIntervalMs = 2_000L
-
-    private val cropTicker = object : Runnable {
-        override fun run() {
-            val exo = player ?: return
-            if (!autoCrop || cropIntervalMs <= 0) return
-            if (exo.isPlaying) detector?.sample()
-            main.postDelayed(this, cropIntervalMs)
-        }
-    }
 
     private var videoDecoder: String? = null
 
@@ -236,21 +223,8 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
                 "screen" -> {
                     scope = (call.argument<Number>("scope") ?: 0).toFloat()
                     anamorphic = (call.argument<Number>("anamorphic") ?: 1).toFloat().coerceAtLeast(1f)
-                    autoCrop = call.argument<Boolean>("autoCrop") == true
-                    if (!autoCrop) applyCrop(0f)
                     applyScreen()
                     updateAspect()
-                    restartCropDetection()
-                    result.success(null)
-                }
-                "crop" -> {
-                    if (autoCrop) applyCrop((call.argument<Number>("fraction") ?: 0).toFloat())
-                    val interval = (call.argument<Number>("intervalMs") ?: 0).toLong()
-                    if (interval != cropIntervalMs) {
-                        cropIntervalMs = interval
-                        main.removeCallbacks(cropTicker)
-                        if (autoCrop && interval > 0 && player != null) main.postDelayed(cropTicker, interval)
-                    }
                     result.success(null)
                 }
                 "matchRefresh" -> result.success(DisplayModes.match(activity, (call.argument<Number>("fps") ?: 0).toDouble()))
@@ -285,12 +259,9 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         val downmixProcessor = DialogueDownmixProcessor(tuning) { downmix }
 
         val surface = SurfaceView(activity).apply { keepScreenOn = true }
-        val box = CropBox(activity).apply {
-            addView(surface, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        }
         val frame = AspectRatioFrameLayout(activity).apply {
             resizeMode = this@ZerkPlayer.resizeMode
-            addView(box, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(surface, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
         val shadow = SubtitleView(activity).apply { applyStyle(this, subtitleStyle, shadow = true) }
         val subtitles = SubtitleView(activity).apply { applyStyle(this, subtitleStyle, shadow = false) }
@@ -375,10 +346,6 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
         this.surface = surface
         this.frame = frame
-        this.cropBox = box
-        this.detector = BarDetector(surface, main) { top, bottom, dark ->
-            emit(mapOf("event" to "bars", "top" to top.toDouble(), "bottom" to bottom.toDouble(), "dark" to dark))
-        }
         this.subtitles = subtitles
         this.subtitleShadow = shadow
         subtitlePadding = (subtitleStyle["bottomPaddingFraction"] as? Number)?.toFloat() ?: (40f / 720)
@@ -403,22 +370,7 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private fun updateAspect() {
         if (videoAspect <= 0f) return
-        val crop = cropBox?.crop ?: 0f
-        frame?.setAspectRatio(videoAspect / anamorphic / (1 - 2 * crop))
-    }
-
-    private fun applyCrop(fraction: Float) {
-        val box = cropBox ?: return
-        if (box.crop == fraction) return
-        Log.i(TAG, "black bars: cropping ${"%.3f".format(fraction)} top and bottom")
-        box.crop = fraction
-        updateAspect()
-    }
-
-    private fun restartCropDetection() {
-        main.removeCallbacks(cropTicker)
-        cropIntervalMs = 2_000L
-        if (autoCrop && player != null) main.postDelayed(cropTicker, 2_000)
+        frame?.setAspectRatio(videoAspect / anamorphic)
     }
 
     private fun liftSubtitles() {
@@ -468,13 +420,10 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
 
     private fun close() {
         main.removeCallbacks(ticker)
-        main.removeCallbacks(cropTicker)
         main.removeCallbacks(reenableAudio)
         reselectingAudio = false
         subtitleDelayUs = 0L
         layer?.removeOnLayoutChangeListener(screenListener)
-        cropBox = null
-        detector = null
         videoAspect = 0f
         player?.let {
             it.removeListener(this)
@@ -506,8 +455,6 @@ class ZerkPlayer(private val activity: Activity, messenger: BinaryMessenger) :
         pendingSub = sub ?: 0
         pendingExternalId = null
         announceLoaded = true
-        applyCrop(0f)
-        restartCropDetection()
         main.removeCallbacks(reenableAudio)
         reselectingAudio = false
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()

@@ -353,17 +353,18 @@ class _SettingsPageState extends State<SettingsPage> {
             options: {'auto': l10n.aspectOriginal, 'zoom': l10n.aspectZoom, 'stretch': l10n.aspectStretch},
             onChanged: (v) => _savePlayer(p.copyWith(defaultAspect: v)),
           ),
-          SettingChoiceRow<AutoCropMode>(
-            title: l10n.autoCrop,
-            subtitle: l10n.autoCropHint,
-            value: p.autoCropMode,
-            options: {
-              AutoCropMode.off: l10n.skipModeOff,
-              AutoCropMode.start: l10n.autoCropStart,
-              AutoCropMode.continuous: l10n.autoCropContinuous,
-            },
-            onChanged: (v) => _savePlayer(p.copyWith(autoCropMode: v)),
-          ),
+          if (!Host.isAndroid)
+            SettingChoiceRow<AutoCropMode>(
+              title: l10n.autoCrop,
+              subtitle: l10n.autoCropHint,
+              value: p.autoCropMode,
+              options: {
+                AutoCropMode.off: l10n.skipModeOff,
+                AutoCropMode.start: l10n.autoCropStart,
+                AutoCropMode.continuous: l10n.autoCropContinuous,
+              },
+              onChanged: (v) => _savePlayer(p.copyWith(autoCropMode: v)),
+            ),
           SettingChoiceRow<double>(
             title: l10n.screenShape,
             subtitle: l10n.screenShapeHint,
