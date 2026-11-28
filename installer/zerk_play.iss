@@ -1,5 +1,5 @@
 #define AppName "Zerk Play"
-#define AppVersion "2.0.13"
+#define AppVersion "2.0.14"
 #define AppExe "zerk_play.exe"
 #define BuildDir "..\build\windows\x64\runner\Release"
 #if DirExists(GetEnv("SystemRoot") + "\Sysnative")
