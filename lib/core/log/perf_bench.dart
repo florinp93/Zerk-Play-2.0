@@ -5,6 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../playback/media3/media3_backend.dart';
+import '../../playback/player_settings.dart';
+import '../../services/janus/janus_service.dart';
 import '../../ui/core/input_mode.dart';
 import '../../ui/focus/focus_zone.dart';
 import '../../ui/pages/home_page.dart';
@@ -16,31 +19,47 @@ abstract final class PerfBench {
   static bool _listening = false;
   static bool running = false;
 
-  static Future<void> run(NavigatorState? Function() navigator, {int settleMs = 10000}) async {
+  static Future<void> run(
+    NavigatorState? Function() navigator, {
+    int settleMs = 10000,
+    bool startup = false,
+    JanusService? janus,
+  }) async {
     if (running) return;
     running = true;
     try {
-      await _run(navigator, settleMs);
+      await _run(navigator, settleMs, startup, janus);
     } finally {
       _recording = false;
       running = false;
     }
   }
 
-  static Future<void> _run(NavigatorState? Function() navigator, int settleMs) async {
+  static Future<void> _run(NavigatorState? Function() navigator, int settleMs, bool startup, JanusService? janus) async {
     if (!_listening) {
       _listening = true;
       SchedulerBinding.instance.addTimingsCallback((t) {
         if (_recording) _timings.addAll(t);
       });
     }
+    if (startup) {
+      _timings.clear();
+      _recording = true;
+    }
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
     String size(Size s) => '${s.width.round()}x${s.height.round()}';
     final mode = kReleaseMode ? 'release' : kProfileMode ? 'profile' : 'debug';
     debugPrint('[bench] $mode build, view ${size(view.physicalSize)} dpr ${view.devicePixelRatio} '
         'display ${size(view.display.size)}${_memory()}; waiting for Home');
+    final launch = Stopwatch()..start();
     while (HomePage.firstLoad.value) {
       await _wait(200);
+    }
+    if (startup) {
+      final home = launch.elapsedMilliseconds;
+      await _wait(8000);
+      _recording = false;
+      debugPrint('[bench] startup home=${home}ms ${_summary(_timings)}');
     }
     await _wait(settleMs);
     InputMode.useDpad();
@@ -85,17 +104,73 @@ abstract final class PerfBench {
       await _wait(12000);
     });
     await _scenario('details_back', () async {
-      await navigator()?.maybePop();
+      final popped = await navigator()?.maybePop();
+      debugPrint('[bench] back popped=$popped');
       await _wait(4000);
     });
+    final nav = navigator();
+    final video = Host.isAndroid && janus != null && nav != null ? await _video(janus) : null;
+    if (nav != null && video != null) {
+      final player = Media3Backend(navigator: nav, settings: const PlayerSettings());
+      await player.open();
+      player.load(video, start: const Duration(minutes: 20));
+      await _wait(45000);
+      await player.close();
+      debugPrint('[bench] after playback${_memory()}');
+      await _scenario('player_return', () async {
+        await _wait(1000);
+        for (var i = 0; i < 8; i++) {
+          _move(TraversalDirection.right);
+          await _wait(350);
+        }
+        for (var i = 0; i < 3; i++) {
+          _move(TraversalDirection.down);
+          await _wait(600);
+        }
+        await _wait(3000);
+      });
+    }
     debugPrint('[bench] done');
+  }
+
+  static Future<Uri?> _video(JanusService janus) async {
+    try {
+      final s = janus.session;
+      final json = await janus.client.getJson('/Users/${s.userId}/Items', queryParameters: {
+        'IncludeItemTypes': 'Movie',
+        'Recursive': 'true',
+        'Is4K': 'true',
+        'SortBy': 'Random',
+        'Limit': '1',
+      });
+      final items = json['Items'];
+      if (items is! List || items.isEmpty) return null;
+      final id = (items.first as Map)['Id'];
+      debugPrint('[bench] playing ${(items.first as Map)['Name']}');
+      return janus.client.buildUri('/Videos/$id/stream', queryParameters: {
+        'Static': 'true',
+        'DeviceId': s.deviceId,
+        janus.client.tokenParameter: s.accessToken,
+      });
+    } catch (e) {
+      debugPrint('[bench] no 4K title: $e');
+      return null;
+    }
   }
 
   static void _move(TraversalDirection dir) => ZoneNavigator.move(dir);
 
   static Future<void> _wait(int ms) => Future.delayed(Duration(milliseconds: ms));
 
+  static Future<void> _foreground() async {
+    for (var i = 0; i < 300 && WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed; i++) {
+      if (i == 0) debugPrint('[bench] waiting for the app window to be in front');
+      await _wait(200);
+    }
+  }
+
   static Future<void> _scenario(String name, Future<void> Function() body) async {
+    await _foreground();
     _timings.clear();
     final cpu = _cpuMs();
     final clock = Stopwatch()..start();

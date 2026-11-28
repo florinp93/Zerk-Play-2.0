@@ -331,7 +331,9 @@ class _SkeletonBoxState extends State<SkeletonBox> with SingleTickerProviderStat
 }
 
 void showToast(BuildContext context, String text, {Duration duration = const Duration(seconds: 3), Widget? leading}) {
-  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  final overlay = context is StatefulElement && context.state is OverlayState
+      ? context.state as OverlayState
+      : Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
   late final OverlayEntry entry;
   entry = OverlayEntry(
